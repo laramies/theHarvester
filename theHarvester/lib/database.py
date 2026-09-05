@@ -47,13 +47,13 @@ from theHarvester.lib.completed_result import (
     ExecutionStatus,
     ResultKind,
     ResultObservation,
+    SourceContribution,
     SourceExecution,
-    SourceYield,
     parse_virtual_host_details,
     virtual_host_details,
 )
 from theHarvester.lib.dns_consensus import Addressability
-from theHarvester.lib.hostname_tracking import TrackingRunEvidence, TrackingSourceOutcome
+from theHarvester.lib.hostname_comparison import ComparableRunEvidence, ComparisonSourceOutcome
 from theHarvester.lib.network_evidence import (
     NetworkObservation,
     network_observation_details,
@@ -1201,28 +1201,28 @@ class ResultStore:
         except Exception as error:
             logger.info(f'Unexpected error while storing result: {error}')
 
-    async def source_yields(self, run_id: UUID, *, kind: ResultKind | None = None) -> list[SourceYield]:
-        """Count each source's observed, unique, and shared results for a run.
+    async def source_contributions(self, run_id: UUID, *, kind: ResultKind | None = None) -> list[SourceContribution]:
+        """Count what each source reported, uniquely reported, and shared for a run.
 
         A result is unique when one source reported it and shared when more than one
         source reported it. Sources that ran without matching results still appear with
         zero counts.
         """
-        yields = await self._producer_yields(run_id, 'source', kind=kind)
+        contributions = await self._producer_contributions(run_id, 'source', kind=kind)
         return [
-            SourceYield(
+            SourceContribution(
                 source=name,
-                observed_result_count=observed,
-                unique_result_count=unique,
-                shared_result_count=shared,
-                resolved_hostname_count=resolved,
-                unique_resolved_hostname_count=unique_resolved,
+                reported_count=observed,
+                unique_to_source_count=unique,
+                shared_with_other_sources_count=shared,
+                hostnames_with_dns_answers_count=resolved,
+                unique_to_source_with_dns_answers_count=unique_resolved,
             )
-            for name, observed, unique, shared, resolved, unique_resolved in yields
+            for name, observed, unique, shared, resolved, unique_resolved in contributions
         ]
 
-    async def load_hostname_tracking_run(self, run_id: UUID) -> TrackingRunEvidence:
-        """Load only the persisted evidence needed for hostname change tracking."""
+    async def load_hostname_comparison_run(self, run_id: UUID) -> ComparableRunEvidence:
+        """Load only the persisted evidence needed for a hostname comparison."""
         async with self._session() as session:
             parent = await session.get(_RunRow, str(run_id))
             execution_rows = (await session.scalars(select(_ExecutionRow).where(_ExecutionRow.run_id == str(run_id)))).all()
@@ -1259,7 +1259,7 @@ class ResultStore:
             ):
                 addressability[classification['hostname']] = classification['addressability']
         source_outcomes = tuple(
-            TrackingSourceOutcome(
+            ComparisonSourceOutcome(
                 source=row.name,
                 status=cast('ExecutionStatus', row.status),
                 error_type=row.error_type,
@@ -1272,7 +1272,7 @@ class ResultStore:
             (row for row in execution_rows if row.producer_kind == 'action' and row.name == 'dns-resolve'),
             None,
         )
-        return TrackingRunEvidence(
+        return ComparableRunEvidence(
             run_id=UUID(parent.run_id),
             target=parent.target,
             completed_at=datetime.datetime.fromisoformat(parent.completed_at),
@@ -1284,7 +1284,7 @@ class ResultStore:
         )
 
     async def action_yields(self, run_id: UUID) -> list[ActionYield]:
-        yields = await self._producer_yields(run_id, 'action')
+        yields = await self._producer_contributions(run_id, 'action')
         return [
             ActionYield(
                 action=name,
@@ -1295,7 +1295,7 @@ class ResultStore:
             for name, observed, unique, shared, _resolved, _unique_resolved in yields
         ]
 
-    async def _producer_yields(
+    async def _producer_contributions(
         self,
         run_id: UUID,
         producer_kind: str,

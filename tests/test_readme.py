@@ -85,6 +85,7 @@ WIKI_PAGES = {
     'Home.md',
     'How-to-add-a-new-module.md',
     'Installation.md',
+    'Moving-from-4.11-to-5.0.md',
     'Operator-Workflows.md',
     'Quick-Start.md',
     'Responsible-Use-and-Scope.md',
@@ -278,10 +279,10 @@ def test_readme_onboards_first_time_and_repeat_operators() -> None:
     assert offsets == sorted(offsets)
     assert 'Passive means the target is not contacted directly' in readme
     assert 'does not expand the authorized target automatically' in readme
-    assert 'uv run harvest-yields --run-id ' in readme
-    assert 'uv run harvest-yields --target example.test --changes' in readme
-    assert 'The baseline is the latest earlier finalized run' in readme
-    assert 'Missing means absent from comparable retained evidence.' in readme
+    assert 'uv run harvest-report hostname-changes --run-id ' in readme
+    assert 'uv run harvest-report hostname-changes --target example.test' in readme
+    assert 'The previous comparable run is the latest earlier finalized run' in readme
+    assert 'No longer reported means absent from comparable saved evidence.' in readme
 
 
 def test_wiki_diagrams_are_local_accessible_and_used_deliberately() -> None:

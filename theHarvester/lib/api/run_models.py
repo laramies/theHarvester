@@ -18,8 +18,8 @@ from theHarvester.lib.evidence_types import (  # noqa: TC001 - Pydantic resolves
     EvidenceStatus,
     ExecutionStatus,
 )
-from theHarvester.lib.hostname_tracking import (  # noqa: TC001 - Pydantic resolves these annotations at runtime
-    ChangeStatus,
+from theHarvester.lib.hostname_comparison import (  # noqa: TC001 - Pydantic resolves these annotations at runtime
+    HostnameDifferenceType,
     ResolutionEvidence,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
@@ -573,48 +573,48 @@ class ScreenshotRecord(BaseModel):
     url: str
 
 
-class SourceYieldSummary(BaseModel):
+class SourceContributionSummary(BaseModel):
     source: str
-    observed_result_count: int = Field(ge=0)
-    unique_result_count: int = Field(ge=0)
-    shared_result_count: int = Field(ge=0)
-    resolved_hostname_count: int = Field(ge=0)
-    unique_resolved_hostname_count: int = Field(ge=0)
+    reported_count: int = Field(ge=0)
+    unique_to_source_count: int = Field(ge=0)
+    shared_with_other_sources_count: int = Field(ge=0)
+    hostnames_with_dns_answers_count: int = Field(ge=0)
+    unique_to_source_with_dns_answers_count: int = Field(ge=0)
 
 
-class HostnameTrackingCounts(BaseModel):
-    new: int = Field(ge=0)
-    persisting: int = Field(ge=0)
-    missing: int = Field(ge=0)
-    inconclusive: int = Field(ge=0)
+class HostnameComparisonCounts(BaseModel):
+    newly_reported: int = Field(ge=0)
+    still_reported: int = Field(ge=0)
+    no_longer_reported: int = Field(ge=0)
+    uncertain: int = Field(ge=0)
 
 
-class HostnameTrackingComparison(BaseModel):
+class HostnameRunComparison(BaseModel):
     run_id: str
     completed_at: str
-    baseline_run_id: str | None
-    baseline_completed_at: str | None
-    source_cohort: list[str]
-    counts: HostnameTrackingCounts
+    previous_comparable_run_id: str | None
+    previous_comparable_run_completed_at: str | None
+    compared_sources: list[str]
+    counts: HostnameComparisonCounts
     message: str | None = None
 
 
-class HostnameTrackingBlocker(BaseModel):
+class IncompleteSourceOutcome(BaseModel):
     source: str
     status: ExecutionStatus
     error_type: str | None
     stop_reason: str | None
 
 
-class HostnameTrackingChange(BaseModel):
+class HostnameDifference(BaseModel):
     run_id: str
-    baseline_run_id: str
-    change: ChangeStatus
+    previous_comparable_run_id: str
+    change_type: HostnameDifferenceType
     hostname: str
-    previous_sources: list[str]
-    current_sources: list[str]
-    source_exclusive: bool
-    blocking_sources: list[HostnameTrackingBlocker]
+    sources_in_previous_run: list[str]
+    sources_in_current_run: list[str]
+    reported_by_one_source: bool
+    incomplete_source_outcomes: list[IncompleteSourceOutcome]
     previous_resolution_evidence: ResolutionEvidence
     current_resolution_evidence: ResolutionEvidence
     previous_dns_action_status: ExecutionStatus | None
@@ -623,11 +623,11 @@ class HostnameTrackingChange(BaseModel):
     current_addressability: Addressability | None
 
 
-class HostnameTrackingSummary(BaseModel):
+class HostnameComparisonSummary(BaseModel):
     target: str
     comparison_count: int = Field(ge=0)
-    comparisons: list[HostnameTrackingComparison]
-    hostname_changes: list[HostnameTrackingChange]
+    comparisons: list[HostnameRunComparison]
+    hostname_differences: list[HostnameDifference]
 
 
 RunStatus = Literal['queued', 'running', 'cancelling', 'cancelled', 'completed', 'failed']
@@ -661,8 +661,8 @@ class RunDetail(RunSummary):
     request: RunRequest | ImportedRunRequest
     results: list[RunResult]
     source_executions: list[dict[str, Any]]
-    source_yields: list[SourceYieldSummary]
-    hostname_tracking: HostnameTrackingSummary
+    source_contributions: list[SourceContributionSummary]
+    hostname_comparison: HostnameComparisonSummary
     action_executions: list[dict[str, Any]]
     artifacts: list[dict[str, Any]]
     screenshots: list[ScreenshotRecord]

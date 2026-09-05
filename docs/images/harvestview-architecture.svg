@@ -100,8 +100,9 @@
   <line x1="640" y1="416" x2="640" y2="592" stroke="#2bbdaa" stroke-width="4"/>
   <text class="tag tag-accent" x="664" y="444">READ-ONLY COMPARISON</text>
   <text class="node-title" x="664" y="480">Hostname changes</text>
-  <text class="body" x="664" y="512">same target · source cohort</text>
-  <text class="technical-accent" x="664" y="540">NEW · MISSING · INCONCLUSIVE</text>
+  <text class="body" x="664" y="512">same target · source list</text>
+  <text class="technical-accent" x="664" y="528">NEWLY / NO LONGER REPORTED</text>
+  <text class="technical-accent" x="664" y="548">STILL REPORTED · UNCERTAIN</text>
   <text class="technical-accent" x="664" y="568">NO DISCOVERY OR DNS</text>
 
   <rect x="952" y="416" width="208" height="176" rx="10" fill="#142328" stroke="#2f4046"/>

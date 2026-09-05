@@ -1,74 +1,148 @@
-# theHarvester release context
+# theHarvester domain language
 
-Status: accepted release baseline
+Use these terms in code, tests, issues, and operator documentation. For product behavior, implementation rules, and release checks, read the [release contract](docs/release-contract.md).
 
-Release: 5.0.0 development line on `dev`
+## Targets and activity
 
-Reconciled: 2026-08-16
+**Enumeration target**:
+The operator-supplied identifier that scopes one enumeration run. It is ordinarily a canonical hostname and may instead be a canonical IP address, ASN, or CIDR for supported routing activity, or an exact free-text company query for a source that accepts one.
+_Avoid_: Domain, hostname when the target is not a DNS name, target alias
 
-This document is the semantic source of truth for the 5.0.0 release. It defines the product boundary, execution model, evidence contract, scope rules, and shared language used by code, tests, issues, pull requests, output, and operator documentation.
+**In-scope candidate**:
+A normalized name inside an explicitly authorized target boundary that has discovery evidence but has not yet met the currently addressable subdomain criteria. It remains secondary subdomain evidence until those criteria are met.
+_Avoid_: Unverified host, maybe-valid subdomain
 
-Version 5.0.0 is the accepted release target. The package version in `theHarvester/__init__.py` and the release heading in `CHANGELOG.md` are updated together when the release is cut. Exact flags, source names, result kinds, schemas, and routes remain authoritative in the executable catalog, type declarations, CLI help, and OpenAPI document. This file records the meanings and boundaries those interfaces must preserve.
+**Scope-extension candidate**:
+An entity outside the current authorized boundary with evidence suggesting possible organizational relevance. It may be presented for operator review but cannot be actively queried, counted as a target result, or used for recursive discovery unless explicitly added to scope.
+_Avoid_: Potentially in scope, related subdomain, unverified subdomain
 
-When a change alters one of these boundaries, update this document and the nearest decision record in the same pull request. Completion means the implementation, focused regression coverage, operator documentation, and this context express the same contract.
+**External relationship evidence**:
+An out-of-scope entity referenced by an in-scope observation, such as an external CNAME target or shared service. It is retained as context rather than treated as a target result or discovery seed.
+_Avoid_: Related subdomain, discovered asset
 
-## Release contract
+**Explicit network pivot**:
+A canonical ASN, IP address, or CIDR supplied by the operator as the run target for passive routing enrichment. It authorizes provider-side lookup of that identifier only; related prefixes and origins remain external relationship evidence and do not expand engagement scope.
+_Avoid_: Discovered network scope, owned ASN, target netblock
 
-### Product boundary
+**P0 passive collection**:
+An activity that queries an existing provider or dataset without directing traffic toward the target.
+_Avoid_: Passive scan
 
-- theHarvester is a finite, one-shot enumerator. Each invocation or submitted run has an explicit target, selected sources or actions, limits, and a terminal outcome.
-- The CLI, authenticated REST API, and HarvestView project the same normalized terminal evidence. HarvestView is the local browser workspace for submitting and reviewing runs; it is not a separate discovery engine.
-- The local API owns durable run records, reusable schedules, and one isolated worker. Every scheduled target becomes an ordinary finite run record; schedule policy and dispatch state remain separate from terminal evidence.
+**P1 DNS interaction**:
+An activity that queries DNS about the target or its authorized scope, including resolution, wildcard controls, brute force, PTR, and recursive DNS discovery.
+_Avoid_: Passive collection, harmless lookup
 
-### Authorization and scope
+**P2 direct interaction**:
+An activity that contacts or scans the target directly or causes a provider to do so, including HTTP or TLS requests, screenshots, takeover checks, and port or endpoint scanning.
+_Avoid_: Deep scan, comprehensive mode
 
-- Every provider, DNS, or direct action stays within the operator's explicit target and selected activity. P0, P1, and P2 describe observable network behavior, not confidence or importance.
-- The authorized hostname boundary is the operator's exact DNS name after canonicalization. A leading `www.` label is part of that boundary and is never stripped as a convenience alias of the registrable domain.
-- P0 sources query existing providers or datasets. P1 actions query DNS about authorized names or addresses. P2 actions contact a target endpoint or cause equivalent direct interaction.
-- Scope-extension candidates and external relationships remain review evidence. An operator decision is the only path that promotes them into a later run's authorized scope.
-- ASN labels, registry records, BGP origins, RPKI states, DNS answers, and endpoint responses remain time-bound evidence. None establishes ownership, legal control, reachability, or authorization by itself.
 
-### Execution and lifecycle
+## Runs and schedules
 
-- The source catalog is the authority for canonical source names, aliases, credentials, result capabilities, and activity class. Explicit source names and capability selectors form a union; `all` selects every cataloged P0 source once.
-- A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
-- A result limit of zero removes the shared local cap on results and pages. Adapters continue until the provider is exhausted, but source-owned quotas, protocol maxima, response limits, and runtime safety bounds still apply. A source that stops at one of those boundaries must report an explicit partial outcome and stop reason.
-- Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
-- Explicit proxy mode is fail-closed for every supported discovery source and action. If no configured proxy is available, execution makes no direct request and terminates with the sanitized `proxy-unavailable` reason.
-- Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
-- Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
-- Imported runs enter as completed run records and execute no source or action. Action-only runs create independent run records instead of mutating the evidence of the run that supplied their candidate.
+**Enumeration run**:
+One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
+_Avoid_: Scan, monitoring cycle, session, job
 
-### Evidence and portability
+**Run record**:
+The durable operator-facing record that begins when an enumeration is submitted or evidence is imported and retains lifecycle, authorization, and available evidence under one stable identifier.
+_Avoid_: Task, worker job, scan record
 
-- A merged result is canonical by result kind and value. Source and action provenance, typed observations, execution outcomes, timestamps, and artifact metadata remain attached through deduplication and persistence.
-- API run details derive per-source hostname yields from persisted normalized provenance. The counts cover observed, unique, shared, DNS-resolved, and unique DNS-resolved hostnames. A hostname is unique when no other source in the run reported it. It is DNS-resolved when the run retained an A, AAAA, or CNAME answer. These counts measure marginal coverage and current DNS evidence, not independent corroboration or service reachability.
-- JSONL is the primary single-run interchange format: one summary record followed by sorted finding records. It retains terminal evidence status, producer outcomes, provenance, and supported structured observations.
-- SQLite is the canonical local multi-run store. Portable SQLite export contains every finalized evidence record, preserves original run IDs and canonical structured evidence, and excludes queue, cancellation, worker-lease, and legacy-observation state. Screenshot metadata travels with evidence; screenshot files remain separately managed artifacts.
-- Legacy JSON and XML remain supported grouped reports for existing consumers. They are presentation formats and do not replace JSONL or SQLite when lossless provenance and structured evidence are required.
+**HarvestView**:
+The browser-based analysis workspace for creating schedules and run records and inspecting normalized evidence, source outcomes, and managed artifacts from theHarvester.
+_Avoid_: Internal workflow names, operator app, console, dashboard
 
-### Release gates
+**Source execution**:
+One attempt to run one canonical discovery source within an enumeration run, with an explicit completion status and summary counts.
+_Avoid_: Source result, provider response
 
-- Routine tests and CI use mocked provider responses, local services, RFC-reserved domains, and TEST-NET addresses. Live provider or target checks remain explicit operator-run integration work.
-- Every executable source has offline contract coverage for its declared lifecycle, and the catalog gate rejects missing, duplicate, or unknown coverage.
-- Persistence and interchange changes prove canonical export and import round trips. HarvestView changes pass a separate real-browser gate covering the affected operator workflow.
-- Release publication requires green Python, formatting, lint, typing, container, security, documentation, and HarvestView browser checks at the publication head.
+**Lifecycle status**:
+The durable state of a run record: queued, running, cancelling, cancelled, completed, or failed. It describes control flow, not evidence quality.
+_Avoid_: Run result, provider status
 
-### Deferred boundaries
+**Terminal evidence status**:
+The completeness classification reported by a finished enumeration result: complete, partial, or failed. It does not describe queue or cancellation state.
+_Avoid_: Lifecycle status, completion state
 
-- Read-only cross-run change projections over finalized evidence are part of the release contract. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
-- Cross-run source ranking remains a reporting decision. One run's hostname-yield summary does not automatically select, disable, or rank sources.
-- Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
-- Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
+**Cancellation request**:
+The operator's durable request that the run worker prevent queued work from starting or ask the running child process to stop. A request is not itself proof that execution has ended.
+_Avoid_: Cancelled run, process killed
 
-## Domain language
+**Action-only run**:
+An enumeration run with no discovery sources that performs an explicitly selected provider, DNS, or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
+_Avoid_: Result action, parent-run update, inline scan
+
+**Run schedule**:
+A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
+_Avoid_: Scan schedule, cron job, monitoring run
+
+**Scheduled occurrence**:
+One due time in a run schedule. It produces at most one ordinary enumeration run per scheduled target and advances past missed recurrence times without replaying each one.
+_Avoid_: Monitoring cycle, recurring run
+
+**Dispatch reservation**:
+The durable association between one scheduled occurrence, one target, and one preselected run ID that prevents duplicate run creation across retries or restarts.
+_Avoid_: Queue item, scheduled result
+
+**Overlap policy**:
+The operator choice to skip a due occurrence while a prior scheduled batch is active or queue another finite batch behind it.
+_Avoid_: Concurrency mode, retry policy
+
+
+## Results and provenance
+
+**Discovery observation**:
+One source assertion about one normalized entity during one enumeration run. Several observations may support the same merged result, and deduplication never erases them.
+_Avoid_: Result, duplicate, hit
+
+**Merged result**:
+A deduplicated operator-facing entity backed by one or more discovery observations and their retained provenance.
+_Avoid_: Raw finding, source result
+
+**Hostname result**:
+One normalized DNS-name merged result. It can be the authorized target itself or a subordinate name and does not by itself imply current DNS addressability.
+_Avoid_: Subdomain result, live host, resolved host
+
+**IP result**:
+One canonical IPv4 or IPv6 address merged result.
+_Avoid_: IP-address result, resolved host
+
+**URL result**:
+One normalized URL merged result. Source and action origins identify how it was found; provider-specific URL categories are not separate result kinds.
+_Avoid_: Interesting URL, LinkedIn link, API endpoint result
+
+**Virtual-host observation**:
+Structured differential endpoint evidence attached to a canonical hostname result. Several endpoint observations can enrich one hostname without creating another result or count.
+_Avoid_: Virtual-host result, vhost result
+
+**Normalized evidence**:
+Provider-independent evidence extracted into theHarvester's defined fields, such as the entity, source, collection time, and derivation, without retaining unrelated response content.
+_Avoid_: Raw result, cleaned response
+
+**Raw provider payload**:
+The original unprocessed response returned by a discovery provider, which may contain unused, sensitive, or redistribution-restricted fields.
+_Avoid_: Evidence record, JSONL result
+
+**Source capability**:
+A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.
+_Avoid_: Guaranteed result, module return type, source category
+
+**Capability selection**:
+An operator request to run sources that declare one or more selected source capabilities. Multiple capabilities form a union, explicit source selection remains available, and capability selection does not filter fields returned by a selected source.
+_Avoid_: Result filter, backend category, capability intersection
+
+**Source family**:
+A group of discovery sources whose observations depend on the same underlying dataset or collection mechanism. Family membership preserves source credit while preventing correlated observations from being treated as independent corroboration.
+_Avoid_: Duplicate source, provider category
+
+
+## DNS evidence
 
 **Currently addressable subdomain**:
 A normalized, in-scope subdomain with current resolver consensus evidence of an A or AAAA record, or a permitted CNAME chain ending in one, that is neither wildcard-indistinguishable nor resolver-disputed.
 _Avoid_: Valid subdomain, live host, resolved host
 
 **Secondary subdomain evidence**:
-An in-scope DNS-existing, historical, dangling-alias, or indeterminate name observation retained for defensive and investigative use but excluded from the primary currently addressable yield count.
+An in-scope DNS-existing, historical, dangling-alias, or indeterminate name observation retained for defensive and investigative use but excluded from the primary currently addressable count.
 _Avoid_: Invalid subdomain, dead host, false positive
 
 **Synthetic wildcard-control probe**:
@@ -87,37 +161,16 @@ _Avoid_: Wildcard hit, false positive, invalid host
 An in-scope candidate whose operator-approved resolver vantages do not reach resolver consensus sufficient to classify it as a currently addressable subdomain within one validation window. It remains secondary subdomain evidence until later observations resolve the disagreement.
 _Avoid_: Invalid, dead, DNS failure
 
-**In-scope candidate**:
-A normalized name inside an explicitly authorized target boundary that has discovery evidence but has not yet met the currently addressable subdomain criteria. It remains secondary subdomain evidence until those criteria are met.
-_Avoid_: Unverified host, maybe-valid subdomain
+**DNS validation observation**:
+One resolver vantage's time-bound DNS evidence about one in-scope candidate. It supports classifying the candidate as currently addressable or wildcard-indistinguishable without replacing its discovery observations.
+_Avoid_: DNS result, resolved host, validation status
 
-**Scope-extension candidate**:
-An entity outside the current authorized boundary with evidence suggesting possible organizational relevance. It may be presented for operator review but cannot be actively queried, counted as a target result, or used for recursive discovery unless explicitly added to scope.
-_Avoid_: Potentially in scope, related subdomain, unverified subdomain
+**Retained resolution evidence**:
+What finalized evidence establishes about DNS resolution for one hostname in one run: a retained positive answer, no retained positive answer, or no recorded check. It remains separate from richer addressability classifications such as currently addressable, not currently addressable, resolver disputed, or wildcard indistinguishable.
+_Avoid_: Boolean resolved state, live-host status, reachability
 
-**External relationship evidence**:
-An out-of-scope entity referenced by an in-scope observation, such as an external CNAME target or shared service. It is retained as context rather than treated as a target result or discovery seed.
-_Avoid_: Related subdomain, discovered asset
 
-**Discovery observation**:
-One source assertion about one normalized entity during one enumeration run. Several observations may support the same merged result, and deduplication never erases them.
-_Avoid_: Result, duplicate, hit
-
-**Merged result**:
-A deduplicated operator-facing entity backed by one or more discovery observations and their retained provenance.
-_Avoid_: Raw finding, source result
-
-**Hostname result**:
-One normalized DNS-name merged result. It can be the authorized target itself or a subordinate name and does not by itself imply current DNS addressability.
-_Avoid_: Subdomain result, live host, resolved host
-
-**Virtual-host observation**:
-Structured differential endpoint evidence attached to a canonical hostname result. Several endpoint observations can enrich one hostname without creating another result or count.
-_Avoid_: Virtual-host result, vhost result
-
-**IP result**:
-One canonical IPv4 or IPv6 address merged result.
-_Avoid_: IP-address result, resolved host
+## Network relationships
 
 **Network prefix result**:
 One canonical IPv4 or IPv6 CIDR merged result retained as external relationship evidence. It is never promoted into the authorized target scope or used as an active-discovery seed without a separate scope decision.
@@ -126,10 +179,6 @@ _Avoid_: Owned netblock, in-scope range, registered network
 **ASN organization attribution**:
 One source's time-bound organization label for a canonical ASN, tied to the hostname or IP result that supplied the relationship. It is provider evidence rather than a canonical organization identity, ownership claim, or target-scope decision.
 _Avoid_: ASN owner, owning organization, organization property
-
-**Explicit network pivot**:
-A canonical ASN, IP address, or CIDR supplied by the operator as the run target for passive routing enrichment. It authorizes provider-side lookup of that identifier only; related prefixes and origins remain external relationship evidence and do not expand engagement scope.
-_Avoid_: Discovered network scope, owned ASN, target netblock
 
 **Observed route origin**:
 A provider's time-bound assertion that one ASN originates one network prefix. It records routing evidence, not registration, ownership, or authorization.
@@ -143,49 +192,8 @@ _Avoid_: Network ownership, authoritative route
 A provider's time-bound validation state for one ASN-prefix route origin: valid, invalid, or not found. It reports route-origin authorization evidence, not registration, ownership, reachability, or target scope.
 _Avoid_: Valid network, trusted ASN, owned prefix
 
-**URL result**:
-One normalized URL merged result. Source and action origins identify how it was found; provider-specific URL categories are not separate result kinds.
-_Avoid_: Interesting URL, LinkedIn link, API endpoint result
 
-**DNS validation observation**:
-One resolver vantage's time-bound DNS evidence about one in-scope candidate. It supports classifying the candidate as currently addressable or wildcard-indistinguishable without replacing its discovery observations.
-_Avoid_: DNS result, resolved host, validation status
-
-**Enumeration run**:
-One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
-_Avoid_: Scan, monitoring cycle, session, job
-
-**Enumeration target**:
-The operator-supplied identifier that scopes one enumeration run. It is ordinarily a canonical hostname and may instead be a canonical IP address, ASN, or CIDR for supported routing activity, or an exact free-text company query for a source that accepts one.
-_Avoid_: Domain, hostname when the target is not a DNS name, target alias
-
-**Run schedule**:
-A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
-_Avoid_: Scan schedule, cron job, monitoring run
-
-**Scheduled occurrence**:
-One due time in a run schedule. It produces at most one ordinary enumeration run per scheduled target and advances past missed recurrence times without replaying each one.
-_Avoid_: Monitoring cycle, recurring run
-
-**Dispatch reservation**:
-The durable association between one scheduled occurrence, one target, and one preselected run ID that prevents duplicate run creation across retries or restarts.
-_Avoid_: Queue item, scheduled result
-
-**Overlap policy**:
-The operator choice to skip a due occurrence while a prior scheduled batch is active or queue another finite batch behind it.
-_Avoid_: Concurrency mode, retry policy
-
-**Action-only run**:
-An enumeration run with no discovery sources that performs an explicitly selected provider, DNS, or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
-_Avoid_: Result action, parent-run update, inline scan
-
-**Run record**:
-The durable operator-facing record that begins when an enumeration is submitted or evidence is imported and retains lifecycle, authorization, and available evidence under one stable identifier.
-_Avoid_: Task, worker job, scan record
-
-**HarvestView**:
-The browser-based analysis workspace for creating schedules and run records and inspecting normalized evidence, source outcomes, and managed artifacts from theHarvester.
-_Avoid_: Internal workflow names, operator app, console, dashboard
+## Saved evidence and reports
 
 **Imported run**:
 A run record created from an existing theHarvester result file. Import records evidence but never executes discovery or contacts a target.
@@ -203,94 +211,48 @@ _Avoid_: JSON report, event log, lifecycle export
 A validated database containing finalized evidence records and their original run IDs without API lifecycle, cancellation, worker-lease, or legacy-observation state.
 _Avoid_: Database backup, worker-state export, application clone
 
-**Lifecycle status**:
-The durable state of a run record: queued, running, cancelling, cancelled, completed, or failed. It describes control flow, not evidence quality.
-_Avoid_: Run result, provider status
+**Source contribution**:
+One source's normalized result counts within a run: reported, unique to that source, and shared with other sources, with additional counts of hostnames that have retained DNS answers. The counts measure that source's contribution and saved DNS evidence; they do not establish independent corroboration, ownership, or service reachability.
+_Avoid_: Source yield, source quality score, authoritative result count
 
-**Terminal evidence status**:
-The completeness classification reported by a finished enumeration result: complete, partial, or failed. It does not describe queue or cancellation state.
-_Avoid_: Lifecycle status, completion state
-
-**Cancellation request**:
-The operator's durable request that the run worker prevent queued work from starting or ask the running child process to stop. A request is not itself proof that execution has ended.
-_Avoid_: Cancelled run, process killed
-
-**Source execution**:
-One attempt to run one canonical discovery source within an enumeration run, with an explicit completion status and summary counts.
-_Avoid_: Source result, provider response
-
-**Source hostname yield**:
-One source's normalized hostname counts within one enumeration run: observed, unique, shared, DNS-resolved, and unique DNS-resolved. A hostname is unique when exactly one source reported it in that run. It is DNS-resolved when the run's resolution action retained an A, AAAA, or CNAME answer. The counts measure marginal coverage and current DNS evidence, not independent corroboration, ownership, or service reachability.
-_Avoid_: Source quality score, authoritative result count, independent confirmation
-
-**Source yield report scope**:
-The explicit finalized evidence records summarized by a source-yield report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
+**Source contribution report scope**:
+The explicit finalized evidence records summarized by a source-contribution report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
 _Avoid_: Implicit database aggregate, target alias
 
-**Source yield tracking view**:
-A longitudinal view of finalized evidence for one enumeration target that highlights actionable hostname changes and their retained DNS evidence. It is observational and never initiates discovery or DNS activity.
-_Avoid_: Discovery run, live DNS check, evidence export
+**One-source hostname**:
+A hostname attributed to exactly one canonical source within one enumeration run. This is run-scoped and does not claim that no other source has ever observed the hostname.
+_Avoid_: Source-exclusive hostname, globally unique hostname, proprietary hostname
 
-**Source cohort**:
-The set of canonical sources represented by source executions in one enumeration run, independent of their individual outcomes.
-_Avoid_: Successful sources, source results, source selection text
 
-**Comparable source-yield run**:
-A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
-_Avoid_: Previous run, similar run, matching run
+## Hostname comparisons
 
-**Hostname tracking change**:
-The relationship of one canonical hostname between two comparable enumeration runs: new when reliably absent from the earlier run and retained in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support a one-sided comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
+**Compared source list**:
+The canonical sources represented by source executions in one enumeration run, independent of their individual outcomes. Two runs are comparable only when this list is identical.
+_Avoid_: Source cohort, successful sources, source results
+
+**Comparable previous run**:
+The latest earlier finalized enumeration run for the same canonical target and compared source list. Source failures do not disqualify a run from pairing; relevant source outcomes determine whether a one-sided hostname difference is reliable.
+_Avoid_: Baseline, similar run, matching run
+
+**Hostname comparison**:
+A read-only comparison between selected finalized runs and each run's comparable previous run. It is derived when requested, is not stored as new canonical evidence, and never initiates discovery or DNS activity.
+_Avoid_: Hostname tracking, monitoring view, DNS refresh
+
+**Hostname difference**:
+The evidence state of a hostname across two comparable runs:
+
+- Newly reported: present in the later run and reliably absent from the earlier run.
+- Still reported: present in both runs.
+- No longer reported: present in the earlier run and reliably absent from the later run.
+- Uncertain: present in only one run, with relevant source outcomes that cannot establish reliable absence from the other.
+
+These states describe saved evidence, not when a hostname came into existence or whether it currently exists or resolves.
 _Avoid_: Added host, removed host, gone host
 
-**Relevant source health**:
-The outcomes on the side where a hostname is absent for the sources that contributed it on the other side. A one-sided hostname is new or missing only when every relevant source completed successfully on the absent side; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
+**Relevant source outcome**:
+The outcome in the run where a hostname is absent for each source that reported it in the other run. All these sources must have completed successfully to classify the hostname as newly reported or no longer reported; otherwise the difference is uncertain, regardless of unrelated source failures.
 _Avoid_: Run health, all-source success, provider reliability
 
-**Inconclusive hostname change**:
-A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
-_Avoid_: Unknown result, missing hostname, comparison error
-
-**Source-exclusive hostname**:
-A hostname attributed to exactly one canonical source within one enumeration run. Exclusivity is run-scoped and does not claim that no other source has ever observed the hostname.
-_Avoid_: Globally unique hostname, proprietary hostname, unique subdomain
-
-**Retained resolution evidence**:
-What finalized evidence establishes about DNS resolution for one hostname in one run: a retained positive answer, no retained positive answer, or no recorded check. It remains separate from richer addressability classifications such as currently addressable, not currently addressable, resolver disputed, or wildcard indistinguishable.
-_Avoid_: Boolean resolved state, live-host status, reachability
-
-**Hostname tracking projection**:
-A read-only comparison derived from one or more selected finalized runs and each run's previous comparable run. It is not stored as new canonical evidence and may be rendered by multiple operator interfaces.
-_Avoid_: Tracking artifact, discovery result, DNS refresh
-
-**Source capability**:
-A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.
-_Avoid_: Guaranteed result, module return type, source category
-
-**Capability selection**:
-An operator request to run sources that declare one or more selected source capabilities. Multiple capabilities form a union, explicit source selection remains available, and capability selection does not filter fields returned by a selected source.
-_Avoid_: Result filter, backend category, capability intersection
-
-**Source family**:
-A group of discovery sources whose observations depend on the same underlying dataset or collection mechanism. Family membership preserves source credit while preventing correlated observations from being treated as independent corroboration.
-_Avoid_: Duplicate source, provider category
-
-**Normalized evidence**:
-Provider-independent evidence extracted into theHarvester's defined fields, such as the entity, source, collection time, and derivation, without retaining unrelated response content.
-_Avoid_: Raw result, cleaned response
-
-**Raw provider payload**:
-The original unprocessed response returned by a discovery provider, which may contain unused, sensitive, or redistribution-restricted fields.
-_Avoid_: Evidence record, JSONL result
-
-**P0 passive collection**:
-An activity that queries an existing provider or dataset without directing traffic toward the target.
-_Avoid_: Passive scan
-
-**P1 DNS interaction**:
-An activity that queries DNS about the target or its authorized scope, including resolution, wildcard controls, brute force, PTR, and recursive DNS discovery.
-_Avoid_: Passive collection, harmless lookup
-
-**P2 direct interaction**:
-An activity that contacts or scans the target directly or causes a provider to do so, including HTTP or TLS requests, screenshots, takeover checks, and port or endpoint scanning.
-_Avoid_: Deep scan, comprehensive mode
+**Uncertain hostname difference**:
+A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The incomplete source outcomes and saved reasons explain the uncertainty; the comparison itself has not failed.
+_Avoid_: Inconclusive result, missing hostname, comparison error

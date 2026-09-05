@@ -1045,33 +1045,33 @@ def test_run_detail_reports_unique_hostname_contribution_per_source(tmp_path, mo
     with TestClient(api.app) as client:
         response = client.post(
             '/api/v1/runs/import',
-            params={'filename': 'source-yields.jsonl'},
+            params={'filename': 'source-contributions.jsonl'},
             headers={'X-API-Key': 'test-key'},
             content=payload,
         )
 
     assert response.status_code == 201
-    assert response.json()['source_yields'] == [
+    assert response.json()['source_contributions'] == [
         {
             'source': 'crtsh',
-            'observed_result_count': 1,
-            'unique_result_count': 0,
-            'shared_result_count': 1,
-            'resolved_hostname_count': 0,
-            'unique_resolved_hostname_count': 0,
+            'reported_count': 1,
+            'unique_to_source_count': 0,
+            'shared_with_other_sources_count': 1,
+            'hostnames_with_dns_answers_count': 0,
+            'unique_to_source_with_dns_answers_count': 0,
         },
         {
             'source': 'subdomainapi',
-            'observed_result_count': 2,
-            'unique_result_count': 1,
-            'shared_result_count': 1,
-            'resolved_hostname_count': 1,
-            'unique_resolved_hostname_count': 1,
+            'reported_count': 2,
+            'unique_to_source_count': 1,
+            'shared_with_other_sources_count': 1,
+            'hostnames_with_dns_answers_count': 1,
+            'unique_to_source_with_dns_answers_count': 1,
         },
     ]
 
 
-def test_run_detail_exposes_persisted_hostname_changes_against_the_previous_source_cohort(
+def test_run_detail_exposes_hostname_comparison_against_the_previous_compared_sources(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -1091,13 +1091,13 @@ def test_run_detail_exposes_persisted_hostname_changes_against_the_previous_sour
     headers = {'X-API-Key': 'test-key'}
 
     with TestClient(api.app) as client:
-        baseline = client.post(
+        previous = client.post(
             '/api/v1/runs/import',
-            params={'filename': 'baseline.jsonl'},
+            params={'filename': 'previous.jsonl'},
             headers=headers,
             content=_jsonl_result(
                 finding_type='hostname',
-                value='old.example.test',
+                value='previously-reported.example.test',
                 finding_fields={'sources': ['crtsh']},
                 summary_fields={
                     'completed_at': '2026-08-08T01:01:00Z',
@@ -1111,7 +1111,7 @@ def test_run_detail_exposes_persisted_hostname_changes_against_the_previous_sour
             headers=headers,
             content=_jsonl_result(
                 finding_type='hostname',
-                value='new.example.test',
+                value='newly-reported.example.test',
                 finding_fields={'sources': ['crtsh']},
                 summary_fields={
                     'completed_at': '2026-08-08T02:01:00Z',
@@ -1120,15 +1120,15 @@ def test_run_detail_exposes_persisted_hostname_changes_against_the_previous_sour
             ),
         )
 
-    assert baseline.status_code == 201
+    assert previous.status_code == 201
     assert current.status_code == 201
-    tracking = current.json()['hostname_tracking']
-    assert tracking['target'] == 'example.test'
-    assert tracking['comparison_count'] == 1
-    assert tracking['comparisons'][0]['baseline_run_id'] == baseline.json()['run_id']
-    assert [(row['change'], row['hostname']) for row in tracking['hostname_changes']] == [
-        ('new', 'new.example.test'),
-        ('missing', 'old.example.test'),
+    comparison = current.json()['hostname_comparison']
+    assert comparison['target'] == 'example.test'
+    assert comparison['comparison_count'] == 1
+    assert comparison['comparisons'][0]['previous_comparable_run_id'] == previous.json()['run_id']
+    assert [(row['change_type'], row['hostname']) for row in comparison['hostname_differences']] == [
+        ('newly_reported', 'newly-reported.example.test'),
+        ('no_longer_reported', 'previously-reported.example.test'),
     ]
 
 

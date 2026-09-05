@@ -2,21 +2,17 @@
 
 theHarvester is a Python OSINT reconnaissance tool for collecting public information about domains, IPs, emails, names, and related assets.
 
-## Essentials
+## Before making changes
 
-- The project requires Python 3.14 and uses `uv` for environments and commands.
-- Install development dependencies with `uv sync --all-groups`.
-- For code changes, follow [CONTRIBUTING.md](CONTRIBUTING.md).
-- Make the smallest requested change, reuse existing code, and preserve unrelated worktree changes.
+- Use `uv` for environments and commands. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and verification commands.
+- Preserve unrelated worktree changes.
+- Read [CONTEXT.md](CONTEXT.md) before changing domain names or the meaning of targets, runs, sources, results, evidence, or reports.
+- Read the [release contract](docs/release-contract.md) before changing discovery, target scope, DNS validation, P0/P1/P2 activity, run lifecycle, scheduling, persistence, interchange, or reporting, and when preparing a release. A behavior change is complete when code, tests, and operator documentation agree with the contract.
 
 ## Upstream publication
 
 - Target every upstream pull request at `dev`.
 - Treat `upstream/master` as maintainer-only and read-only for agents. Leave every `dev`-to-`master` promotion, merge, and direct update to upstream maintainers.
-
-## Domain language
-
-Read [CONTEXT.md](CONTEXT.md) before changing discovery semantics, result or evidence models, run lifecycle, interchange or persistence, target scope, DNS validation, or P0/P1/P2 activity boundaries.
 
 ## Code review rules
 
@@ -27,26 +23,11 @@ Read [CONTEXT.md](CONTEXT.md) before changing discovery semantics, result or evi
 
 ## Verification
 
-- Focused tests: `uv run pytest <test-path>`
-- Full tests: `uv run pytest`
-- Lint: `uv run ruff check .`
-- Formatting: `uv run ruff format --check .`
-- Typing: `uv run ty check`
-
-Run focused checks first and expand according to risk. Report any skipped check and its reason.
-
-### Test budget
-
-- During implementation, run the narrowest test that covers the changed behavior. Do not rerun the full suite after every small edit.
+- Start with `uv run pytest <test-path>` for the changed behavior, then expand according to risk. Report skipped checks and their reasons.
 - Run the full non-browser suite once at the publication head. Dependent stack layers do not need to repeat it unless they change Python behavior.
 - Run the HarvestView browser suite once at the final UI head or rely on its GitHub workflow. Static UI edits should use focused UI tests and a JavaScript syntax check first.
 - Before retrying a long-running test, confirm the previous process exited. Poll the existing command or stop only its exact owned process instead of starting an overlapping run.
 
 ## GitHub CLI diagnostics
 
-Before reporting broken GitHub authentication, distinguish connectivity from
-credential failure. Run `gh api user --silent` in the same host execution
-context used for `git push`, then inspect any error. A sandboxed `gh auth
-status` failure alone is not credential evidence. Report DNS, network, and
-GitHub service failures as connectivity blockers. Use browser publication only
-when the host-side command specifically reports missing or invalid credentials.
+When GitHub access fails, run `gh api user --silent` in the same host context used for `git push`. Report DNS, network, and service errors as connectivity blockers. A sandboxed `gh auth status` failure alone does not establish a credential failure. Use browser publication only when the host command reports missing or invalid credentials.

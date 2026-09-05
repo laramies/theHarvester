@@ -18,7 +18,7 @@ from theHarvester.lib.completed_result import (
 )
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
-from theHarvester.lib.hostname_tracking import hostname_tracking_projection
+from theHarvester.lib.hostname_comparison import hostname_comparison
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome, parse_takeover_details
@@ -240,10 +240,10 @@ class RunStore:
             ),
         }
         if detail:
-            source_yields = (
+            source_contributions = (
                 [
                     item.to_dict()
-                    for item in await self.results.source_yields(
+                    for item in await self.results.source_contributions(
                         UUID(str(record['evidence_run_id'])),
                         kind='hostname',
                     )
@@ -256,19 +256,19 @@ class RunStore:
                 evidence=evidence,
                 results=normalized_results(evidence),
                 source_executions=source_executions(evidence),
-                source_yields=source_yields,
-                hostname_tracking=(
-                    await hostname_tracking_projection(
+                source_contributions=source_contributions,
+                hostname_comparison=(
+                    await hostname_comparison(
                         self.results,
                         run_id=UUID(str(record['evidence_run_id'])),
-                        include_persisting=True,
+                        include_still_reported=True,
                     )
                     if evidence
                     else {
                         'target': normalize_saved_target(record['target']),
                         'comparison_count': 0,
                         'comparisons': [],
-                        'hostname_changes': [],
+                        'hostname_differences': [],
                     }
                 ),
                 action_executions=evidence.get('action_executions', []) if evidence else [],

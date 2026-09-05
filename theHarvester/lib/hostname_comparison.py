@@ -13,12 +13,12 @@ if TYPE_CHECKING:
     from theHarvester.lib.evidence_types import ExecutionStatus
 
 
-ChangeStatus = Literal['new', 'persisting', 'missing', 'inconclusive']
+HostnameDifferenceType = Literal['newly_reported', 'still_reported', 'no_longer_reported', 'uncertain']
 ResolutionEvidence = Literal['positive', 'not-retained', 'not-checked']
 
 
 @dataclass(frozen=True, slots=True)
-class TrackingSourceOutcome:
+class ComparisonSourceOutcome:
     source: str
     status: ExecutionStatus
     error_type: str | None
@@ -34,22 +34,22 @@ class TrackingSourceOutcome:
 
 
 @dataclass(frozen=True, slots=True)
-class TrackingRunEvidence:
+class ComparableRunEvidence:
     run_id: UUID
     target: str
     completed_at: datetime
-    source_outcomes: tuple[TrackingSourceOutcome, ...]
+    source_outcomes: tuple[ComparisonSourceOutcome, ...]
     hostname_sources: tuple[tuple[str, tuple[str, ...]], ...]
     resolved_hostnames: frozenset[str]
     dns_action_status: ExecutionStatus | None
     addressability: tuple[tuple[str, str], ...]
 
     @property
-    def source_cohort(self) -> tuple[str, ...]:
+    def compared_sources(self) -> tuple[str, ...]:
         return tuple(outcome.source for outcome in self.source_outcomes)
 
 
-def _resolution(run: TrackingRunEvidence, hostname: str) -> ResolutionEvidence:
+def _resolution(run: ComparableRunEvidence, hostname: str) -> ResolutionEvidence:
     if hostname in run.resolved_hostnames:
         return 'positive'
     if hostname not in dict(run.hostname_sources) or run.dns_action_status != 'completed':
@@ -57,56 +57,59 @@ def _resolution(run: TrackingRunEvidence, hostname: str) -> ResolutionEvidence:
     return 'not-retained'
 
 
-def _blocking_outcomes(run: TrackingRunEvidence, sources: tuple[str, ...]) -> list[TrackingSourceOutcome]:
+def _incomplete_outcomes(
+    run: ComparableRunEvidence,
+    sources: tuple[str, ...],
+) -> list[ComparisonSourceOutcome]:
     outcomes = {outcome.source: outcome for outcome in run.source_outcomes}
     return [outcomes[source] for source in sources if outcomes[source].status != 'completed']
 
 
-def _change_row(
-    current: TrackingRunEvidence,
-    baseline: TrackingRunEvidence,
+def _difference_row(
+    current: ComparableRunEvidence,
+    previous: ComparableRunEvidence,
     hostname: str,
-) -> tuple[ChangeStatus, dict[str, object]]:
-    previous_sources = dict(baseline.hostname_sources).get(hostname, ())
+) -> tuple[HostnameDifferenceType, dict[str, object]]:
+    previous_sources = dict(previous.hostname_sources).get(hostname, ())
     current_sources = dict(current.hostname_sources).get(hostname, ())
-    blocking_sources: list[TrackingSourceOutcome] = []
+    incomplete_sources: list[ComparisonSourceOutcome] = []
     if not previous_sources:
-        blocking_sources = _blocking_outcomes(baseline, current_sources)
-        change: ChangeStatus = 'inconclusive' if blocking_sources else 'new'
+        incomplete_sources = _incomplete_outcomes(previous, current_sources)
+        difference: HostnameDifferenceType = 'uncertain' if incomplete_sources else 'newly_reported'
     elif current_sources:
-        change = 'persisting'
+        difference = 'still_reported'
     else:
-        blocking_sources = _blocking_outcomes(current, previous_sources)
-        change = 'inconclusive' if blocking_sources else 'missing'
-    exclusive_sources = current_sources or previous_sources
-    return change, {
+        incomplete_sources = _incomplete_outcomes(current, previous_sources)
+        difference = 'uncertain' if incomplete_sources else 'no_longer_reported'
+    reported_sources = current_sources or previous_sources
+    return difference, {
         'run_id': str(current.run_id),
-        'baseline_run_id': str(baseline.run_id),
-        'change': change,
+        'previous_comparable_run_id': str(previous.run_id),
+        'change_type': difference,
         'hostname': hostname,
-        'previous_sources': list(previous_sources),
-        'current_sources': list(current_sources),
-        'source_exclusive': len(exclusive_sources) == 1,
-        'blocking_sources': [outcome.to_dict() for outcome in blocking_sources],
-        'previous_resolution_evidence': _resolution(baseline, hostname),
+        'sources_in_previous_run': list(previous_sources),
+        'sources_in_current_run': list(current_sources),
+        'reported_by_one_source': len(reported_sources) == 1,
+        'incomplete_source_outcomes': [outcome.to_dict() for outcome in incomplete_sources],
+        'previous_resolution_evidence': _resolution(previous, hostname),
         'current_resolution_evidence': _resolution(current, hostname),
-        'previous_dns_action_status': baseline.dns_action_status,
+        'previous_dns_action_status': previous.dns_action_status,
         'current_dns_action_status': current.dns_action_status,
-        'previous_addressability': dict(baseline.addressability).get(hostname),
+        'previous_addressability': dict(previous.addressability).get(hostname),
         'current_addressability': dict(current.addressability).get(hostname),
     }
 
 
-async def hostname_tracking_projection(
+async def hostname_comparison(
     store: ResultStore,
     *,
     target: str | None = None,
     run_id: UUID | None = None,
-    include_persisting: bool = False,
+    include_still_reported: bool = False,
 ) -> dict[str, object]:
     summaries = await store.list_runs(limit=None)
     if run_id is not None:
-        current = await store.load_hostname_tracking_run(run_id)
+        current = await store.load_hostname_comparison_run(run_id)
         selected_target = normalize_saved_target(current.target)
         selected_ids = {run_id}
     elif target is not None:
@@ -117,44 +120,49 @@ async def hostname_tracking_projection(
     else:
         raise ValueError('target or run_id is required')
     target_runs = [
-        await store.load_hostname_tracking_run(UUID(str(summary['run_id'])))
+        await store.load_hostname_comparison_run(UUID(str(summary['run_id'])))
         for summary in summaries
         if normalize_saved_target(summary['target']) == selected_target
     ]
     target_runs.sort(key=lambda run: (run.completed_at, str(run.run_id)))
-    previous_by_cohort: dict[tuple[str, ...], TrackingRunEvidence] = {}
+    previous_by_sources: dict[tuple[str, ...], ComparableRunEvidence] = {}
     comparisons: list[dict[str, object]] = []
     rows: list[dict[str, object]] = []
-    change_order = {'new': 0, 'missing': 1, 'inconclusive': 2, 'persisting': 3}
+    difference_order = {'newly_reported': 0, 'no_longer_reported': 1, 'uncertain': 2, 'still_reported': 3}
     for current in target_runs:
-        baseline = previous_by_cohort.get(current.source_cohort)
-        previous_by_cohort[current.source_cohort] = current
+        previous = previous_by_sources.get(current.compared_sources)
+        previous_by_sources[current.compared_sources] = current
         if current.run_id not in selected_ids:
             continue
-        counts = {'new': 0, 'persisting': 0, 'missing': 0, 'inconclusive': 0}
+        counts = {'newly_reported': 0, 'still_reported': 0, 'no_longer_reported': 0, 'uncertain': 0}
         comparison: dict[str, object] = {
             'run_id': str(current.run_id),
             'completed_at': current.completed_at.isoformat(),
-            'baseline_run_id': str(baseline.run_id) if baseline else None,
-            'baseline_completed_at': baseline.completed_at.isoformat() if baseline else None,
-            'source_cohort': list(current.source_cohort),
+            'previous_comparable_run_id': str(previous.run_id) if previous else None,
+            'previous_comparable_run_completed_at': previous.completed_at.isoformat() if previous else None,
+            'compared_sources': list(current.compared_sources),
             'counts': counts,
         }
-        if baseline is None:
-            comparison['message'] = 'No previous finalized run has the same source cohort.'
+        if previous is None:
+            comparison['message'] = 'No earlier finalized run has the same target and source list.'
         else:
-            hostnames = sorted(set(dict(baseline.hostname_sources)) | set(dict(current.hostname_sources)))
+            hostnames = sorted(set(dict(previous.hostname_sources)) | set(dict(current.hostname_sources)))
             comparison_rows = []
             for hostname in hostnames:
-                change, row = _change_row(current, baseline, hostname)
-                counts[change] += 1
-                if change != 'persisting' or include_persisting:
+                difference, row = _difference_row(current, previous, hostname)
+                counts[difference] += 1
+                if difference != 'still_reported' or include_still_reported:
                     comparison_rows.append(row)
-            rows.extend(sorted(comparison_rows, key=lambda row: (change_order[str(row['change'])], str(row['hostname']))))
+            rows.extend(
+                sorted(
+                    comparison_rows,
+                    key=lambda row: (difference_order[str(row['change_type'])], str(row['hostname'])),
+                )
+            )
         comparisons.append(comparison)
     return {
         'target': selected_target,
         'comparison_count': len(comparisons),
         'comparisons': comparisons,
-        'hostname_changes': rows,
+        'hostname_differences': rows,
     }

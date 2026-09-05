@@ -1,29 +1,35 @@
 import asyncio
 import json
 import sqlite3
-import tomllib
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import pytest
 
-from theHarvester import source_yields
+from theHarvester import saved_run_report
 from theHarvester.lib import database as database_module
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ExecutionStatus
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 RUN_ONE = UUID('11111111-1111-4111-8111-111111111111')
 RUN_TIE_LATER = UUID('11111111-1111-4111-8111-111111111112')
 RUN_TWO = UUID('22222222-2222-4222-8222-222222222222')
 
 
-def test_project_installs_harvest_yields_command() -> None:
-    project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
+def test_help_exposes_plain_language_report_tasks(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as error:
+        saved_run_report.main(['--help'])
 
-    assert project['project']['scripts']['harvest-yields'] == 'theHarvester.source_yields:main'
+    assert error.value.code == 0
+    help_text = capsys.readouterr().out
+    assert '{contributions,hostname-changes,targets}' in help_text
+    assert '--changes' not in help_text
 
 
 def _completed_run(
@@ -93,7 +99,19 @@ def _completed_run(
     )
 
 
-async def _create_tracking_database(database: Path) -> None:
+def test_jsonl_serialization_does_not_embed_saved_run_reports() -> None:
+    completed = _completed_run(
+        RUN_ONE,
+        observations=(ResultObservation('alpha', 'hostname', 'alpha.example.test'),),
+    )
+
+    records = [json.loads(line) for line in completed.jsonl().splitlines()]
+
+    assert all('source_contributions' not in record for record in records)
+    assert all('hostname_comparison' not in record for record in records)
+
+
+async def _create_comparison_database(database: Path) -> None:
     store = ResultStore(database)
     await store.initialize()
     await store.save_run(
@@ -101,12 +119,12 @@ async def _create_tracking_database(database: Path) -> None:
             RUN_ONE,
             target='EXAMPLE.TEST.',
             observations=(
-                ResultObservation('alpha', 'hostname', 'missing.example.test'),
-                ResultObservation('alpha', 'hostname', 'persist.example.test'),
-                ResultObservation('beta', 'hostname', 'inconclusive.example.test'),
+                ResultObservation('alpha', 'hostname', 'no-longer-reported.example.test'),
+                ResultObservation('alpha', 'hostname', 'still-reported.example.test'),
+                ResultObservation('beta', 'hostname', 'uncertain.example.test'),
             ),
-            resolved_hostnames=('missing.example.test',),
-            source_statuses={'beta': ('partial', 'BaselineTimeout', 'baseline-errors')},
+            resolved_hostnames=('no-longer-reported.example.test',),
+            source_statuses={'beta': ('partial', 'PreviousRunTimeout', 'previous-run-errors')},
             dns_status='completed',
         )
     )
@@ -114,20 +132,20 @@ async def _create_tracking_database(database: Path) -> None:
         _completed_run(
             RUN_TWO,
             observations=(
-                ResultObservation('alpha', 'hostname', 'persist.example.test'),
-                ResultObservation('alpha', 'hostname', 'new.example.test'),
-                ResultObservation('beta', 'hostname', 'uncertain-new.example.test'),
+                ResultObservation('alpha', 'hostname', 'still-reported.example.test'),
+                ResultObservation('alpha', 'hostname', 'newly-reported.example.test'),
+                ResultObservation('beta', 'hostname', 'uncertain-newly-reported.example.test'),
             ),
-            resolved_hostnames=('new.example.test', 'persist.example.test'),
+            resolved_hostnames=('newly-reported.example.test', 'still-reported.example.test'),
             source_statuses={'beta': ('partial', 'TimeoutError', 'request-errors')},
             dns_status='completed',
-            addressability={'new.example.test': 'currently-addressable'},
+            addressability={'newly-reported.example.test': 'currently-addressable'},
         )
     )
     await store.dispose()
 
 
-async def _create_unreliable_dns_tracking_database(database: Path) -> None:
+async def _create_unreliable_dns_comparison_database(database: Path) -> None:
     hostname = 'unchecked.example.test'
     store = ResultStore(database)
     await store.initialize()
@@ -233,7 +251,7 @@ def test_list_targets_table_canonicalizes_counts_and_sorts(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_target_inventory_database(database))
 
-    assert source_yields.main(['--database', str(database), '--list-targets']) == 0
+    assert saved_run_report.main(['targets', '--database', str(database)]) == 0
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].split() == ['TARGET', 'RUNS']
@@ -259,7 +277,7 @@ def test_list_targets_json_preserves_stored_targets_and_schema_version(
         stored_targets = connection.execute('SELECT target FROM runs ORDER BY run_id').fetchall()
         connection.execute('PRAGMA user_version = 7')
 
-    assert source_yields.main(['--database', str(database), '--list-targets', '--format', 'json']) == 0
+    assert saved_run_report.main(['targets', '--database', str(database), '--format', 'json']) == 0
 
     output = capsys.readouterr().out
     assert output.endswith('\n')
@@ -289,9 +307,9 @@ def test_list_targets_empty_database_succeeds(
     asyncio.run(store.initialize())
     asyncio.run(store.dispose())
 
-    assert source_yields.main(['--database', str(database), '--list-targets']) == 0
+    assert saved_run_report.main(['targets', '--database', str(database)]) == 0
     assert capsys.readouterr().out == 'TARGET  RUNS\n'
-    assert source_yields.main(['--database', str(database), '--list-targets', '--format', 'json']) == 0
+    assert saved_run_report.main(['targets', '--database', str(database), '--format', 'json']) == 0
     assert capsys.readouterr().out == '{"targets": []}\n'
 
 
@@ -303,10 +321,10 @@ def test_list_targets_rejects_a_run_selector(
     asyncio.run(_create_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), '--list-targets', '--run-id', str(RUN_ONE)])
+        saved_run_report.main(['targets', '--database', str(database), '--run-id', str(RUN_ONE)])
 
     assert error.value.code == 2
-    assert 'not allowed with argument' in capsys.readouterr().err
+    assert 'unrecognized arguments: --run-id' in capsys.readouterr().err
 
 
 def test_target_selects_only_matching_normalized_saved_target(
@@ -316,22 +334,24 @@ def test_target_selects_only_matching_normalized_saved_target(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_multi_target_database(database))
 
-    assert source_yields.main(['--database', str(database), '--target', 'example.test', '--format', 'json']) == 0
+    assert (
+        saved_run_report.main(['contributions', '--database', str(database), '--target', 'example.test', '--format', 'json']) == 0
+    )
 
     assert json.loads(capsys.readouterr().out) == {
         'kind': 'hostname',
         'run_count': 1,
-        'source_yields': [
+        'source_contributions': [
             {
-                'observed_result_count': 1,
-                'resolved_hostname_count': 0,
+                'reported_count': 1,
+                'hostnames_with_dns_answers_count': 0,
                 'run_count': 1,
-                'shared_result_count': 0,
+                'shared_with_other_sources_count': 0,
                 'source': 'alpha',
-                'unique_resolved_hostname_count': 0,
-                'unique_resolved_hostname_count_per_run': 0.0,
-                'unique_result_count': 1,
-                'unique_result_count_per_run': 1.0,
+                'unique_to_source_with_dns_answers_count': 0,
+                'unique_to_source_with_dns_answers_count_per_run': 0.0,
+                'unique_to_source_count': 1,
+                'unique_to_source_count_per_run': 1.0,
             }
         ],
         'target': 'example.test',
@@ -359,7 +379,7 @@ def test_target_selection_uses_canonical_identity_without_aliasing_free_text(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_target_inventory_database(database))
 
-    assert source_yields.main(['--database', str(database), '--target', requested, '--format', 'json']) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--target', requested, '--format', 'json']) == 0
 
     payload = json.loads(capsys.readouterr().out)
     assert payload['target'] == canonical
@@ -374,10 +394,10 @@ def test_unknown_target_fails_with_inventory_hint(
     asyncio.run(_create_multi_target_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), '--target', 'missing.example'])
+        saved_run_report.main(['contributions', '--database', str(database), '--target', 'missing.example'])
 
     assert error.value.code == 2
-    assert 'target not found: missing.example; use --list-targets' in capsys.readouterr().err
+    assert 'target not found: missing.example; use harvest-report targets' in capsys.readouterr().err
 
 
 def test_target_rejects_a_run_selector(
@@ -388,7 +408,9 @@ def test_target_rejects_a_run_selector(
     asyncio.run(_create_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), '--target', 'example.test', '--run-id', str(RUN_ONE)])
+        saved_run_report.main(
+            ['contributions', '--database', str(database), '--target', 'example.test', '--run-id', str(RUN_ONE)]
+        )
 
     assert error.value.code == 2
     assert 'not allowed with argument' in capsys.readouterr().err
@@ -402,12 +424,12 @@ def test_unscoped_report_refuses_to_mix_multiple_targets(
     asyncio.run(_create_multi_target_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database)])
+        saved_run_report.main(['contributions', '--database', str(database)])
 
     assert error.value.code == 2
     message = capsys.readouterr().err
     assert '2 canonical targets' in message
-    assert '--list-targets' in message
+    assert 'harvest-report targets' in message
 
 
 def test_all_targets_explicitly_restores_mixed_target_json_report(
@@ -417,22 +439,22 @@ def test_all_targets_explicitly_restores_mixed_target_json_report(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_multi_target_database(database))
 
-    assert source_yields.main(['--database', str(database), '--all-targets', '--format', 'json']) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--all-targets', '--format', 'json']) == 0
 
     assert json.loads(capsys.readouterr().out) == {
         'kind': 'hostname',
         'run_count': 2,
-        'source_yields': [
+        'source_contributions': [
             {
-                'observed_result_count': 2,
-                'resolved_hostname_count': 0,
+                'reported_count': 2,
+                'hostnames_with_dns_answers_count': 0,
                 'run_count': 2,
-                'shared_result_count': 0,
+                'shared_with_other_sources_count': 0,
                 'source': 'alpha',
-                'unique_resolved_hostname_count': 0,
-                'unique_resolved_hostname_count_per_run': 0.0,
-                'unique_result_count': 2,
-                'unique_result_count_per_run': 1.0,
+                'unique_to_source_with_dns_answers_count': 0,
+                'unique_to_source_with_dns_answers_count_per_run': 0.0,
+                'unique_to_source_count': 2,
+                'unique_to_source_count_per_run': 1.0,
             }
         ],
         'targets': [
@@ -449,7 +471,7 @@ def test_all_targets_table_labels_scope_and_lists_every_target(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_multi_target_database(database))
 
-    assert source_yields.main(['--database', str(database), '--all-targets']) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--all-targets']) == 0
 
     assert capsys.readouterr().out.splitlines()[:7] == [
         'Scope: all targets',
@@ -458,11 +480,11 @@ def test_all_targets_table_labels_scope_and_lists_every_target(
         'other.example  1',
         'Kind: hostname',
         'Run count: 2',
-        'SOURCE  RUNS  OBSERVED  UNIQUE  UNIQUE/RUN  SHARED  RESOLVED  UNIQUE-RESOLVED  UNIQUE-RESOLVED/RUN',
+        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS/RUN',
     ]
 
 
-@pytest.mark.parametrize('conflicting', ['--list-targets', '--target'])
+@pytest.mark.parametrize('conflicting', ['--target'])
 def test_all_targets_rejects_other_scope_selectors(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -470,12 +492,12 @@ def test_all_targets_rejects_other_scope_selectors(
 ) -> None:
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_multi_target_database(database))
-    args = ['--database', str(database), '--all-targets', conflicting]
+    args = ['contributions', '--database', str(database), '--all-targets', conflicting]
     if conflicting == '--target':
         args.append('example.test')
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(args)
+        saved_run_report.main(args)
 
     assert error.value.code == 2
     assert 'not allowed with argument' in capsys.readouterr().err
@@ -489,60 +511,63 @@ def test_all_targets_rejects_a_run_selector(
     asyncio.run(_create_multi_target_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), '--all-targets', '--run-id', str(RUN_ONE)])
+        saved_run_report.main(['contributions', '--database', str(database), '--all-targets', '--run-id', str(RUN_ONE)])
 
     assert error.value.code == 2
     assert 'not allowed with argument' in capsys.readouterr().err
 
 
-def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_source_outcomes(
+def test_hostname_changes_distinguish_no_longer_reported_from_uncertain_using_persisted_source_outcomes(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
-    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_TWO), '--changes', '--format', 'json']) == 0
+    assert (
+        saved_run_report.main(['hostname-changes', '--database', str(database), '--run-id', str(RUN_TWO), '--format', 'json'])
+        == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     assert payload['target'] == 'example.test'
     assert payload['comparison_count'] == 1
     assert payload['comparisons'][0] == {
-        'baseline_completed_at': '2026-08-23T12:01:01+00:00',
-        'baseline_run_id': str(RUN_ONE),
+        'previous_comparable_run_completed_at': '2026-08-23T12:01:01+00:00',
+        'previous_comparable_run_id': str(RUN_ONE),
         'completed_at': '2026-08-23T12:02:01+00:00',
-        'counts': {'inconclusive': 2, 'missing': 1, 'new': 1, 'persisting': 1},
+        'counts': {'newly_reported': 1, 'still_reported': 1, 'no_longer_reported': 1, 'uncertain': 2},
         'run_id': str(RUN_TWO),
-        'source_cohort': ['alpha', 'beta'],
+        'compared_sources': ['alpha', 'beta'],
     }
-    changes = {row['hostname']: row for row in payload['hostname_changes']}
-    assert set(changes) == {
-        'inconclusive.example.test',
-        'missing.example.test',
-        'new.example.test',
-        'uncertain-new.example.test',
+    differences = {row['hostname']: row for row in payload['hostname_differences']}
+    assert set(differences) == {
+        'uncertain.example.test',
+        'no-longer-reported.example.test',
+        'newly-reported.example.test',
+        'uncertain-newly-reported.example.test',
     }
-    assert changes['new.example.test'] == {
-        'baseline_run_id': str(RUN_ONE),
-        'blocking_sources': [],
-        'change': 'new',
+    assert differences['newly-reported.example.test'] == {
+        'previous_comparable_run_id': str(RUN_ONE),
+        'incomplete_source_outcomes': [],
+        'change_type': 'newly_reported',
         'current_addressability': 'currently-addressable',
         'current_dns_action_status': 'completed',
         'current_resolution_evidence': 'positive',
-        'current_sources': ['alpha'],
-        'hostname': 'new.example.test',
+        'sources_in_current_run': ['alpha'],
+        'hostname': 'newly-reported.example.test',
         'previous_addressability': None,
         'previous_dns_action_status': 'completed',
         'previous_resolution_evidence': 'not-checked',
-        'previous_sources': [],
+        'sources_in_previous_run': [],
         'run_id': str(RUN_TWO),
-        'source_exclusive': True,
+        'reported_by_one_source': True,
     }
-    assert changes['missing.example.test']['change'] == 'missing'
-    assert changes['missing.example.test']['blocking_sources'] == []
-    assert changes['missing.example.test']['previous_resolution_evidence'] == 'positive'
-    assert changes['inconclusive.example.test']['change'] == 'inconclusive'
-    assert changes['inconclusive.example.test']['blocking_sources'] == [
+    assert differences['no-longer-reported.example.test']['change_type'] == 'no_longer_reported'
+    assert differences['no-longer-reported.example.test']['incomplete_source_outcomes'] == []
+    assert differences['no-longer-reported.example.test']['previous_resolution_evidence'] == 'positive'
+    assert differences['uncertain.example.test']['change_type'] == 'uncertain'
+    assert differences['uncertain.example.test']['incomplete_source_outcomes'] == [
         {
             'error_type': 'TimeoutError',
             'source': 'beta',
@@ -550,41 +575,44 @@ def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_sourc
             'stop_reason': 'request-errors',
         }
     ]
-    assert changes['uncertain-new.example.test']['change'] == 'inconclusive'
-    assert changes['uncertain-new.example.test']['current_sources'] == ['beta']
-    assert changes['uncertain-new.example.test']['source_exclusive'] is True
-    assert changes['uncertain-new.example.test']['blocking_sources'] == [
+    assert differences['uncertain-newly-reported.example.test']['change_type'] == 'uncertain'
+    assert differences['uncertain-newly-reported.example.test']['sources_in_current_run'] == ['beta']
+    assert differences['uncertain-newly-reported.example.test']['reported_by_one_source'] is True
+    assert differences['uncertain-newly-reported.example.test']['incomplete_source_outcomes'] == [
         {
-            'error_type': 'BaselineTimeout',
+            'error_type': 'PreviousRunTimeout',
             'source': 'beta',
             'status': 'partial',
-            'stop_reason': 'baseline-errors',
+            'stop_reason': 'previous-run-errors',
         }
     ]
 
 
-def test_target_changes_reports_every_run_pair_and_a_clear_null_baseline(
+def test_target_hostname_changes_reports_every_run_pair_and_a_clear_null_previous_run(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
-    assert source_yields.main(['--database', str(database), '--target', 'example.test', '--changes', '--format', 'json']) == 0
+    assert (
+        saved_run_report.main(['hostname-changes', '--database', str(database), '--target', 'example.test', '--format', 'json'])
+        == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     assert payload['comparison_count'] == 2
     assert payload['comparisons'][0] == {
-        'baseline_completed_at': None,
-        'baseline_run_id': None,
+        'previous_comparable_run_completed_at': None,
+        'previous_comparable_run_id': None,
         'completed_at': '2026-08-23T12:01:01+00:00',
-        'counts': {'inconclusive': 0, 'missing': 0, 'new': 0, 'persisting': 0},
-        'message': 'No previous finalized run has the same source cohort.',
+        'counts': {'newly_reported': 0, 'still_reported': 0, 'no_longer_reported': 0, 'uncertain': 0},
+        'message': 'No earlier finalized run has the same target and source list.',
         'run_id': str(RUN_ONE),
-        'source_cohort': ['alpha', 'beta'],
+        'compared_sources': ['alpha', 'beta'],
     }
-    assert payload['comparisons'][1]['baseline_run_id'] == str(RUN_ONE)
-    assert {row['run_id'] for row in payload['hostname_changes']} == {str(RUN_TWO)}
+    assert payload['comparisons'][1]['previous_comparable_run_id'] == str(RUN_ONE)
+    assert {row['run_id'] for row in payload['hostname_differences']} == {str(RUN_TWO)}
 
 
 def test_run_id_breaks_an_equal_completion_time_tie_deterministically(
@@ -613,32 +641,32 @@ def test_run_id_breaks_an_equal_completion_time_tie_deterministically(
     asyncio.run(store.dispose())
 
     assert (
-        source_yields.main(
-            ['--database', str(database), '--run-id', str(RUN_TIE_LATER), '--changes', '--format', 'json']
+        saved_run_report.main(
+            ['hostname-changes', '--database', str(database), '--run-id', str(RUN_TIE_LATER), '--format', 'json']
         )
         == 0
     )
 
     comparison = json.loads(capsys.readouterr().out)['comparisons'][0]
-    assert comparison['baseline_run_id'] == str(RUN_ONE)
+    assert comparison['previous_comparable_run_id'] == str(RUN_ONE)
 
 
-def test_include_persisting_adds_unchanged_hostname_rows_without_changing_counts(
+def test_include_still_reported_adds_unchanged_hostname_rows_without_changing_counts(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
     assert (
-        source_yields.main(
+        saved_run_report.main(
             [
+                'hostname-changes',
                 '--database',
                 str(database),
                 '--run-id',
                 str(RUN_TWO),
-                '--changes',
-                '--include-persisting',
+                '--include-still-reported',
                 '--format',
                 'json',
             ]
@@ -647,9 +675,9 @@ def test_include_persisting_adds_unchanged_hostname_rows_without_changing_counts
     )
 
     payload = json.loads(capsys.readouterr().out)
-    persisting = [row for row in payload['hostname_changes'] if row['change'] == 'persisting']
-    assert [(row['hostname'], row['source_exclusive']) for row in persisting] == [('persist.example.test', True)]
-    assert payload['comparisons'][0]['counts']['persisting'] == 1
+    still_reported = [row for row in payload['hostname_differences'] if row['change_type'] == 'still_reported']
+    assert [(row['hostname'], row['reported_by_one_source']) for row in still_reported] == [('still-reported.example.test', True)]
+    assert payload['comparisons'][0]['counts']['still_reported'] == 1
 
 
 def test_failed_dns_action_does_not_claim_a_sourced_hostname_was_checked(
@@ -657,17 +685,17 @@ def test_failed_dns_action_does_not_claim_a_sourced_hostname_was_checked(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_unreliable_dns_tracking_database(database))
+    asyncio.run(_create_unreliable_dns_comparison_database(database))
 
     assert (
-        source_yields.main(
+        saved_run_report.main(
             [
+                'hostname-changes',
                 '--database',
                 str(database),
                 '--run-id',
                 str(RUN_TWO),
-                '--changes',
-                '--include-persisting',
+                '--include-still-reported',
                 '--format',
                 'json',
             ]
@@ -675,91 +703,90 @@ def test_failed_dns_action_does_not_claim_a_sourced_hostname_was_checked(
         == 0
     )
 
-    row = json.loads(capsys.readouterr().out)['hostname_changes'][0]
+    row = json.loads(capsys.readouterr().out)['hostname_differences'][0]
     assert row['current_dns_action_status'] == 'failed'
     assert row['current_resolution_evidence'] == 'not-checked'
 
 
-def test_changes_table_is_human_readable_and_explains_inconclusive_rows(
+def test_hostname_changes_table_is_human_readable_and_explains_uncertain_rows(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
-    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_TWO), '--changes']) == 0
+    assert saved_run_report.main(['hostname-changes', '--database', str(database), '--run-id', str(RUN_TWO)]) == 0
 
     output = capsys.readouterr().out
     assert output.startswith('Target: example.test\nComparison count: 1\n')
-    assert 'NEW  PERSISTING  MISSING  INCONCLUSIVE' in output
+    assert 'NEWLY REPORTED  STILL REPORTED  NO LONGER REPORTED  UNCERTAIN' in output
     lines = output.splitlines()
     assert lines[4].split() == [
-        'CHANGE',
+        'DIFFERENCE',
         'HOSTNAME',
         'SOURCES',
-        'EXCLUSIVE',
+        'ONE',
+        'SOURCE',
         'RESOLUTION',
         'ADDRESSABILITY',
-        'BLOCKING',
+        'INCOMPLETE',
         'SOURCES',
     ]
-    assert [line.split()[:2] for line in lines[5:]] == [
-        ['NEW', 'new.example.test'],
-        ['MISSING', 'missing.example.test'],
-        ['INCONCLUSIVE', 'inconclusive.example.test'],
-        ['INCONCLUSIVE', 'uncertain-new.example.test'],
-    ]
+    assert lines[5].split()[:3] == ['NEWLY', 'REPORTED', 'newly-reported.example.test']
+    assert lines[6].split()[:4] == ['NO', 'LONGER', 'REPORTED', 'no-longer-reported.example.test']
+    assert lines[7].split()[:2] == ['UNCERTAIN', 'uncertain-newly-reported.example.test']
+    assert lines[8].split()[:2] == ['UNCERTAIN', 'uncertain.example.test']
     assert 'beta:partial:TimeoutError:request-errors' in output
-    assert 'beta:partial:BaselineTimeout:baseline-errors' in output
+    assert 'beta:partial:PreviousRunTimeout:previous-run-errors' in output
 
 
-def test_changes_table_explains_when_a_run_has_no_comparable_baseline(
+def test_hostname_changes_table_explains_when_a_run_has_no_comparable_previous_run(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
-    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_ONE), '--changes']) == 0
+    assert saved_run_report.main(['hostname-changes', '--database', str(database), '--run-id', str(RUN_ONE)]) == 0
 
     output = capsys.readouterr().out
-    assert f'{RUN_ONE}: No previous finalized run has the same source cohort.' in output
+    assert f'{RUN_ONE}: No earlier finalized run has the same target and source list.' in output
 
 
 @pytest.mark.parametrize(
     'args',
     [
-        ['--include-persisting'],
-        ['--changes', '--kind', 'ip'],
-        ['--changes', '--all-targets'],
-        ['--changes', '--list-targets'],
+        ['contributions', '--include-still-reported'],
+        ['hostname-changes', '--kind', 'ip'],
+        ['hostname-changes', '--all-targets'],
+        ['hostname-changes', 'targets'],
     ],
 )
-def test_changes_rejects_ambiguous_or_non_hostname_arguments(
+def test_hostname_changes_rejects_ambiguous_or_non_hostname_arguments(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     args: list[str],
 ) -> None:
     database = tmp_path / 'runs.sqlite'
-    asyncio.run(_create_tracking_database(database))
+    asyncio.run(_create_comparison_database(database))
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), *args])
+        saved_run_report.main([*args, '--database', str(database)])
 
     assert error.value.code == 2
     assert capsys.readouterr().err
 
 
-def test_help_makes_persisted_read_only_change_modes_obvious(capsys: pytest.CaptureFixture[str]) -> None:
+def test_help_makes_persisted_read_only_hostname_changes_obvious(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--help'])
+        saved_run_report.main(['hostname-changes', '--help'])
 
     assert error.value.code == 0
     help_text = capsys.readouterr().out
     assert 'never runs discovery or DNS' in help_text
-    assert 'harvest-yields --target example.test --changes' in help_text
-    assert 'harvest-yields --run-id RUN_ID --changes' in help_text
-    assert '--include-persisting' in help_text
+    assert 'usage: harvest-report hostname-changes' in help_text
+    assert '[--run-id RUN_ID | --target TARGET]' in help_text
+    assert '--include-still-reported' in help_text
 
 
 def test_unscoped_empty_database_reports_an_explicit_empty_scope(
@@ -771,18 +798,18 @@ def test_unscoped_empty_database_reports_an_explicit_empty_scope(
     asyncio.run(store.initialize())
     asyncio.run(store.dispose())
 
-    assert source_yields.main(['--database', str(database), '--format', 'json']) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--format', 'json']) == 0
     assert json.loads(capsys.readouterr().out) == {
         'kind': 'hostname',
         'run_count': 0,
-        'source_yields': [],
+        'source_contributions': [],
         'targets': [],
     }
 
-    assert source_yields.main(['--database', str(database)]) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database)]) == 0
     assert capsys.readouterr().out.splitlines()[:3] == ['Targets: none', 'Kind: hostname', 'Run count: 0']
 
-    assert source_yields.main(['--database', str(database), '--changes']) == 0
+    assert saved_run_report.main(['hostname-changes', '--database', str(database)]) == 0
     assert capsys.readouterr().out.startswith('Targets: none\nComparison count: 0\n')
 
 
@@ -793,7 +820,7 @@ def test_missing_database_fails_without_creating_file(
     database = tmp_path / 'missing.sqlite'
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database)])
+        saved_run_report.main(['contributions', '--database', str(database)])
 
     assert error.value.code == 2
     assert 'database does not exist' in capsys.readouterr().err
@@ -809,7 +836,7 @@ def test_default_database_uses_the_standard_result_store(
     asyncio.run(_create_database(database))
     monkeypatch.setattr(database_module, '_DEFAULT_DATABASE', database)
 
-    assert source_yields.main([]) == 0
+    assert saved_run_report.main(['contributions']) == 0
 
     assert capsys.readouterr().out.startswith('Target: example.test\nKind: hostname\nRun count: 2\n')
 
@@ -821,16 +848,16 @@ def test_default_table_ranks_by_unique_per_run_and_aligns_columns(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_database(database))
 
-    assert source_yields.main(['--database', str(database)]) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database)]) == 0
 
     assert capsys.readouterr().out.splitlines() == [
         'Target: example.test',
         'Kind: hostname',
         'Run count: 2',
-        'SOURCE  RUNS  OBSERVED  UNIQUE  UNIQUE/RUN  SHARED  RESOLVED  UNIQUE-RESOLVED  UNIQUE-RESOLVED/RUN',
-        'gamma   1     1         1       1.00        0       0         0                0.00',
-        'alpha   2     3         1       0.50        2       3         1                0.50',
-        'beta    2     3         1       0.50        2       2         0                0.00',
+        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS/RUN',
+        'gamma   1     1         1                 1.00        0                   0                 0                        0.00',
+        'alpha   2     3         1                 0.50        2                   3                 1                        0.50',
+        'beta    2     3         1                 0.50        2                   2                 0                        0.00',
     ]
 
 
@@ -843,11 +870,11 @@ def test_kind_accepts_every_result_kind_and_only_hostname_shows_resolution_colum
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_database(database))
 
-    assert source_yields.main(['--database', str(database), '--kind', kind]) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--kind', kind]) == 0
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[:2] == ['Target: example.test', f'Kind: {kind}']
-    assert ('RESOLVED' in lines[3]) is (kind == 'hostname')
+    assert ('WITH-DNS-ANSWERS' in lines[3]) is (kind == 'hostname')
     if kind == 'ip':
         assert [line.split() for line in lines[4:]] == [
             ['gamma', '1', '1', '1', '1.00', '0'],
@@ -863,7 +890,7 @@ def test_run_id_selects_one_run(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_database(database))
 
-    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_ONE)]) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--run-id', str(RUN_ONE)]) == 0
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[:3] == ['Target: example.test', 'Kind: hostname', 'Run count: 1']
@@ -882,7 +909,7 @@ def test_unknown_run_id_fails_instead_of_reporting_an_empty_run(
     missing_run = UUID('33333333-3333-4333-8333-333333333333')
 
     with pytest.raises(SystemExit) as error:
-        source_yields.main(['--database', str(database), '--run-id', str(missing_run)])
+        saved_run_report.main(['contributions', '--database', str(database), '--run-id', str(missing_run)])
 
     assert error.value.code == 2
     assert 'completed result not found' in capsys.readouterr().err
@@ -897,20 +924,20 @@ def test_json_format_is_machine_readable_and_uses_kind_specific_fields(
     database = tmp_path / 'runs.sqlite'
     asyncio.run(_create_database(database))
 
-    assert source_yields.main(['--database', str(database), '--kind', kind, '--format', 'json']) == 0
+    assert saved_run_report.main(['contributions', '--database', str(database), '--kind', kind, '--format', 'json']) == 0
 
     payload = json.loads(capsys.readouterr().out)
     assert payload['target'] == 'example.test'
     assert payload['kind'] == kind
     assert payload['run_count'] == 2
-    assert [row['source'] for row in payload['source_yields']] == ['gamma', 'alpha', 'beta']
+    assert [row['source'] for row in payload['source_contributions']] == ['gamma', 'alpha', 'beta']
     resolution_fields = {
-        'resolved_hostname_count',
-        'unique_resolved_hostname_count',
-        'unique_resolved_hostname_count_per_run',
+        'hostnames_with_dns_answers_count',
+        'unique_to_source_with_dns_answers_count',
+        'unique_to_source_with_dns_answers_count_per_run',
     }
-    assert all(resolution_fields <= row.keys() for row in payload['source_yields']) is (kind == 'hostname')
-    assert {row['source']: row['run_count'] for row in payload['source_yields']} == {'alpha': 2, 'beta': 2, 'gamma': 1}
-    assert {row['source']: row['unique_result_count_per_run'] for row in payload['source_yields']} == (
+    assert all(resolution_fields <= row.keys() for row in payload['source_contributions']) is (kind == 'hostname')
+    assert {row['source']: row['run_count'] for row in payload['source_contributions']} == {'alpha': 2, 'beta': 2, 'gamma': 1}
+    assert {row['source']: row['unique_to_source_count_per_run'] for row in payload['source_contributions']} == (
         {'alpha': 0.5, 'beta': 0.5, 'gamma': 1.0} if kind == 'hostname' else {'alpha': 0.0, 'beta': 0.0, 'gamma': 1.0}
     )
