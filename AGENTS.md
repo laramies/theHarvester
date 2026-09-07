@@ -4,10 +4,10 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 
 ## Before making changes
 
-- Use `uv` for environments and commands. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and verification commands.
+- Use `uv` for environments and commands. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, verification, and release preparation.
 - Preserve unrelated worktree changes.
 - Read [CONTEXT.md](CONTEXT.md) before changing domain names or the meaning of targets, runs, sources, results, evidence, or reports.
-- Read the [release contract](docs/release-contract.md) before changing discovery, target scope, DNS validation, P0/P1/P2 activity, run lifecycle, scheduling, persistence, interchange, or reporting, and when preparing a release. A behavior change is complete when code, tests, and operator documentation agree with the contract.
+- Read the [architecture guide](docs/architecture.md) before changing discovery, target scope, DNS validation, P0/P1/P2 activity, run lifecycle, scheduling, persistence, interchange, or reporting.
 
 ## Upstream publication
 

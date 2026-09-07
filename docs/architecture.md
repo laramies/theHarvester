@@ -1,10 +1,10 @@
-# Release contract
+# theHarvester architecture
 
 These rules govern the 5.0.0 development line on `dev`. [CONTEXT.md](../CONTEXT.md) defines the domain terms; the source catalog, type declarations, CLI help, and OpenAPI document define exact interfaces.
 
-When changing a rule, update this contract, the affected code, regression coverage, and operator documentation in the same PR. Update the glossary when the meaning of a term changes. Record a new decision only when the trade-off is hard to reverse and would otherwise surprise a future contributor.
+When changing a rule, update this guide, the affected code, regression coverage, and operator documentation in the same PR. Update the glossary when the meaning of a term changes. Record a new decision only when the trade-off is hard to reverse and would otherwise surprise a future contributor.
 
-When the release is cut, update the package version in `theHarvester/__init__.py` and the release heading in `CHANGELOG.md` together.
+For release procedures and checks, read [CONTRIBUTING.md](../CONTRIBUTING.md#prepare-a-release).
 
 ## Product boundary
 
@@ -25,7 +25,7 @@ When the release is cut, update the package version in `theHarvester/__init__.py
 - The source catalog is the authority for canonical source names, aliases, credentials, result capabilities, and activity class. Explicit source names and capability selectors form a union; `all` selects every cataloged P0 source once.
 - A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
 - A result limit of zero removes the shared local cap on results and pages. Adapters continue until the provider is exhausted, but source-owned quotas, protocol maxima, response limits, and runtime safety bounds still apply. A source that stops at one of those boundaries must report an explicit partial outcome and stop reason.
-- Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
+- Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are rejected, including when an adapter raises or is cancelled.
 - Explicit proxy mode is fail-closed for every supported discovery source and action. If no configured proxy is available, execution makes no direct request and terminates with the sanitized `proxy-unavailable` reason.
 - Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
 - Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
@@ -39,16 +39,9 @@ When the release is cut, update the package version in `theHarvester/__init__.py
 - SQLite is the canonical local multi-run store. Portable SQLite export contains every finalized evidence record, preserves original run IDs and canonical structured evidence, and excludes queue, cancellation, worker-lease, and legacy-observation state. Screenshot metadata travels with evidence; screenshot files remain separately managed artifacts.
 - Legacy JSON and XML remain supported grouped reports for existing consumers. They are presentation formats and do not replace JSONL or SQLite when lossless provenance and structured evidence are required.
 
-## Release gates
+## Architectural limits
 
-- Routine tests and CI use mocked provider responses, local services, RFC-reserved domains, and TEST-NET addresses. Live provider or target checks remain explicit operator-run integration work.
-- Every executable source has offline contract coverage for its declared lifecycle, and the catalog gate rejects missing, duplicate, or unknown coverage.
-- Persistence and interchange changes prove canonical export and import round trips. HarvestView changes pass a separate real-browser gate covering the affected operator workflow.
-- Release publication requires green Python, formatting, lint, typing, container, security, documentation, and HarvestView browser checks at the publication head.
-
-## Deferred boundaries
-
-- Read-only cross-run change projections over finalized evidence are part of the release contract. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
+- Cross-run change projections are read-only views of finalized evidence. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
 - Cross-run source ranking remains a reporting decision. One run's source-contribution summary does not automatically select, disable, or rank sources.
-- Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
+- Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The architecture remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.

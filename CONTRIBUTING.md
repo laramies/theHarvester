@@ -49,7 +49,7 @@ Useful cases include:
 - pagination and retry termination;
 - normalized, deduplicated results.
 
-Every canonical provider has one offline contract module marked with
+Every canonical provider has one offline contract module covering its declared lifecycle, marked with
 `pytest.mark.provider_contract("source-name")`. The catalog-derived coverage
 gate fails when a catalog entry has no contract, when a contract names an
 unknown source, or when two modules claim the same source. Add the marker to
@@ -75,19 +75,9 @@ uv run pytest
 uv run ty check
 ```
 
-Before a release, manually dispatch the **Release validation** workflow against
-the exact release branch or tag. For example:
+Persistence and interchange changes must prove canonical export and import round trips. HarvestView changes must pass a separate real-browser check covering the affected operator workflow.
 
-```bash
-gh workflow run provider-smoke.yml --ref dev -f run_live=false
-```
-
-This composes the Python, real-browser HarvestView, package, and container checks
-on clean GitHub-hosted runners. Maintainers with explicit authorization may set
-`run_live=true` to add bounded P0 provider checks against `mozilla.org`; the live
-lane never enables DNS or direct target interaction.
-
-Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
+Routine verification must use mocks, local fixtures and services, RFC-reserved domains, and TEST-NET addresses. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
 
 Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests. The manually dispatched provider workflow uses `mozilla.org` for small passive CLI crash smokes. Those runs can detect packaging, credential, or provider drift; they are not conformance tests and should not be retried merely to obtain more results.
 
@@ -106,6 +96,23 @@ The pull request should include:
 - any compatibility, provider, rate-limit, or operational risk reviewers should know about.
 
 Use a draft pull request when work is incomplete or verification is still pending. Keep the branch current, respond to review feedback, and ensure required checks pass before requesting a final review.
+
+## Prepare a release
+
+When cutting a release, update the package version in `theHarvester/__init__.py` and the release heading in `CHANGELOG.md` together.
+
+Manually dispatch the **Release validation** workflow against the exact release branch or tag. For example:
+
+```bash
+gh workflow run provider-smoke.yml --ref dev -f run_live=false
+```
+
+This composes the Python, real-browser HarvestView, package, and container checks
+on clean GitHub-hosted runners. Maintainers with explicit authorization may set
+`run_live=true` to add bounded P0 provider checks against `mozilla.org`; the live
+lane never enables DNS or direct target interaction.
+
+Release publication requires green Python, formatting, lint, typing, container, security, documentation, and HarvestView browser checks at the publication head.
 
 ## Security-sensitive reports
 

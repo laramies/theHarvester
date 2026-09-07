@@ -1,6 +1,6 @@
 # theHarvester domain language
 
-Use these terms in code, tests, issues, and operator documentation. For product behavior, implementation rules, and release checks, read the [release contract](docs/release-contract.md).
+Use these terms in code, tests, issues, and operator documentation. For product behavior and implementation rules, read the [architecture guide](docs/architecture.md). For release procedures and checks, read [CONTRIBUTING.md](CONTRIBUTING.md#prepare-a-release).
 
 ## Targets and activity
 
