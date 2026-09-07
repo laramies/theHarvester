@@ -155,17 +155,17 @@ HarvestView can start screenshot and DNS brute-force runs from a retained hostna
 
 ## Track hostname changes
 
-`harvest-yields --changes` compares finalized SQLite evidence without running discovery or DNS. Use a run ID to inspect one run against its automatically selected baseline, or use a target to review its comparable run chain over time:
+`harvest-report hostname-changes` compares finalized SQLite evidence without running discovery or DNS. Select a run to compare it with its previous comparable run, or select a target to see the comparisons over time:
 
 ```bash
-uv run harvest-yields --run-id 11111111-1111-4111-8111-111111111111 --changes
-uv run harvest-yields --target example.test --changes
-uv run harvest-yields --target example.test --changes --include-persisting
+uv run harvest-report hostname-changes --run-id 11111111-1111-4111-8111-111111111111
+uv run harvest-report hostname-changes --target example.test
+uv run harvest-report hostname-changes --target example.test --include-still-reported
 ```
 
-The baseline is the latest earlier finalized run with the same canonical target and exact source cohort. The comparison classifies hostnames as `new`, `persisting`, `missing`, or `inconclusive`. When only one run reports a hostname, it counts as new or missing only if every source that reported it completed successfully in the other run. Otherwise the change is inconclusive and includes the blocking outcomes and reasons.
+The previous comparable run is the latest earlier finalized run with the same canonical target and exact source list. The comparison classifies hostnames as `newly_reported`, `still_reported`, `no_longer_reported`, or `uncertain`. When only one run reports a hostname, it counts as newly reported or no longer reported only if every source that reported it completed successfully in the other run. Otherwise the difference is uncertain and includes the incomplete source outcomes and reasons.
 
-Missing means absent from comparable retained evidence. It does not prove that the hostname stopped existing or resolving. Repeated comparable runs provide a change history; the command does not create alerts, trigger actions, or allow mixed-target timelines. Read [Results and local data](docs/wiki/Results-and-Local-Data.md#track-hostname-changes-across-finalized-runs) for the complete pairing and interpretation rules.
+No longer reported means absent from comparable saved evidence. It does not prove that the hostname stopped existing or resolving. Repeated comparable runs provide a change history; the command does not create alerts, trigger actions, or allow mixed-target timelines. Read [Results and local data](docs/wiki/Results-and-Local-Data.md#compare-hostnames-between-saved-runs) for the complete pairing and interpretation rules.
 
 ## REST API and Docker Compose
 
@@ -196,7 +196,7 @@ docker compose down
 | `GET /api/v1/sources` | List registered discovery sources and capabilities. |
 | `POST /api/v1/runs` | Submit a finite enumeration run. |
 | `GET /api/v1/runs` | List durable run records. |
-| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, source outcomes, and hostname yields. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, source contributions, and hostname comparisons. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
 | `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
@@ -212,7 +212,7 @@ docker compose down
 
 </details>
 
-The [REST API guide](docs/wiki/Rest-API.md) documents requests, hostname tracking, imports, exports, schedules, and authentication.
+The [REST API guide](docs/wiki/Rest-API.md) documents requests, hostname comparisons, imports, exports, schedules, and authentication.
 
 ## Discovery sources
 
@@ -356,18 +356,18 @@ jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
 
 The `subdomains` capability produces `hostname` records because a result can be the target hostname itself. Read [Results and local data](docs/wiki/Results-and-Local-Data.md) for the complete JSONL and evidence contract.
 
-### Compare source yield
+### Compare saved runs
 
-`harvest-yields` reads finalized runs from an existing SQLite results database. For each source, it reports observed values, values unique within a run, and hostnames with retained DNS answers. List targets before selecting a comparison scope when the database contains more than one:
+`harvest-report` reads completed runs from an existing SQLite results database. Its subcommands list saved targets, count each source's contribution, and compare hostname evidence between runs:
 
 ```bash
-uv run harvest-yields
-uv run harvest-yields --list-targets
-uv run harvest-yields --target example.test
-uv run harvest-yields --database results.sqlite --kind ip --format json
+uv run harvest-report targets
+uv run harvest-report contributions --target example.test
+uv run harvest-report contributions --database results.sqlite --kind ip --format json
+uv run harvest-report hostname-changes --target example.test
 ```
 
-The command does not run discovery or DNS resolution. It refuses to mix several stored targets unless you explicitly select `--all-targets`. Meaningful comparisons normally keep the target, source set, limit, resolver set, release version, and collection window fixed. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields and benchmark method.
+The command reads saved evidence without running discovery or DNS. Use `--target` or `--run-id` when a database contains several targets, or select `--all-targets` for a deliberate aggregate. For useful comparisons, keep the target, source list, limit, resolvers, release version, and collection window consistent. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields, target scope, and comparison rules.
 
 ### SQLite, JSON, and XML
 

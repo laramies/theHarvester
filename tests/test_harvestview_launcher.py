@@ -13,7 +13,7 @@ def test_project_scripts_expose_commands() -> None:
     assert scripts == {
         'theHarvester': 'theHarvester.theHarvester:main',
         'harvestview': 'theHarvester.harvestview:main',
-        'harvest-yields': 'theHarvester.source_yields:main',
+        'harvest-report': 'theHarvester.saved_run_report:main',
     }
 
 
