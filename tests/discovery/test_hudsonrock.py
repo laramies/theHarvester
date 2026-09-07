@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 from typing import TYPE_CHECKING, Any
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -36,7 +37,7 @@ async def test_rate_limited_domain_search_recovers_without_trailing_delay(monkey
         nonlocal calls
         calls += 1
         assert urls == ['https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=example.com']
-        assert kwargs == {'json': True, 'proxy': False, 'include_metadata': True}
+        assert kwargs == {'json': True, 'session': ANY, 'include_metadata': True}
         return [responses.pop(0)]
 
     async def fake_sleep(delay: float) -> None:
@@ -59,7 +60,7 @@ async def test_email_search_preserves_normalized_getters(monkeypatch: pytest.Mon
     sleeps: list[float] = []
 
     async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
-        assert kwargs == {'json': True, 'proxy': False, 'include_metadata': True}
+        assert kwargs == {'json': True, 'session': ANY, 'include_metadata': True}
         if urls[0].endswith('search-by-domain?domain=example.com'):
             return [FetcherResponse(body={'data': {'employees_urls': []}}, status=200, headers={})]
         assert urls[0].endswith('search-by-email?email=analyst@example.com')
@@ -178,8 +179,13 @@ async def test_empty_email_search_does_not_invent_a_result(monkeypatch: pytest.M
 
 @pytest.mark.asyncio
 async def test_email_search_retains_domain_results_when_email_request_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = AsyncMock()
+    build_session = AsyncMock(return_value=session)
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, '_build_session', build_session)
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, '_resolve_proxy', lambda proxy: ('http://proxy.example:8080', 'http'))
+
     async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
-        assert _kwargs['proxy'] is True
+        assert _kwargs['session'] is session and 'proxy' not in _kwargs
         if 'search-by-domain' in urls[0]:
             return [FetcherResponse({'data': {'employees_urls': [{'url': 'https://portal.example.com/login'}]}}, 200, {})]
         return [FetcherResponse({}, 503, {})]
@@ -195,6 +201,9 @@ async def test_email_search_retains_domain_results_when_email_request_fails(monk
 
     assert await search.get_hostnames() == {'portal.example.com'}
     assert report == SourceExecutionReport('partial', 'http-503')
+    build_session.assert_awaited_once_with(ANY, ANY, 'http://proxy.example:8080', 'http', ANY, None)
+    assert build_session.call_args.args[1].total == 60
+    session.close.assert_awaited_once()
 
 
 @pytest.mark.asyncio

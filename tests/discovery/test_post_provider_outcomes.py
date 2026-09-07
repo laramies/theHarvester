@@ -26,7 +26,7 @@ def mock_transport(monkeypatch, responses):
 
     monkeypatch.setattr(
         AsyncFetcher,
-        'create_session',
+        '_build_session',
         AsyncMock(return_value=SimpleNamespace(request=request, close=AsyncMock())),
     )
     monkeypatch.setattr(Core, 'dehashed_key', lambda: 'test-key')

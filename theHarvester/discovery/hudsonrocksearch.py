@@ -1,10 +1,16 @@
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from aiohttp import ClientError
+
 from theHarvester.discovery.provider_response import provider_http_error
-from theHarvester.lib.core import AsyncFetcher, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    from aiohttp import ClientSession
 
 
 class SearchHudsonRock:
@@ -38,7 +44,7 @@ class SearchHudsonRock:
     def _has_results(self) -> bool:
         return bool(self.totalhosts or self.totalips or self.emails or self.infostealers)
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session: ClientSession) -> SourceExecutionReport | None:
         """Query by domain and, for email targets, by email address.
 
         Requests are retried when the provider rate limits them.
@@ -59,7 +65,7 @@ class SearchHudsonRock:
         reports: list[SourceExecutionReport] = []
         for index, (search, target) in enumerate(searches):
             try:
-                if report := await search(target):
+                if report := await search(target, session):
                     reports.append(report)
                 if index < len(searches) - 1:
                     await asyncio.sleep(self.request_delay)
@@ -92,7 +98,7 @@ class SearchHudsonRock:
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return bool(re.match(pattern, email))
 
-    async def _search_domain(self, domain: str) -> SourceExecutionReport | None:
+    async def _search_domain(self, domain: str, session: ClientSession) -> SourceExecutionReport | None:
         """Search Hudson Rock by domain with retry logic.
 
         Args:
@@ -100,7 +106,7 @@ class SearchHudsonRock:
 
         """
         url = f'{self.base_url}/search-by-domain?domain={domain}'
-        response, report = await self._fetch_response(url, 'domain', domain)
+        response, report = await self._fetch_response(url, 'domain', domain, session)
         if report is not None:
             return report
         assert response is not None
@@ -108,7 +114,7 @@ class SearchHudsonRock:
             return SourceExecutionReport('partial' if self._has_results() else 'failed', 'invalid-response')
         return None
 
-    async def _search_email(self, email: str) -> SourceExecutionReport | None:
+    async def _search_email(self, email: str, session: ClientSession) -> SourceExecutionReport | None:
         """Search Hudson Rock by email with retry logic.
 
         Args:
@@ -116,7 +122,7 @@ class SearchHudsonRock:
 
         """
         url = f'{self.base_url}/search-by-email?email={email}'
-        response, report = await self._fetch_response(url, 'email', email)
+        response, report = await self._fetch_response(url, 'email', email, session)
         if report is not None:
             return report
         assert response is not None
@@ -124,11 +130,13 @@ class SearchHudsonRock:
             return SourceExecutionReport('partial' if self._has_results() else 'failed', 'invalid-response')
         return None
 
-    async def _fetch_response(self, url: str, search_type: str, target: str) -> tuple[dict | None, SourceExecutionReport | None]:
+    async def _fetch_response(
+        self, url: str, search_type: str, target: str, session: ClientSession
+    ) -> tuple[dict | None, SourceExecutionReport | None]:
         for attempt in range(self.max_retries):
             try:
                 self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
-                responses = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy, include_metadata=True)
+                responses = await AsyncFetcher.fetch_all([url], session=session, json=True, include_metadata=True)
                 response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
                 if response is None:
                     self.logger.warning(f'Invalid response format for {search_type} search: {target}')
@@ -461,7 +469,8 @@ class SearchHudsonRock:
         self.logger.info(f'Starting Hudson Rock processing for: {self.word}')
 
         try:
-            report = await self.do_search()
+            async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
+                report = await self.do_search(session)
             summary = self.get_summary()
             self.logger.info(
                 f'Hudson Rock processing completed successfully: '
@@ -469,6 +478,8 @@ class SearchHudsonRock:
                 f'{summary["total_emails"]} emails, {summary["total_stealers"]} stealers'
             )
             return report
-        except OSError, RuntimeError, ValueError:
+        except ResponseStreamError as error:
+            return SourceExecutionReport('failed', error.reason)
+        except ClientError, OSError:
             self.logger.error('Hudson Rock processing failed')
             return SourceExecutionReport('failed', 'transport-error')
