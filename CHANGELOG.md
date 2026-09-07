@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Preserved provider HTTP, transport, and malformed-response failures in saved source outcomes so incomplete collection remains uncertain in hostname comparisons; restored JSON response decoding for DeHashed and Leak-Lookup.
 - Made explicit proxy mode fail closed with a sanitized `proxy-unavailable` source outcome, and kept one proxy identity and session across the CriminalIP scan, poll, and report conversation.
 - Reused one connection pool, proxy identity, and cookie jar across Censys and GitHub Code pagination while keeping provider sessions isolated and cancellation-safe.
 - Sent a stable, versioned theHarvester identity with provider and API requests while preserving explicit browser identities for sources that require them.

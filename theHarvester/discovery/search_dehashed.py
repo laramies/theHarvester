@@ -4,7 +4,9 @@ from ipaddress import ip_address
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ class SearchDehashed:
             self.api,
             headers=self.headers,
             json_body=payload,
+            json=True,
             proxy=self.proxy,
             include_metadata=True,
         )
@@ -46,6 +49,7 @@ class SearchDehashed:
                     self.api,
                     headers=self.headers,
                     json_body=payload,
+                    json=True,
                     proxy=self.proxy,
                     include_metadata=True,
                 )
@@ -68,7 +72,7 @@ class SearchDehashed:
                 except ValueError:
                     continue
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
         page = 1
         remaining = self.limit
@@ -79,18 +83,20 @@ class SearchDehashed:
                 response = await self._fetch_page(payload)
                 if not isinstance(response, FetcherResponse):
                     logger.info('\t[!] Dehashed request failed')
-                    break
-                if not 200 <= response.status < 300:
+                    return SourceExecutionReport('failed', 'transport-error')
+                if failure := provider_http_error(response):
                     logger.info(f'\t[!] Dehashed request failed with HTTP {response.status}')
-                    break
+                    return SourceExecutionReport(*failure)
                 data = response.body
                 if not isinstance(data, dict) or not isinstance(entries := data.get('entries'), list):
                     logger.info('\t[!] Dehashed returned a malformed response')
-                    break
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if not entries:
                     break
                 retained_entries = entries[:remaining] if remaining is not None else entries
                 self._retain_evidence(retained_entries)
+                if any(not isinstance(entry, dict) for entry in retained_entries):
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if remaining is not None:
                     remaining -= len(retained_entries)
                 logger.info(f'\t[+] Page {page} - Retrieved {len(retained_entries)} entries.')
@@ -99,11 +105,11 @@ class SearchDehashed:
                 page += 1
             except OSError, RuntimeError, ValueError:
                 logger.info('\t[!] Dehashed request failed')
-                break
+                return SourceExecutionReport('failed', 'transport-error')
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()
 
     async def get_emails(self) -> set[str]:
         return self.emails
