@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 59 discovery sources</strong></summary>
+<summary><strong>View all 60 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -256,6 +256,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`hunter`](https://hunter.io/) | subdomains, emails | P0 | Required |
 | [`hunterhow`](https://hunter.how/) | subdomains only | P0 | Required |
 | [`intelx`](https://intelx.io/) | subdomains, emails, urls | P0 | Required |
+| [`jsmon`](https://subdomains.jsmon.sh/login) | subdomains only | P0 | Required |
 | [`leakix`](https://leakix.net/) | subdomains only | P0 | Required |
 | [`leaklookup`](https://leak-lookup.com/) | emails, breaches | P0 | Required |
 | [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
@@ -301,6 +302,12 @@ On first use, theHarvester creates default configuration files under `~/.theHarv
 - `routeviews.key` is optional and enables authenticated RouteViews access for PeeringDB-verified users.
 
 Never commit populated configuration files, API keys, account details, or provider responses.
+
+For JSMON, set `apikeys.jsmon.key` in `api-keys.yaml` or use `JSMON_KEY` (which takes precedence). To load that variable from a local `.env` file:
+
+```bash
+uv run --env-file .env theHarvester -d example.com -b jsmon -l 100
+```
 
 ## Output and local data
 

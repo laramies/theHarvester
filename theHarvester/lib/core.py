@@ -190,6 +190,7 @@ class Core:
         'hunter': ('key',),
         'hunterhow': ('key',),
         'intelx': ('key',),
+        'jsmon': ('key',),
         'leaklookup': ('key',),
         'leakix': ('key',),
         'mojeek': ('key',),
@@ -335,6 +336,10 @@ class Core:
     @staticmethod
     def hunterhow_key() -> str:
         return Core._api_key_value('hunterhow')
+
+    @staticmethod
+    def jsmon_key() -> str | None:
+        return os.environ.get('JSMON_KEY') or Core.api_keys().get('jsmon', {}).get('key')
 
     @staticmethod
     def intelx_key() -> str:
