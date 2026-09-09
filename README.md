@@ -303,10 +303,10 @@ On first use, theHarvester creates default configuration files under `~/.theHarv
 
 Never commit populated configuration files, API keys, account details, or provider responses.
 
-For JSMON, set `apikeys.jsmon.key` in `api-keys.yaml` or use `JSMON_KEY` (which takes precedence). To load that variable from a local `.env` file:
+For JSMON, set `apikeys.jsmon.key` in `api-keys.yaml`:
 
 ```bash
-uv run --env-file .env theHarvester -d example.com -b jsmon -l 100
+uv run theHarvester -d example.com -b jsmon -l 100
 ```
 
 Use `-l 0` to follow all pages reported by JSMON without a local result cap. HTTP 403 (plan quota) or 429 (rate limit) stops collection immediately without retrying; results from earlier pages are retained.

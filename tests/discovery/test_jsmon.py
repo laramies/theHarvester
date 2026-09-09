@@ -132,21 +132,21 @@ def test_invalid_limit(monkeypatch, limit):
         jsmon.SearchJsmon('example.com', limit)
 
 
-async def test_credentials_support_env_and_existing_yaml(monkeypatch):
+async def test_credentials_and_readiness_use_only_yaml(monkeypatch):
     from theHarvester.lib.api.runs import list_sources
 
-    monkeypatch.delenv('JSMON_KEY', raising=False)
+    monkeypatch.setenv('JSMON_KEY', 'ignored-env-key')
     monkeypatch.setattr(jsmon.Core, '_read_config', lambda _: 'apikeys: {}')
     assert jsmon.Core.jsmon_key() is None
+    catalog = await list_sources('test-key')
+    assert next(source for source in catalog.sources if source.name == 'jsmon').ready is False
     monkeypatch.setattr(jsmon.Core, '_read_config', lambda _: 'apikeys: {jsmon: {key: yaml-key}}')
     assert jsmon.Core.jsmon_key() == 'yaml-key'
-    monkeypatch.setenv('JSMON_KEY', 'env-key')
-    assert jsmon.Core.jsmon_key() == 'env-key'
-    monkeypatch.setattr(jsmon.Core, '_read_config', lambda _: 'apikeys: {}')
     catalog = await list_sources('test-key')
     source = next(source for source in catalog.sources if source.name == 'jsmon')
     assert source.ready is True
     assert 'env-key' not in catalog.model_dump_json()
+    assert 'yaml-key' not in catalog.model_dump_json()
 
 
 async def test_pages_share_cookies_and_session_closes(monkeypatch, unused_tcp_port):

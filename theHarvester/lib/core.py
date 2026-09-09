@@ -255,8 +255,6 @@ class Core:
     @staticmethod
     def api_keys() -> dict:
         keys = yaml.safe_load(Core._read_config('api-keys.yaml'))
-        if key := os.environ.get('JSMON_KEY'):
-            keys['apikeys'].setdefault('jsmon', {})['key'] = key
         return keys['apikeys']
 
     @staticmethod
