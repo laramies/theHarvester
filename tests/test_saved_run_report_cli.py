@@ -11,8 +11,10 @@ from theHarvester import saved_run_report
 from theHarvester.lib import database as database_module
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ExecutionStatus
+from theHarvester.lib.source_runner import SourceRequest, run_source
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -585,6 +587,56 @@ def test_hostname_changes_distinguish_no_longer_reported_from_uncertain_using_pe
             'status': 'partial',
             'stop_reason': 'previous-run-errors',
         }
+    ]
+
+
+def test_real_provider_rate_limit_stays_uncertain_in_saved_hostname_report(monkeypatch, tmp_path: Path, capsys):
+    responses = iter(
+        [
+            FetcherResponse([{'subdomain': 'api.example.test'}], 200, {}),
+            FetcherResponse({}, 429, {}),
+        ]
+    )
+
+    async def fetch_all(*args, **kwargs):
+        return [next(responses)]
+
+    monkeypatch.setattr(Core, 'leakix_key', lambda: 'test-key')
+    monkeypatch.setattr(AsyncFetcher, 'fetch_all', fetch_all)
+    database = tmp_path / 'runs.sqlite'
+
+    async def collect_and_save():
+        store = ResultStore(database)
+        try:
+            await store.initialize()
+            for index, run_id in enumerate((RUN_ONE, RUN_TWO)):
+                outcome = await run_source(SourceRequest('leakix', 'example.test', 10, 0, False, True))
+                instant = datetime(2026, 9, 7, 12, index, tzinfo=UTC)
+                await store.save_run(
+                    CompletedResult.finish(
+                        run_id=run_id,
+                        target='example.test',
+                        started_at=instant,
+                        completed_at=instant + timedelta(seconds=1),
+                        groups={'hostname': [observation.value for observation in outcome.observations]},
+                        observations=outcome.observations,
+                        source_executions=(outcome.execution,),
+                    )
+                )
+        finally:
+            await store.dispose()
+
+    asyncio.run(collect_and_save())
+    assert (
+        saved_run_report.main(['hostname-changes', '--database', str(database), '--run-id', str(RUN_TWO), '--format', 'json'])
+        == 0
+    )
+
+    (difference,) = json.loads(capsys.readouterr().out)['hostname_differences']
+    assert difference['hostname'] == 'api.example.test'
+    assert difference['change_type'] == 'uncertain'
+    assert difference['incomplete_source_outcomes'] == [
+        {'source': 'leakix', 'status': 'rate-limited', 'stop_reason': 'http-429', 'error_type': None},
     ]
 
 

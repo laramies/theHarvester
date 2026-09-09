@@ -1,15 +1,23 @@
+from __future__ import annotations
+
+import asyncio
 import json
 import logging
 import sys
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import hudsonrocksearch
-from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from theHarvester.lib.completed_result import CompletedResult
 
 
 @pytest.mark.asyncio
@@ -29,7 +37,7 @@ async def test_rate_limited_domain_search_recovers_without_trailing_delay(monkey
         nonlocal calls
         calls += 1
         assert urls == ['https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=example.com']
-        assert kwargs == {'json': True, 'proxy': False, 'include_metadata': True}
+        assert kwargs == {'json': True, 'session': ANY, 'include_metadata': True}
         return [responses.pop(0)]
 
     async def fake_sleep(delay: float) -> None:
@@ -39,11 +47,12 @@ async def test_rate_limited_domain_search_recovers_without_trailing_delay(monkey
     monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', fake_sleep)
     search = hudsonrocksearch.SearchHudsonRock('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'portal.example.com'}
     assert calls == 2
     assert sleeps == [0]
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -51,7 +60,7 @@ async def test_email_search_preserves_normalized_getters(monkeypatch: pytest.Mon
     sleeps: list[float] = []
 
     async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
-        assert kwargs == {'json': True, 'proxy': False, 'include_metadata': True}
+        assert kwargs == {'json': True, 'session': ANY, 'include_metadata': True}
         if urls[0].endswith('search-by-domain?domain=example.com'):
             return [FetcherResponse(body={'data': {'employees_urls': []}}, status=200, headers={})]
         assert urls[0].endswith('search-by-email?email=analyst@example.com')
@@ -78,13 +87,14 @@ async def test_email_search_preserves_normalized_getters(monkeypatch: pytest.Mon
     monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', fake_sleep)
     search = hudsonrocksearch.SearchHudsonRock('analyst@example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'portal.example.com'}
     assert await search.get_ips() == {'192.0.2.4'}
     assert await search.get_emails() == {'analyst@example.com'}
     assert len(await search.get_infostealers()) == 1
     assert sleeps == [1.0]
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -109,9 +119,10 @@ async def test_domain_search_ignores_malformed_url_items(monkeypatch: pytest.Mon
     monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = hudsonrocksearch.SearchHudsonRock('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'portal.example.com'}
+    assert report == SourceExecutionReport('partial', 'invalid-response')
 
 
 @pytest.mark.asyncio
@@ -137,10 +148,11 @@ async def test_email_search_ignores_malformed_stealer_items(monkeypatch: pytest.
     monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', no_sleep)
     search = hudsonrocksearch.SearchHudsonRock('analyst@example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_ips() == {'192.0.2.5'}
     assert len(await search.get_infostealers()) == 1
+    assert report == SourceExecutionReport('partial', 'invalid-response')
 
 
 @pytest.mark.asyncio
@@ -156,20 +168,78 @@ async def test_empty_email_search_does_not_invent_a_result(monkeypatch: pytest.M
     monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', no_sleep)
     search = hudsonrocksearch.SearchHudsonRock('analyst@example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
     assert await search.get_emails() == set()
     assert await search.get_infostealers() == []
+    assert report is None
+
+
+@pytest.mark.asyncio
+async def test_email_search_retains_domain_results_when_email_request_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = AsyncMock()
+    build_session = AsyncMock(return_value=session)
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, '_build_session', build_session)
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, '_resolve_proxy', lambda proxy: ('http://proxy.example:8080', 'http'))
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
+        assert _kwargs['session'] is session and 'proxy' not in _kwargs
+        if 'search-by-domain' in urls[0]:
+            return [FetcherResponse({'data': {'employees_urls': [{'url': 'https://portal.example.com/login'}]}}, 200, {})]
+        return [FetcherResponse({}, 503, {})]
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', no_sleep)
+    search = hudsonrocksearch.SearchHudsonRock('analyst@example.com')
+
+    report = await search.process(proxy=True)
+
+    assert await search.get_hostnames() == {'portal.example.com'}
+    assert report == SourceExecutionReport('partial', 'http-503')
+    build_session.assert_awaited_once_with(ANY, ANY, 'http://proxy.example:8080', 'http', ANY, None)
+    assert build_session.call_args.args[1].total == 60
+    session.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_search_transport_failure_and_cancellation_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def failed(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        raise OSError('provider-secret')
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, 'fetch_all', failed)
+    monkeypatch.setattr(hudsonrocksearch.asyncio, 'sleep', no_sleep)
+    assert await hudsonrocksearch.SearchHudsonRock('example.com').process() == SourceExecutionReport('failed', 'transport-error')
+
+    async def cancelled(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(hudsonrocksearch.AsyncFetcher, 'fetch_all', cancelled)
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await hudsonrocksearch.SearchHudsonRock('analyst@example.com').process()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('response', 'expected_log'),
+    ('response', 'expected_log', 'expected_report'),
     [
-        (FetcherResponse(body={'error': 'forbidden'}, status=403, headers={}), 'failed with HTTP 403'),
-        (FetcherResponse(body=['not-an-object'], status=200, headers={}), 'Invalid response format'),
+        (
+            FetcherResponse(body={'error': 'forbidden'}, status=403, headers={}),
+            'failed with HTTP 403',
+            SourceExecutionReport('failed', 'access-denied'),
+        ),
+        (
+            FetcherResponse(body=['not-an-object'], status=200, headers={}),
+            'Invalid response format',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
     ],
 )
 async def test_terminal_domain_responses_are_attributed_without_retry(
@@ -177,6 +247,7 @@ async def test_terminal_domain_responses_are_attributed_without_retry(
     caplog: pytest.LogCaptureFixture,
     response: FetcherResponse,
     expected_log: str,
+    expected_report: SourceExecutionReport,
 ) -> None:
     calls = 0
 
@@ -189,11 +260,12 @@ async def test_terminal_domain_responses_are_attributed_without_retry(
     search = hudsonrocksearch.SearchHudsonRock('example.com')
 
     with caplog.at_level(logging.INFO, logger=hudsonrocksearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert calls == 1
     assert expected_log in caplog.text
+    assert report == expected_report
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,9 @@
 import logging
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ class SearchHibpVerified:
         self.emails: set[str] = set()
         self.breach_names: set[str] = set()
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         try:
             responses = await AsyncFetcher.fetch_all(
                 [f'{self.base_url}/breachedDomain/{self.word}'],
@@ -28,40 +30,47 @@ class SearchHibpVerified:
             )
         except OSError, RuntimeError, ValueError:
             logger.info('HIBP verified-domain request failed')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
 
         response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
         if response is None:
             logger.info('HIBP verified-domain request failed')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if response.status == 403:
             logger.info('HIBP verified-domain target is not verified for this API key (HTTP 403)')
-            return
+            return SourceExecutionReport('failed', 'access-denied')
         if response.status == 404:
-            return
-        if response.status == 429:
-            logger.info('HIBP verified-domain request was rate limited (HTTP 429)')
-            return
+            return None
+        if failure := provider_http_error(response):
+            if response.status == 429:
+                logger.info('HIBP verified-domain request was rate limited (HTTP 429)')
+            else:
+                logger.info(f'HIBP verified-domain request failed with HTTP {response.status}')
+            return SourceExecutionReport(*failure)
         if response.status != 200:
             logger.info(f'HIBP verified-domain request failed with HTTP {response.status}')
-            return
+            return SourceExecutionReport('failed', f'http-{response.status}')
         if not isinstance(response.body, dict):
             logger.info('HIBP verified-domain returned malformed account data')
-            return
-        if not all(
-            isinstance(alias, str)
-            and alias.strip()
-            and '@' not in alias
-            and not any(character.isspace() for character in alias)
-            and isinstance(breaches, list)
-            and all(isinstance(breach, str) and breach.strip() for breach in breaches)
-            for alias, breaches in response.body.items()
-        ):
-            logger.info('HIBP verified-domain returned malformed account data')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
+        malformed = False
         for alias, breaches in response.body.items():
+            if not (
+                isinstance(alias, str)
+                and alias.strip()
+                and '@' not in alias
+                and not any(character.isspace() for character in alias)
+                and isinstance(breaches, list)
+                and all(isinstance(breach, str) and breach.strip() for breach in breaches)
+            ):
+                malformed = True
+                continue
             self.emails.add(f'{alias.strip()}@{self.word}')
             self.breach_names.update(breach.strip() for breach in breaches)
+        if malformed:
+            logger.info('HIBP verified-domain returned malformed account data')
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_emails(self) -> set[str]:
         return self.emails
