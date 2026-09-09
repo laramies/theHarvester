@@ -48,6 +48,7 @@ SOURCE_PROVIDER_LINKS = {
     'hunter': 'https://hunter.io/',
     'hunterhow': 'https://hunter.how/',
     'intelx': 'https://intelx.io/',
+    'jsmon': 'https://subdomains.jsmon.sh/login',
     'leakix': 'https://leakix.net/',
     'leaklookup': 'https://leak-lookup.com/',
     'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
@@ -104,7 +105,7 @@ def _declared_source_contracts() -> dict[str, set[str]]:
 
 
 def _source_matrix(readme: str) -> str:
-    return readme.split('<summary><strong>View all 59 discovery sources</strong></summary>', 1)[1].split('</details>', 1)[0]
+    return readme.split(f'<summary><strong>View all {len(SOURCE_SPECS)} discovery sources</strong></summary>', 1)[1].split('</details>', 1)[0]
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
@@ -153,8 +154,8 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 59
-    assert len(documented) == 59
+    assert len(declared) == 60
+    assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)
     assert len(source_links) == len(declared)
