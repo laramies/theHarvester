@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added JSMON passive subdomain discovery with YAML or `JSMON_KEY` credentials, automatic pagination, unlimited-result mode, and retained partial results when quota or rate limits stop collection.
 - Added target-scoped saved-run reporting through `harvest-report contributions` and `harvest-report targets`, with safe one-target defaults and explicit all-target aggregation.
 - Added read-only hostname comparisons through `harvest-report hostname-changes`, the REST API, and HarvestView. Comparisons require the same target and source list, retain incomplete source outcomes, and interpret saved DNS evidence without claiming current network state.
 - Added authenticated REST and HarvestView export of every completed run as a portable SQLite database without queue, cancellation, worker-lease, or legacy-observation state.

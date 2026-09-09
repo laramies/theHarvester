@@ -255,6 +255,8 @@ class Core:
     @staticmethod
     def api_keys() -> dict:
         keys = yaml.safe_load(Core._read_config('api-keys.yaml'))
+        if key := os.environ.get('JSMON_KEY'):
+            keys['apikeys'].setdefault('jsmon', {})['key'] = key
         return keys['apikeys']
 
     @staticmethod
@@ -339,7 +341,7 @@ class Core:
 
     @staticmethod
     def jsmon_key() -> str | None:
-        return os.environ.get('JSMON_KEY') or Core.api_keys().get('jsmon', {}).get('key')
+        return Core.api_keys().get('jsmon', {}).get('key')
 
     @staticmethod
     def intelx_key() -> str:
