@@ -326,18 +326,22 @@ class TestSecurityBestPractices:
                     ]
                     assert not real_matches, f'Potential hardcoded secret in {file_path}: {real_matches}'
 
-    def test_sensitive_endpoints_require_validation(self, monkeypatch):
+    def test_sensitive_endpoints_require_validation(self, monkeypatch, tmp_path):
         """Reject invalid requests to authenticated endpoints."""
         from fastapi.testclient import TestClient
 
         from theHarvester.lib.api.api import app
 
         monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
-        client = TestClient(app)
+        monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+        monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+        monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+        monkeypatch.setenv('THEHARVESTER_SCHEDULER', 'disabled')
         headers = {'X-API-Key': 'test-secret'}
 
-        missing_target = client.post('/api/v1/runs', headers=headers, json={'sources': ['crtsh']})
-        empty_sources = client.post('/api/v1/runs', headers=headers, json={'target': 'example.test', 'sources': []})
+        with TestClient(app) as client:
+            missing_target = client.post('/api/v1/runs', headers=headers, json={'sources': ['crtsh']})
+            empty_sources = client.post('/api/v1/runs', headers=headers, json={'target': 'example.test', 'sources': []})
 
         assert missing_target.status_code == 422
         assert empty_sources.status_code == 422

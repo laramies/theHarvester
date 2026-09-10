@@ -1,6 +1,7 @@
 import argparse
 
 import uvicorn
+from uvicorn.config import LOG_LEVELS
 
 
 def main():
@@ -22,6 +23,8 @@ def main():
         '-l',
         '--log-level',
         default='info',
+        type=str.lower,
+        choices=tuple(LOG_LEVELS),
         help='Set logging level, default is info but [critical|error|warning|info|debug|trace] can be set',
     )
     parser.add_argument(

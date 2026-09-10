@@ -220,22 +220,22 @@ class SourceExecution:
 
 
 @dataclass(frozen=True, slots=True)
-class SourceYield:
+class SourceContribution:
     source: str
-    observed_result_count: int
-    unique_result_count: int
-    shared_result_count: int
-    resolved_hostname_count: int
-    unique_resolved_hostname_count: int
+    reported_count: int
+    unique_to_source_count: int
+    shared_with_other_sources_count: int
+    hostnames_with_dns_answers_count: int
+    unique_to_source_with_dns_answers_count: int
 
     def to_dict(self) -> dict[str, str | int]:
         return {
             'source': self.source,
-            'observed_result_count': self.observed_result_count,
-            'unique_result_count': self.unique_result_count,
-            'shared_result_count': self.shared_result_count,
-            'resolved_hostname_count': self.resolved_hostname_count,
-            'unique_resolved_hostname_count': self.unique_resolved_hostname_count,
+            'reported_count': self.reported_count,
+            'unique_to_source_count': self.unique_to_source_count,
+            'shared_with_other_sources_count': self.shared_with_other_sources_count,
+            'hostnames_with_dns_answers_count': self.hostnames_with_dns_answers_count,
+            'unique_to_source_with_dns_answers_count': self.unique_to_source_with_dns_answers_count,
         }
 
 

@@ -1,7 +1,9 @@
 import logging
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -22,38 +24,41 @@ class SearchLeakLookup:
         self.leak_dates: set[str] = set()
         self.breach_names: set[str] = set()
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         response = await AsyncFetcher.post_fetch(
             self.url,
             headers={'User-Agent': Core.get_user_agent()},
             data={'key': self.api_key, 'type': 'domain', 'query': self.word},
+            json=True,
             proxy=proxy,
             include_metadata=True,
         )
         if not isinstance(response, FetcherResponse):
             logger.info('Leak-Lookup request failed without a response')
-            return
-        if not 200 <= response.status < 300:
+            return SourceExecutionReport('failed', 'transport-error')
+        if failure := provider_http_error(response):
             logger.info(f'Leak-Lookup request failed with HTTP {response.status}')
-            return
+            return SourceExecutionReport(*failure)
         if not isinstance(response.body, dict):
             logger.info('Leak-Lookup returned malformed data')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
         if response.body.get('error') in (True, 'true', 1, '1'):
             logger.info('Leak-Lookup request failed')
-            return
+            return SourceExecutionReport('failed', 'provider-error')
 
-        self._extract_data(response.body.get('message'))
+        return self._extract_data(response.body.get('message'))
 
-    def _extract_data(self, message: object) -> None:
+    def _extract_data(self, message: object) -> SourceExecutionReport | None:
         if not isinstance(message, dict):
             logger.info('Leak-Lookup returned malformed data')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         normalized_leaks: set[tuple[str, str | None]] = set()
         email_fields = ('email', 'email_address', 'emailaddress', 'email2', 'email_address2', 'emailaddress2')
+        malformed = False
         for breach, records in message.items():
-            if not isinstance(breach, str) or not breach.strip():
+            if not isinstance(breach, str) or not breach.strip() or not isinstance(records, (list, dict)):
+                malformed = True
                 continue
             breach_name = breach.strip()
             self.breach_names.add(breach_name)
@@ -62,6 +67,7 @@ class SearchLeakLookup:
             if isinstance(records, list):
                 for record in records:
                     if not isinstance(record, dict):
+                        malformed = True
                         continue
                     breach_emails.update(
                         value.strip() for field in email_fields if isinstance((value := record.get(field)), str) and value.strip()
@@ -75,6 +81,7 @@ class SearchLeakLookup:
             {'breach': breach, **({'email': email} if email else {})}
             for breach, email in sorted(normalized_leaks, key=lambda item: (item[0], item[1] or ''))
         ]
+        return SourceExecutionReport('failed', 'invalid-response') if malformed else None
 
     async def get_hostnames(self) -> set[str]:
         return self.hosts

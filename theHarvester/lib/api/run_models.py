@@ -7,21 +7,29 @@ from typing import Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from theHarvester.lib.completed_result import parse_virtual_host_details
+from theHarvester.lib.dns_consensus import Addressability  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
     DEFAULT_SOURCE_WORKERS,
 )
-from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
+from theHarvester.lib.evidence_types import (  # noqa: TC001 - Pydantic resolves these annotations at runtime
+    EvidenceStatus,
+    ExecutionStatus,
+)
+from theHarvester.lib.hostname_comparison import (  # noqa: TC001 - Pydantic resolves these annotations at runtime
+    HostnameDifferenceType,
+    ResolutionEvidence,
+)
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
     ActivityClass,
     hostname_collection_conflicts,
     selected_action_names,
 )
+from theHarvester.lib.target_identity import normalize_enumeration_target
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -36,33 +44,6 @@ from theHarvester.lib.virtual_host import (
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _normalize_target(value: str) -> str:
-    target = value.strip().rstrip('.')
-    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
-        return normalize_asn(target)
-    target = target.lower()
-    if not target or len(target) > 253 or any(character in target for character in '/?#@'):
-        raise ValueError('Target must be a hostname or IP address')
-    try:
-        return str(ipaddress.ip_address(target))
-    except ValueError:
-        try:
-            target = target.encode('idna').decode('ascii')
-        except UnicodeError as error:
-            raise ValueError('Target must be a valid hostname') from error
-        labels = target.split('.')
-        if any(
-            not label
-            or len(label) > 63
-            or label.startswith('-')
-            or label.endswith('-')
-            or not all(character.isalnum() or character == '-' for character in label)
-            for label in labels
-        ):
-            raise ValueError('Target must be a valid hostname')
-        return target
 
 
 class RunRequest(BaseModel):
@@ -229,7 +210,7 @@ class RunRequest(BaseModel):
     @field_validator('target')
     @classmethod
     def normalize_target(cls, value: str) -> str:
-        return _normalize_target(value)
+        return normalize_enumeration_target(value)
 
     @field_validator('sources')
     @classmethod
@@ -600,13 +581,61 @@ class ScreenshotRecord(BaseModel):
     url: str
 
 
-class SourceYieldSummary(BaseModel):
+class SourceContributionSummary(BaseModel):
     source: str
-    observed_result_count: int = Field(ge=0)
-    unique_result_count: int = Field(ge=0)
-    shared_result_count: int = Field(ge=0)
-    resolved_hostname_count: int = Field(ge=0)
-    unique_resolved_hostname_count: int = Field(ge=0)
+    reported_count: int = Field(ge=0)
+    unique_to_source_count: int = Field(ge=0)
+    shared_with_other_sources_count: int = Field(ge=0)
+    hostnames_with_dns_answers_count: int = Field(ge=0)
+    unique_to_source_with_dns_answers_count: int = Field(ge=0)
+
+
+class HostnameComparisonCounts(BaseModel):
+    newly_reported: int = Field(ge=0)
+    still_reported: int = Field(ge=0)
+    no_longer_reported: int = Field(ge=0)
+    uncertain: int = Field(ge=0)
+
+
+class HostnameRunComparison(BaseModel):
+    run_id: str
+    completed_at: str
+    previous_comparable_run_id: str | None
+    previous_comparable_run_completed_at: str | None
+    compared_sources: list[str]
+    counts: HostnameComparisonCounts
+    message: str | None = None
+
+
+class IncompleteSourceOutcome(BaseModel):
+    source: str
+    status: ExecutionStatus
+    error_type: str | None
+    stop_reason: str | None
+
+
+class HostnameDifference(BaseModel):
+    run_id: str
+    previous_comparable_run_id: str
+    change_type: HostnameDifferenceType
+    hostname: str
+    sources_in_previous_run: list[str]
+    sources_in_current_run: list[str]
+    reported_by_one_source: bool
+    incomplete_source_outcomes: list[IncompleteSourceOutcome]
+    previous_resolution_evidence: ResolutionEvidence
+    current_resolution_evidence: ResolutionEvidence
+    previous_dns_action_status: ExecutionStatus | None
+    current_dns_action_status: ExecutionStatus | None
+    previous_addressability: Addressability | None
+    current_addressability: Addressability | None
+
+
+class HostnameComparisonSummary(BaseModel):
+    target: str
+    comparison_count: int = Field(ge=0)
+    comparisons: list[HostnameRunComparison]
+    hostname_differences: list[HostnameDifference]
 
 
 RunStatus = Literal['queued', 'running', 'cancelling', 'cancelled', 'completed', 'failed']
@@ -640,7 +669,8 @@ class RunDetail(RunSummary):
     request: RunRequest | ImportedRunRequest
     results: list[RunResult]
     source_executions: list[dict[str, Any]]
-    source_yields: list[SourceYieldSummary]
+    source_contributions: list[SourceContributionSummary]
+    hostname_comparison: HostnameComparisonSummary
     action_executions: list[dict[str, Any]]
     artifacts: list[dict[str, Any]]
     screenshots: list[ScreenshotRecord]

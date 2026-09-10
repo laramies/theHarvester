@@ -63,6 +63,7 @@ def test_release_validation_is_manual_and_composes_existing_checks() -> None:
         './.github/workflows/theHarvester.yml',
     }
     assert 'package-smoke' in workflow['jobs']
+    assert workflow['jobs']['package-smoke']['needs'] == 'python-ci'
 
 
 def test_release_live_checks_are_opt_in_p0_and_fixed_to_mozilla() -> None:

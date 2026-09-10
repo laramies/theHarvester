@@ -14,6 +14,8 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.runtime_helpers import runtime_with_process_factory, static_runtime
+
 
 class _FakeScreenshotBatch:
     async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
@@ -117,17 +119,12 @@ def test_api_lifespan_disposes_shared_sqlite_engines(tmp_path, monkeypatch) -> N
 
     disposed = False
 
-    async def no_op() -> None:
-        return None
-
     async def dispose() -> None:
         nonlocal disposed
         disposed = True
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
     monkeypatch.setattr(api, 'dispose_sqlite_databases', dispose)
 
     with TestClient(api.app):
@@ -141,17 +138,12 @@ def test_api_lifespan_disposes_schedule_sqlite_engines(tmp_path, monkeypatch) ->
 
     disposed = False
 
-    async def no_op() -> None:
-        return None
-
     async def dispose() -> None:
         nonlocal disposed
         disposed = True
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
     monkeypatch.setattr(api, 'dispose_schedule_databases', dispose)
 
     with TestClient(api.app):
@@ -793,19 +785,13 @@ def test_worker_lease_serializes_execution_owners(tmp_path) -> None:
 
 
 def test_submission_fails_closed_when_worker_supervisor_stops(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
-
-    async def no_op() -> None:
-        return None
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
-    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
-    monkeypatch.setattr(run_worker, '_worker_task', type('StoppedTask', (), {'done': lambda self: True})())
+    application = api.create_app(runtime_factory=lambda: static_runtime(enabled=True, available=False))
 
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
@@ -819,19 +805,13 @@ def test_submission_fails_closed_when_worker_supervisor_stops(tmp_path, monkeypa
 
 
 def test_authenticated_operator_can_queue_direct_activity_for_selected_target(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
-
-    async def no_op() -> None:
-        return None
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
-    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
-    monkeypatch.setattr(run_worker, '_worker_task', type('RunningTask', (), {'done': lambda self: False})())
+    application = api.create_app(runtime_factory=static_runtime)
 
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
@@ -844,19 +824,13 @@ def test_authenticated_operator_can_queue_direct_activity_for_selected_target(tm
 
 
 def test_authenticated_operator_can_queue_screenshot_only_run(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
-
-    async def no_op() -> None:
-        return None
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
-    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
-    monkeypatch.setattr(run_worker, '_worker_task', type('RunningTask', (), {'done': lambda self: False})())
+    application = api.create_app(runtime_factory=static_runtime)
 
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
@@ -870,19 +844,13 @@ def test_authenticated_operator_can_queue_screenshot_only_run(tmp_path, monkeypa
 
 
 def test_authenticated_operator_can_queue_routeviews_only_ip_run(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
-
-    async def no_op() -> None:
-        return None
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
-    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
-    monkeypatch.setattr(run_worker, '_worker_task', type('RunningTask', (), {'done': lambda self: False})())
+    application = api.create_app(runtime_factory=static_runtime)
 
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
@@ -895,19 +863,13 @@ def test_authenticated_operator_can_queue_routeviews_only_ip_run(tmp_path, monke
 
 
 def test_dns_brute_run_accepts_operator_resolver_list(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
-
-    async def no_op() -> None:
-        return None
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
-    monkeypatch.setattr(api, 'start_worker', no_op)
-    monkeypatch.setattr(api, 'stop_worker', no_op)
-    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
-    monkeypatch.setattr(run_worker, '_worker_task', type('RunningTask', (), {'done': lambda self: False})())
+    application = api.create_app(runtime_factory=static_runtime)
 
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
@@ -1227,7 +1189,7 @@ def test_api_scan_child_uses_operator_endpoint_paths(tmp_path, monkeypatch) -> N
 
 
 def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import api, run_worker
+    from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -1254,9 +1216,9 @@ def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_
             stderr=asyncio.subprocess.PIPE,
         )
 
-    monkeypatch.setattr(run_worker, '_process_factory', slow_process)
+    application = api.create_app(runtime_factory=lambda: runtime_with_process_factory(slow_process))
     headers = {'X-API-Key': 'test-key'}
-    with TestClient(api.app) as client:
+    with TestClient(application) as client:
         submitted = client.post(
             '/api/v1/runs',
             headers=headers,
@@ -1289,7 +1251,6 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
-    monkeypatch.setattr(run_worker, '_worker_stop', None)
 
     async def slow_process(_run_id, _database, artifact_dir):
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -1311,7 +1272,7 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
             stderr=asyncio.subprocess.PIPE,
         )
 
-    monkeypatch.setattr(run_worker, '_process_factory', slow_process)
+    worker = run_worker.RunWorker(process_factory=slow_process)
 
     async def scenario():
         store = RunStore()
@@ -1319,7 +1280,7 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
         run = await store.claim_next()
         assert run is not None
         run['request']['deadline_seconds'] = 0
-        await run_worker._execute_claimed(store, run)
+        await worker.execute_claimed(store, run)
         return await store.get(run['run_id'])
 
     detail = asyncio.run(scenario())
@@ -1331,13 +1292,57 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
     assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test', 'sources': [], 'actions': []}]
 
 
+def test_cancelling_execute_claimed_terminates_the_child_process(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def scenario() -> None:
+        processes: list[asyncio.subprocess.Process] = []
+        process_started = asyncio.Event()
+
+        async def slow_process(_run_id, _database, _artifact_dir):
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                '-c',
+                'import time; time.sleep(60)',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            processes.append(process)
+            process_started.set()
+            return process
+
+        worker = run_worker.RunWorker(process_factory=slow_process)
+        store = RunStore(tmp_path / 'runs.sqlite')
+        await store.create(RunRequest(target='example.test', sources=['crtsh']))
+        run = await store.claim_next()
+        assert run is not None
+
+        execution = asyncio.create_task(worker.execute_claimed(store, run))
+        await asyncio.wait_for(process_started.wait(), timeout=2)
+        try:
+            execution.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await execution
+            assert processes[0].returncode is not None
+        finally:
+            for process in processes:
+                if process.returncode is None:
+                    process.kill()
+                    await process.wait()
+
+    asyncio.run(scenario())
+
+
 def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
-    monkeypatch.setattr(run_worker, '_worker_stop', None)
 
     async def mismatched_process(_run_id, _database, artifact_dir):
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -1359,7 +1364,7 @@ def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tm
             stderr=asyncio.subprocess.PIPE,
         )
 
-    monkeypatch.setattr(run_worker, '_process_factory', mismatched_process)
+    worker = run_worker.RunWorker(process_factory=mismatched_process)
 
     async def scenario():
         store = RunStore(tmp_path / 'runs.sqlite')
@@ -1367,7 +1372,7 @@ def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tm
         run = await store.claim_next()
         assert run is not None
         assert run['request']['deadline_seconds'] is None
-        await run_worker._execute_claimed(store, run)
+        await worker.execute_claimed(store, run)
         return await store.get(run['run_id'])
 
     detail = asyncio.run(scenario())

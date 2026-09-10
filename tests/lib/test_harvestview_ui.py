@@ -61,6 +61,41 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert "request.limit === 0 ? 'Unlimited'" in response.text
 
 
+def test_harvestview_explains_and_filters_hostname_comparison(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        root = client.get('/')
+        script = client.get('/static/harvestview/app.js')
+
+    assert root.status_code == 200
+    assert 'id="hostname-comparison-section"' in root.text
+    assert 'id="comparison-change-filter"' in root.text
+    assert 'id="comparison-source-filter"' in root.text
+    assert 'id="comparison-resolution-filter"' in root.text
+    assert 'id="comparison-single-source-filter"' in root.text
+    assert 'id="comparison-still-reported-filter"' in root.text
+    assert 'Source contributions' in root.text
+    assert 'Hostname comparison' in root.text
+    assert 'Newly reported' in root.text
+    assert 'Still reported' in root.text
+    assert 'No longer reported' in root.text
+    assert 'Uncertain' in root.text
+    assert 'Compared sources' in root.text
+    assert 'Previous comparable run' in root.text
+    assert 'Reported by one source' in root.text
+    assert 'Incomplete source outcomes' in root.text
+    assert 'Uncertain means a source that reported the hostname did not complete successfully' in root.text
+    assert 'This view reads finalized evidence only and performs no discovery or DNS.' in root.text
+    assert script.status_code == 200
+    assert 'function renderHostnameComparison' in script.text
+    assert 'incomplete_source_outcomes' in script.text
+
+
 def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 

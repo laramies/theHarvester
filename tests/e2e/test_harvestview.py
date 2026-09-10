@@ -11,6 +11,113 @@ from playwright.sync_api import Page, Route, expect
 pytestmark = pytest.mark.harvestview_e2e
 
 
+@pytest.mark.parametrize(
+    ('route_pattern', 'response_path', 'status_code', 'detail', 'console_error'),
+    [
+        (
+            '**/api/v1/runs*',
+            '/api/v1/runs',
+            401,
+            'THEHARVESTER_API_KEY is not configured',
+            'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+        ),
+        (
+            '**/api/v1/sources',
+            '/api/v1/sources',
+            503,
+            'Source catalog unavailable',
+            'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        ),
+        (
+            '**/api/v1/schedules/health',
+            '/api/v1/schedules/health',
+            503,
+            'Scheduler unavailable',
+            'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        ),
+    ],
+)
+def test_schedule_page_fails_closed_when_prerequisites_are_unavailable(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+    route_pattern: str,
+    response_path: str,
+    status_code: int,
+    detail: str,
+    console_error: str,
+) -> None:
+    browser_failures.allow_response('GET', status_code, response_path)
+    browser_failures.allow_console_error(console_error)
+    page.route(route_pattern, lambda route: route.fulfill(status=status_code, json={'detail': detail}))
+
+    page.goto(f'{harvestview_server_url}/schedules')
+
+    expect(page.locator('#runtime-health')).to_have_text('Schedules unavailable')
+    expect(page.locator('#source-readiness')).to_have_text('Schedule prerequisites unavailable.')
+    expect(page.locator('#schedule-loading')).to_contain_text('Schedule prerequisites are unavailable.')
+    expect(page.locator('#create-schedule-button')).to_be_disabled()
+    expect(page.locator('#refresh-button')).to_be_enabled()
+    assert 'THEHARVESTER_API_KEY' not in page.locator('body').inner_text()
+
+
+def test_schedule_page_recovers_without_losing_entered_values_or_submitting_while_unavailable(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    page.goto(f'{harvestview_server_url}/schedules')
+    page.locator('#schedule-name').fill('Existing schedule')
+    page.locator('#schedule-targets').fill('example.org')
+    page.locator('.source-option').filter(has_text='crtsh').locator('input').check()
+    page.locator('#create-schedule-button').click()
+    card = page.locator('.schedule-card').filter(has_text='Existing schedule')
+    expect(card).to_be_visible()
+
+    page.locator('#schedule-name').fill('Preserved schedule')
+    page.locator('#schedule-targets').fill('example.test')
+    crtsh = page.locator('.source-option').filter(has_text='crtsh').locator('input')
+    crtsh.check()
+
+    mutation_requests: list[str] = []
+
+    def guard_mutations(route: Route) -> None:
+        if route.request.method != 'GET':
+            mutation_requests.append(f'{route.request.method} {route.request.url}')
+            route.fulfill(status=409, json={'detail': 'Mutation blocked by test'})
+            return
+        route.fallback()
+
+    def fail_catalog(route: Route) -> None:
+        route.fulfill(status=503, json={'detail': 'Source catalog unavailable'})
+
+    page.route('**/api/v1/**', guard_mutations)
+    page.route('**/api/v1/sources', fail_catalog)
+    browser_failures.allow_response('GET', 503, '/api/v1/sources')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+
+    page.locator('#refresh-button').click()
+    expect(page.locator('#create-schedule-button')).to_be_disabled()
+    for action in ('Edit', 'History', 'Run now', 'Pause', 'Delete'):
+        expect(card.get_by_role('button', name=action)).to_be_disabled()
+    page.evaluate(
+        "document.querySelector('#schedule-form').dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true}))"
+    )
+    page.wait_for_timeout(100)
+    assert mutation_requests == []
+
+    page.unroute('**/api/v1/sources', fail_catalog)
+    page.locator('#refresh-button').click()
+
+    expect(page.locator('#runtime-health')).to_have_text('Preview mode · execution disabled')
+    expect(page.locator('#create-schedule-button')).to_be_enabled()
+    expect(page.locator('#schedule-name')).to_have_value('Preserved schedule')
+    expect(page.locator('#schedule-targets')).to_have_value('example.test')
+    expect(page.locator('.source-option').filter(has_text='crtsh').locator('input')).to_be_checked()
+
+
 def test_schedule_page_creates_and_manages_two_target_passive_schedule(
     harvestview_server_url: str,
     page: Page,
@@ -426,6 +533,143 @@ def test_imported_run_separates_original_execution_from_local_import(
     expect(facts).not_to_contain_text('Submitted')
     expect(page.locator('#lifecycle-track strong')).to_have_text(['Original started', 'Original completed', 'Imported'])
     expect(page.locator('#lifecycle-note')).to_contain_text('original execution timing')
+
+
+def test_hostname_comparison_filters_persisted_run_differences(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    changes = [
+        {
+            'change_type': 'newly_reported',
+            'hostname': 'newly-reported.example.test',
+            'sources_in_previous_run': [],
+            'sources_in_current_run': ['beta'],
+            'reported_by_one_source': True,
+            'previous_resolution_evidence': 'not-checked',
+            'current_resolution_evidence': 'positive',
+            'previous_addressability': None,
+            'current_addressability': 'currently-addressable',
+            'incomplete_source_outcomes': [],
+        },
+        {
+            'change_type': 'no_longer_reported',
+            'hostname': 'no-longer-reported.example.test',
+            'sources_in_previous_run': ['alpha', 'beta'],
+            'sources_in_current_run': [],
+            'reported_by_one_source': False,
+            'previous_resolution_evidence': 'positive',
+            'current_resolution_evidence': 'not-checked',
+            'previous_addressability': 'currently-addressable',
+            'current_addressability': None,
+            'incomplete_source_outcomes': [],
+        },
+        {
+            'change_type': 'uncertain',
+            'hostname': 'uncertain.example.test',
+            'sources_in_previous_run': [],
+            'sources_in_current_run': ['beta'],
+            'reported_by_one_source': True,
+            'previous_resolution_evidence': 'not-checked',
+            'current_resolution_evidence': 'not-retained',
+            'previous_addressability': None,
+            'current_addressability': None,
+            'incomplete_source_outcomes': [
+                {'source': 'beta', 'status': 'partial', 'error_type': 'TimeoutError', 'stop_reason': 'timeout'}
+            ],
+        },
+        {
+            'change_type': 'still_reported',
+            'hostname': 'stable.example.test',
+            'sources_in_previous_run': ['alpha'],
+            'sources_in_current_run': ['alpha'],
+            'reported_by_one_source': True,
+            'previous_resolution_evidence': 'positive',
+            'current_resolution_evidence': 'positive',
+            'previous_addressability': 'currently-addressable',
+            'current_addressability': 'currently-addressable',
+            'incomplete_source_outcomes': [],
+        },
+    ]
+    run = {
+        'run_id': 'comparison-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-20T12:00:00+00:00',
+        'started_at': '2026-08-20T12:00:00+00:00',
+        'completed_at': '2026-08-20T12:01:00+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 0,
+        'activities': ['P0'],
+        'sources': ['alpha', 'beta'],
+        'request': {'target': 'example.test', 'sources': ['alpha', 'beta']},
+        'source_executions': [],
+        'action_executions': [],
+        'results': [],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+        'hostname_comparison': {
+            'target': 'example.test',
+            'comparison_count': 1,
+            'comparisons': [
+                {
+                    'run_id': 'comparison-run',
+                    'completed_at': '2026-08-20T12:01:00+00:00',
+                    'previous_comparable_run_id': 'previous-run',
+                    'previous_comparable_run_completed_at': '2026-08-19T12:01:00+00:00',
+                    'compared_sources': ['alpha', 'beta'],
+                    'counts': {
+                        'newly_reported': 1,
+                        'still_reported': 1,
+                        'no_longer_reported': 1,
+                        'uncertain': 1,
+                    },
+                }
+            ],
+            'hostname_differences': changes,
+        },
+    }
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/comparison-run', lambda route: route.fulfill(json=run))
+
+    page.goto(f'{harvestview_server_url}/')
+
+    panel = page.locator('#hostname-comparison-section')
+    rows = page.locator('#hostname-comparison-body tr')
+    expect(panel).to_be_visible()
+    expect(panel).to_contain_text('Uncertain means', ignore_case=True)
+    expect(rows).to_have_count(3)
+    expect(panel).to_contain_text('TimeoutError')
+    expect(panel).not_to_contain_text('stable.example.test')
+
+    page.locator('#comparison-change-filter').select_option('still_reported')
+    expect(page.locator('#comparison-still-reported-filter')).to_be_checked()
+    expect(rows).to_have_count(1)
+    expect(panel).to_contain_text('stable.example.test')
+    page.locator('#comparison-still-reported-filter').uncheck()
+    expect(page.locator('#comparison-change-filter')).to_have_value('')
+    expect(rows).to_have_count(3)
+
+    page.locator('#comparison-single-source-filter').check()
+    expect(rows).to_have_count(2)
+    expect(panel).not_to_contain_text('no-longer-reported.example.test')
+
+    page.locator('#comparison-single-source-filter').uncheck()
+    page.locator('#comparison-still-reported-filter').check()
+    expect(rows).to_have_count(4)
+    expect(panel).to_contain_text('stable.example.test')
+
+    page.locator('#comparison-source-filter').select_option('alpha')
+    expect(rows).to_have_count(2)
+    expect(panel).not_to_contain_text('newly-reported.example.test')
+
+    page.locator('#comparison-source-filter').select_option('')
+    page.locator('#comparison-resolution-filter').select_option('not-retained')
+    expect(rows).to_have_count(1)
+    expect(panel).to_contain_text('uncertain.example.test')
 
 
 def test_disabled_worker_rejects_submission_without_creating_a_run(

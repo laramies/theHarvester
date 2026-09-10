@@ -6,6 +6,7 @@
 - [Configuration and API Keys](Configuration-and-API-Keys)
 - [Responsible Use and Scope](Responsible-Use-and-Scope)
 - [Quick Start](Quick-Start)
+- [Moving from 4.11 to 5.0](Moving-from-4.11-to-5.0)
 
 **Operate**
 

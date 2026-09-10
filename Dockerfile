@@ -6,7 +6,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY theHarvester ./theHarvester
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -31,6 +31,7 @@ ENV HOME=/var/lib/theharvester \
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /app/LICENSE /usr/share/licenses/theharvester/LICENSE
 
 RUN groupadd --gid 10001 theharvester \
     && useradd --uid 10001 --gid 10001 --home-dir "$HOME" --shell /usr/sbin/nologin theharvester \

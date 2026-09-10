@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>theHarvester run evidence architecture</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #061115; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    svg { display: block; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc">
+  <title id="run-evidence-architecture-title">theHarvester discovery and evidence architecture</title>
+  <desc id="run-evidence-architecture-desc">An authorized finite run selects passive, DNS, or direct activity, then saves normalized findings with their provenance and producer outcomes for review and export.</desc>
+  <defs>
+    <style>
+      .title { font: 700 30px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #efeae2; }
+      .subtitle { font: 450 16px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #91a2a5; }
+      .step { font: 700 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; letter-spacing: .12em; fill: #91a2a5; }
+      .step-accent { fill: #72dac9; }
+      .node-title { font: 700 20px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #efeae2; }
+      .body { font: 450 16px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #91a2a5; }
+      .body-strong { font: 650 16px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #c6c0b6; }
+      .technical { font: 600 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; fill: #91a2a5; }
+      .technical-accent { font: 700 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; fill: #72dac9; }
+      .callout { font: 650 16px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #c6c0b6; }
+    </style>
+    <marker id="run-evidence-architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#4d656a"/>
+    </marker>
+    <marker id="run-evidence-architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2bbdaa"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="720" fill="#061115"/>
+  <rect x="24" y="24" width="1232" height="672" rx="16" fill="#0c191d" stroke="#23363c"/>
+
+  <text class="step" x="48" y="56">THEHARVESTER RUN</text>
+  <text class="title" x="48" y="92">From an authorized target to saved evidence</text>
+  <text class="subtitle" x="48" y="120">Run selected sources and actions; keep each outcome with the findings.</text>
+
+  <line x1="264" y1="312" x2="288" y2="312" stroke="#4d656a" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow)"/>
+  <line x1="592" y1="312" x2="616" y2="312" stroke="#4d656a" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow)"/>
+  <line x1="904" y1="312" x2="928" y2="312" stroke="#4d656a" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow)"/>
+  <line x1="1080" y1="448" x2="1080" y2="504" stroke="#2bbdaa" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow-accent)"/>
+
+  <rect x="48" y="176" width="216" height="272" rx="10" fill="#142328" stroke="#2f4046"/>
+  <line x1="48" y1="176" x2="48" y2="448" stroke="#4d656a" stroke-width="4"/>
+  <text class="step" x="72" y="208">01 · SCOPE</text>
+  <text class="node-title" x="72" y="248">Define the run</text>
+  <text class="body" x="72" y="288">One authorized target</text>
+  <text class="body" x="72" y="320">Selected sources</text>
+  <text class="body" x="72" y="352">Explicit actions</text>
+  <line x1="72" y1="380" x2="240" y2="380" stroke="#2f4046"/>
+  <text class="technical" x="72" y="408">FINITE · BOUNDED</text>
+
+  <rect x="288" y="152" width="304" height="320" rx="10" fill="#142328" stroke="#2f4046"/>
+  <line x1="288" y1="152" x2="288" y2="472" stroke="#4d656a" stroke-width="4"/>
+  <text class="step" x="312" y="184">02 · ACTIVITY</text>
+  <text class="node-title" x="312" y="224">Choose the boundary</text>
+  <text class="technical" x="312" y="268">P0</text>
+  <text class="body-strong" x="356" y="268">Passive collection</text>
+  <text class="body" x="356" y="292">public providers / datasets</text>
+  <line x1="312" y1="312" x2="568" y2="312" stroke="#2f4046"/>
+  <text class="technical" x="312" y="344">P1</text>
+  <text class="body-strong" x="356" y="344">DNS interaction</text>
+  <text class="body" x="356" y="368">authorized names / addresses</text>
+  <line x1="312" y1="388" x2="568" y2="388" stroke="#2f4046"/>
+  <text class="technical-accent" x="312" y="420">P2</text>
+  <text class="body-strong" x="356" y="420">Direct interaction</text>
+  <text class="body" x="356" y="444">selected target endpoints</text>
+
+  <rect x="616" y="176" width="288" height="272" rx="10" fill="#142328" stroke="#2f4046"/>
+  <line x1="616" y1="176" x2="616" y2="448" stroke="#4d656a" stroke-width="4"/>
+  <text class="step" x="640" y="208">03 · EXECUTE</text>
+  <text class="node-title" x="640" y="248">Run and record outcomes</text>
+  <text class="body" x="640" y="288">Collect observations</text>
+  <text class="body" x="640" y="320">Keep results so far</text>
+  <text class="body" x="640" y="352">Record producer outcomes</text>
+  <line x1="640" y1="380" x2="880" y2="380" stroke="#2f4046"/>
+  <text class="technical" x="640" y="408">COMPLETED · PARTIAL · FAILED</text>
+  <text class="technical" x="640" y="428">RATE-LIMITED · SKIPPED</text>
+
+  <rect x="928" y="176" width="304" height="272" rx="10" fill="#00312b" stroke="#2bbdaa" stroke-width="1.5"/>
+  <line x1="928" y1="176" x2="928" y2="448" stroke="#2bbdaa" stroke-width="4"/>
+  <text class="step step-accent" x="952" y="208">04 · EVIDENCE</text>
+  <text class="node-title" x="952" y="248">Normalize once</text>
+  <text class="body" x="952" y="288">Canonical kind + value</text>
+  <text class="body" x="952" y="320">Provenance survives deduplication</text>
+  <text class="body" x="952" y="352">Producer outcomes stay attached</text>
+  <line x1="952" y1="380" x2="1208" y2="380" stroke="#21675e"/>
+  <text class="technical-accent" x="952" y="408">COMPLETE · PARTIAL · FAILED</text>
+
+  <line x1="48" y1="520" x2="48" y2="600" stroke="#2bbdaa" stroke-width="4"/>
+  <text class="step step-accent" x="72" y="540">PARTIAL RESULTS</text>
+  <text class="callout" x="72" y="576">theHarvester keeps results when</text>
+  <text class="callout" x="72" y="600">one producer stops early.</text>
+
+  <rect x="616" y="504" width="616" height="144" rx="10" fill="#142328" stroke="#2f4046"/>
+  <text class="step" x="640" y="532">USE THE SAME EVIDENCE</text>
+  <line x1="784" y1="548" x2="784" y2="628" stroke="#2f4046"/>
+  <line x1="936" y1="548" x2="936" y2="628" stroke="#2f4046"/>
+  <line x1="1088" y1="548" x2="1088" y2="628" stroke="#2f4046"/>
+  <text class="body-strong" x="640" y="572">Review</text>
+  <text class="technical" x="640" y="600">TERMINAL</text>
+  <text class="technical-accent" x="640" y="620">HARVESTVIEW</text>
+  <text class="body-strong" x="808" y="572">Automate</text>
+  <text class="technical" x="808" y="600">REST · JSONL</text>
+  <text class="body-strong" x="960" y="572">Retain</text>
+  <text class="technical" x="960" y="600">SQLITE</text>
+  <text class="body-strong" x="1112" y="572">Integrate</text>
+  <text class="technical" x="1112" y="600">JSON · XML</text>
+</svg>
+</body>
+</html>
