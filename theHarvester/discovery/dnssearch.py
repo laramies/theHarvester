@@ -113,23 +113,6 @@ def iter_ips_in_network_range(iprange: str) -> Iterator[str]:
         yield address.exploded
 
 
-def list_ips_in_network_range(iprange: str) -> list[str]:
-    """Return every usable address in an IPv4 range.
-
-    Parameters
-    ----------
-    iprange: str
-        A range such as ``1.2.3.0/24``. Host bits are ignored.
-
-    Returns
-    -------
-    list[str]
-        Usable addresses in the range.
-
-    """
-    return list(iter_ips_in_network_range(iprange))
-
-
 async def reverse_single_ip(ip: str, resolver: DNSResolver, error_types: set[str] | None = None) -> str:
     """Return the PTR hostname for an IP address, or an empty string.
 

@@ -2,23 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import sys
-import types
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-
-if 'aiohttp_socks' not in sys.modules:
-    aiohttp_socks_stub = types.ModuleType('aiohttp_socks')
-
-    class _ProxyConnector:
-        @staticmethod
-        def from_url(*_args, **_kwargs):
-            return None
-
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector
-    sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester.discovery import censysearch
 from theHarvester.discovery.constants import MissingKey

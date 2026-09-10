@@ -36,6 +36,10 @@ _Avoid_: Passive collection, harmless lookup
 An activity that contacts or scans the target directly or causes a provider to do so, including HTTP or TLS requests, screenshots, takeover checks, and port or endpoint scanning.
 _Avoid_: Deep scan, comprehensive mode
 
+**HTTP proxy mode**:
+An enumeration policy that requires supported HTTP(S) provider and target requests to use a configured proxy while DNS queries independently use the operator-selected recursive resolver vantages.
+_Avoid_: Fully proxied run, anonymous mode
+
 
 ## Runs and schedules
 

@@ -490,6 +490,17 @@ async def test_open_session_fails_closed_when_proxy_mode_has_no_proxy(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_open_session_normalizes_proxy_construction_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': ['socks5://']})
+
+    with AsyncFetcher.proxy_scope(True) as proxy:
+        with pytest.raises(ResponseStreamError, match='transport-error'):
+            async with AsyncFetcher.open_session(proxy=proxy):
+                pytest.fail('a malformed proxy must not open a session')
+        assert AsyncFetcher.proxy_transport_failed() is True
+
+
+@pytest.mark.asyncio
 async def test_open_session_preserves_project_ca_and_aiohttp_default_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1028,6 +1039,23 @@ async def test_fetch_json_reuses_caller_owned_session_without_closing_it(
 
 
 @pytest.mark.asyncio
+async def test_fetch_json_preserves_pagination_links(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'{"items":[]}',))
+
+    def linked_response(self, method: str, url: str, **kwargs: Any) -> DummyResponse:
+        self.requests.append((method, url, kwargs))
+        response = DummyResponse(chunks=(b'{"items":[]}',))
+        response.links = {'next': {'url': 'https://provider.example/data?page=2'}}
+        return response
+
+    monkeypatch.setattr(DummySession, 'request', linked_response)
+
+    result = await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert result.links == {'next': {'url': 'https://provider.example/data?page=2'}}
+
+
+@pytest.mark.asyncio
 async def test_fetch_json_accepts_body_at_shared_limit(monkeypatch) -> None:
     install_stream_response(monkeypatch, chunks=(b'{"a":1}',))
     monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
@@ -1359,6 +1387,26 @@ async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
     result = await AsyncFetcher.post_fetch('https://example.com/api', data='{}', include_metadata=True)
 
     assert result == FetcherResponse(body='unavailable', status=503, headers={'retry-after': '30'})
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_enforces_explicit_response_limit(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+
+    def oversized_response(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(chunks=(b'12345',))
+
+    monkeypatch.setattr(DummySession, 'request', oversized_response)
+
+    with pytest.raises(ResponseStreamError, match='response-limit'):
+        await AsyncFetcher.post_fetch(
+            'https://example.com/api',
+            data='{}',
+            include_metadata=True,
+            response_byte_limit=4,
+        )
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ import urllib.parse as urlparse
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
@@ -122,8 +122,11 @@ class SearchGithubCode:
                 async with AsyncFetcher.open_session(headers=self.headers, proxy=self.proxy) as owned_session:
                     return await self.do_search(page, owned_session)
             url = f'{self.base_url}&page={page}' if page else self.base_url
-            async with session.get(url) as resp:
-                return await resp.text(), await resp.json(), resp.status, resp.links
+            response = await AsyncFetcher.fetch_json(url, session=session)
+            body = response.body if isinstance(response.body, dict) else {}
+            return '', body, response.status, response.links
+        except ResponseStreamError:
+            raise
         except Exception as e:
             logger.info(f'Error performing search: {e}')
             return '', {}, 500, {}
@@ -187,6 +190,10 @@ class SearchGithubCode:
                             self.page = 0
                             reason = 'access-denied' if result.status_code in {401, 403} else 'provider-error'
                             return self._failure_report(reason)
+                    except ResponseStreamError as e:
+                        logger.info(f'Error processing page: {e}')
+                        self.page = 0
+                        return self._failure_report(e.reason)
                     except Exception as e:
                         logger.info(f'Error processing page: {e}')
                         self.retry_count += 1

@@ -90,8 +90,8 @@ class RunRequest(BaseModel):
     proxies: bool = Field(
         default=False,
         description=(
-            'Use configured proxies for supported discovery sources and takeover requests. Supported requests fail '
-            'closed with proxy-unavailable if no proxy is configured.'
+            'Use configured proxies for supported HTTP(S) requests. HTTP(S) fails closed with proxy-unavailable if no '
+            'proxy is configured. DNS queries use the selected resolvers outside this proxy.'
         ),
     )
     no_hosts: bool = Field(
@@ -150,7 +150,7 @@ class RunRequest(BaseModel):
         default=False,
         description=(
             'Check discovered hosts for DNS provider-gated takeover indicators, with wildcard controls and no redirects. '
-            'Requests use configured proxies when enabled and fail closed when none are available. '
+            'HTTP confirmation requests use the configured proxy when enabled. '
             'Indicators are not confirmed takeovers.'
         ),
     )
@@ -245,6 +245,14 @@ class RunRequest(BaseModel):
     def validate_hostname_collection(self) -> Self:
         if conflicts := hostname_collection_conflicts(self.model_dump()):
             raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
+        return self
+
+    @model_validator(mode='after')
+    def validate_proxy_transport(self) -> Self:
+        if not self.proxies:
+            return self
+        if self.screenshot:
+            raise ValueError('Screenshot capture supports direct transport only; proxies must be disabled')
         return self
 
     @model_validator(mode='after')

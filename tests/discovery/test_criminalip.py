@@ -171,16 +171,6 @@ async def test_provider_conversation_uses_one_session_and_proxy(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
-async def test_required_proxy_unavailable_returns_explicit_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
-    monkeypatch.setattr(criminalip.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
-
-    assert await criminalip.SearchCriminalIP('example.com').process(proxy=True) == SourceExecutionReport(
-        'failed', 'proxy-unavailable'
-    )
-
-
-@pytest.mark.asyncio
 async def test_waiting_scan_reports_runtime_limit(monkeypatch) -> None:
     monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
     monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
