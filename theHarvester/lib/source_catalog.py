@@ -178,6 +178,7 @@ _SPECS = (
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('securityscorecard', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('serply', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('sherlockeye', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
     _spec(
