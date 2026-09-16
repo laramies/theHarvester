@@ -1072,29 +1072,90 @@ def test_run_detail_reports_unique_hostname_contribution_per_source(tmp_path, mo
     with TestClient(api.app) as client:
         response = client.post(
             '/api/v1/runs/import',
-            params={'filename': 'source-yields.jsonl'},
+            params={'filename': 'source-contributions.jsonl'},
             headers={'X-API-Key': 'test-key'},
             content=payload,
         )
 
     assert response.status_code == 201
-    assert response.json()['source_yields'] == [
+    assert response.json()['source_contributions'] == [
         {
             'source': 'crtsh',
-            'observed_result_count': 1,
-            'unique_result_count': 0,
-            'shared_result_count': 1,
-            'resolved_hostname_count': 0,
-            'unique_resolved_hostname_count': 0,
+            'reported_count': 1,
+            'unique_to_source_count': 0,
+            'shared_with_other_sources_count': 1,
+            'hostnames_with_dns_answers_count': 0,
+            'unique_to_source_with_dns_answers_count': 0,
         },
         {
             'source': 'subdomainapi',
-            'observed_result_count': 2,
-            'unique_result_count': 1,
-            'shared_result_count': 1,
-            'resolved_hostname_count': 1,
-            'unique_resolved_hostname_count': 1,
+            'reported_count': 2,
+            'unique_to_source_count': 1,
+            'shared_with_other_sources_count': 1,
+            'hostnames_with_dns_answers_count': 1,
+            'unique_to_source_with_dns_answers_count': 1,
         },
+    ]
+
+
+def test_run_detail_exposes_hostname_comparison_against_the_previous_compared_sources(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from theHarvester.lib.api import api
+
+    source_execution = {
+        'source': 'crtsh',
+        'status': 'completed',
+        'duration_ms': 1,
+        'result_count': 1,
+        'error_type': None,
+        'stop_reason': None,
+    }
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app) as client:
+        previous = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'previous.jsonl'},
+            headers=headers,
+            content=_jsonl_result(
+                finding_type='hostname',
+                value='previously-reported.example.test',
+                finding_fields={'sources': ['crtsh']},
+                summary_fields={
+                    'completed_at': '2026-08-08T01:01:00Z',
+                    'source_executions': [source_execution],
+                },
+            ),
+        )
+        current = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'current.jsonl'},
+            headers=headers,
+            content=_jsonl_result(
+                finding_type='hostname',
+                value='newly-reported.example.test',
+                finding_fields={'sources': ['crtsh']},
+                summary_fields={
+                    'completed_at': '2026-08-08T02:01:00Z',
+                    'source_executions': [source_execution],
+                },
+            ),
+        )
+
+    assert previous.status_code == 201
+    assert current.status_code == 201
+    comparison = current.json()['hostname_comparison']
+    assert comparison['target'] == 'example.test'
+    assert comparison['comparison_count'] == 1
+    assert comparison['comparisons'][0]['previous_comparable_run_id'] == previous.json()['run_id']
+    assert [(row['change_type'], row['hostname']) for row in comparison['hostname_differences']] == [
+        ('newly_reported', 'newly-reported.example.test'),
+        ('no_longer_reported', 'previously-reported.example.test'),
     ]
 
 

@@ -14,6 +14,8 @@ DNS brute force, DNS resolution, virtual host discovery, takeover checks, screen
 4. Add credentials through [Configuration and API Keys](Configuration-and-API-Keys) when a selected provider requires them.
 5. Learn where findings are stored in [Results and Local Data](Results-and-Local-Data).
 
+Coming from the 4.11 release line? Read [Moving from 4.11 to 5.0](Moving-from-4.11-to-5.0) before updating automation or saved-run reports.
+
 ## Choose an interface
 
 | Interface | Use it for |

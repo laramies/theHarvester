@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -45,12 +46,20 @@ async def test_process_honors_limit_and_retains_only_normalized_evidence(monkeyp
         return next(responses)
 
     monkeypatch.setattr(search_dehashed.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    session = AsyncMock()
+    build_session = AsyncMock(return_value=session)
+    monkeypatch.setattr(search_dehashed.AsyncFetcher, '_build_session', build_session)
     search = SearchDehashed('example.com', limit=120)
 
     await search.process(proxy='http://proxy.example:8080')
 
     assert [request['json_body']['size'] for _, request in payloads] == [100, 20]
-    assert all(request['proxy'] == 'http://proxy.example:8080' for _, request in payloads)
+    assert all(request['session'] is session and 'proxy' not in request for _, request in payloads)
+    build_session.assert_awaited_once_with(
+        search.headers, ANY, 'http://proxy.example:8080', 'http', ANY, None
+    )
+    assert build_session.call_args.args[1].total == 720
+    session.close.assert_awaited_once()
     assert all(request['include_metadata'] is True for _, request in payloads)
     assert await search.get_emails() == {'user@example.com', 'admin@example.com'}
     assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}

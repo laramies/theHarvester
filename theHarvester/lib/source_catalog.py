@@ -153,6 +153,7 @@ _SPECS = (
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),
     _spec('intelx', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS),
+    _spec('jsmon', ResultRoute.SUBDOMAINS),
     _spec('leakix', ResultRoute.SUBDOMAINS),
     _spec('leaklookup', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('mojeek', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),

@@ -1,10 +1,17 @@
 import asyncio
 import logging
 from ipaddress import ip_address
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from aiohttp import ClientError
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    from aiohttp import ClientSession
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +32,12 @@ class SearchDehashed:
         self.ips: set[str] = set()
         self.proxy: bool = False
 
-    async def _fetch_page(self, payload: dict[str, Any]) -> Any:
+    async def _fetch_page(self, payload: dict[str, Any], session: ClientSession) -> Any:
         response = await AsyncFetcher.post_fetch(
             self.api,
-            headers=self.headers,
+            session=session,
             json_body=payload,
-            proxy=self.proxy,
+            json=True,
             include_metadata=True,
         )
         if isinstance(response, FetcherResponse) and response.status == 429:
@@ -44,9 +51,9 @@ class SearchDehashed:
                 await asyncio.sleep(delay)
                 response = await AsyncFetcher.post_fetch(
                     self.api,
-                    headers=self.headers,
+                    session=session,
                     json_body=payload,
-                    proxy=self.proxy,
+                    json=True,
                     include_metadata=True,
                 )
         return response
@@ -68,7 +75,19 @@ class SearchDehashed:
                 except ValueError:
                     continue
 
-    async def do_search(self) -> None:
+    async def do_search(self, session: ClientSession | None = None) -> SourceExecutionReport | None:
+        if session is None:
+            try:
+                async with AsyncFetcher.open_session(
+                    headers=self.headers, proxy=self.proxy, request_timeout=720
+                ) as owned_session:
+                    return await self.do_search(owned_session)
+            except ResponseStreamError as error:
+                return SourceExecutionReport('failed', error.reason)
+            except ClientError, OSError:
+                logger.info('\t[!] Dehashed session failed')
+                return SourceExecutionReport('failed', 'transport-error')
+
         logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
         page = 1
         remaining = self.limit
@@ -76,21 +95,23 @@ class SearchDehashed:
             size = min(100, remaining) if remaining is not None else 100
             payload = {'query': self.word, 'page': page, 'size': size, 'wildcard': False, 'regex': False, 'de_dupe': False}
             try:
-                response = await self._fetch_page(payload)
+                response = await self._fetch_page(payload, session)
                 if not isinstance(response, FetcherResponse):
                     logger.info('\t[!] Dehashed request failed')
-                    break
-                if not 200 <= response.status < 300:
+                    return SourceExecutionReport('failed', 'transport-error')
+                if failure := provider_http_error(response):
                     logger.info(f'\t[!] Dehashed request failed with HTTP {response.status}')
-                    break
+                    return SourceExecutionReport(*failure)
                 data = response.body
                 if not isinstance(data, dict) or not isinstance(entries := data.get('entries'), list):
                     logger.info('\t[!] Dehashed returned a malformed response')
-                    break
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if not entries:
                     break
                 retained_entries = entries[:remaining] if remaining is not None else entries
                 self._retain_evidence(retained_entries)
+                if any(not isinstance(entry, dict) for entry in retained_entries):
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if remaining is not None:
                     remaining -= len(retained_entries)
                 logger.info(f'\t[+] Page {page} - Retrieved {len(retained_entries)} entries.')
@@ -99,11 +120,11 @@ class SearchDehashed:
                 page += 1
             except OSError, RuntimeError, ValueError:
                 logger.info('\t[!] Dehashed request failed')
-                break
+                return SourceExecutionReport('failed', 'transport-error')
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()
 
     async def get_emails(self) -> set[str]:
         return self.emails

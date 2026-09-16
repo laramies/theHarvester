@@ -25,6 +25,16 @@ def test_container_rebuilds_the_local_package_when_source_changes() -> None:
     assert '--reinstall-package theharvester' in dockerfile
 
 
+def test_container_carries_the_canonical_license() -> None:
+    dockerfile = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
+    workflow = (REPO_ROOT / '.github/workflows/harvestview-container.yml').read_text(encoding='utf-8')
+
+    assert 'COPY pyproject.toml uv.lock README.md LICENSE ./' in dockerfile
+    assert 'COPY --from=builder /app/LICENSE /usr/share/licenses/theharvester/LICENSE' in dockerfile
+    assert "      - 'LICENSE'" in workflow
+    assert 'sha256sum /usr/share/licenses/theharvester/LICENSE' in workflow
+
+
 def test_container_smoke_uses_the_unversioned_jsonl_contract() -> None:
     workflow = (REPO_ROOT / '.github/workflows/harvestview-container.yml').read_text(encoding='utf-8')
 

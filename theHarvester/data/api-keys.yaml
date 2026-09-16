@@ -56,6 +56,9 @@ apikeys:
   intelx:
     key:
 
+  jsmon:
+    key:
+
   leakix:
     key:
 

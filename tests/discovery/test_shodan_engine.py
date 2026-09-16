@@ -9,6 +9,9 @@ from uuid import UUID
 
 import pytest
 
+from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
+
 
 def patch_resolution(monkeypatch, module, addresses=('203.0.113.10',)):
     requested_targets = []
@@ -686,24 +689,31 @@ class TestShodanEngine:
 
         targets = patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1',))
 
-        async def fake_fetch_all(urls, json=False, proxy=False):
+        async def fake_fetch_all(urls, json=False, proxy=False, include_metadata=False):
             assert urls == ['https://internetdb.shodan.io/203.0.113.1']
+            assert include_metadata is True
+            assert proxy is True
             return [
-                {
-                    'ip': '203.0.113.1',
-                    'hostnames': ['API.Example.TEST.', 'www.notexample.test', None],
-                    'ports': [443],
-                }
+                FetcherResponse(
+                    {
+                        'ip': '203.0.113.1',
+                        'hostnames': ['API.Example.TEST.', 'www.notexample.test', None],
+                        'ports': [443],
+                    },
+                    200,
+                    {},
+                )
             ]
 
         monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fake_fetch_all, raising=True)
 
         search = shodan_internetdb.SearchShodanInternetDB(' Example.TEST. ')
-        await search.process()
+        report = await search.process(proxy=True)
 
         assert targets == [('example.test', socket.AF_UNSPEC)]
         assert await search.get_hostnames() == {'api.example.test'}
         assert await search.get_ips() == {'203.0.113.1'}
+        assert report is None
 
     @pytest.mark.asyncio
     async def test_shodan_internetdb_rejects_evidence_for_an_unrequested_ip(self, monkeypatch):
@@ -711,22 +721,27 @@ class TestShodanEngine:
 
         patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1',))
 
-        async def fake_fetch_all(_urls, json=False, proxy=False):
+        async def fake_fetch_all(_urls, json=False, proxy=False, include_metadata=False):
+            assert include_metadata is True
             return [
-                {
-                    'ip': '198.51.100.2',
-                    'hostnames': ['injected.example.test'],
-                    'ports': [443],
-                    'vulns': ['CVE-2026-0001'],
-                    'tags': ['injected'],
-                    'cpes': ['cpe:/a:injected'],
-                }
+                FetcherResponse(
+                    {
+                        'ip': '198.51.100.2',
+                        'hostnames': ['injected.example.test'],
+                        'ports': [443],
+                        'vulns': ['CVE-2026-0001'],
+                        'tags': ['injected'],
+                        'cpes': ['cpe:/a:injected'],
+                    },
+                    200,
+                    {},
+                )
             ]
 
         monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fake_fetch_all, raising=True)
 
         search = shodan_internetdb.SearchShodanInternetDB('example.test')
-        await search.process()
+        report = await search.process()
 
         assert not await search.get_hostnames()
         assert not await search.get_ips()
@@ -734,6 +749,7 @@ class TestShodanEngine:
         assert not await search.get_vulns()
         assert not await search.get_tags()
         assert not await search.get_cpes()
+        assert report == SourceExecutionReport('failed', 'invalid-response')
 
     @pytest.mark.asyncio
     async def test_shodan_internetdb_resolution_failure_skips_provider_request(self, monkeypatch):
@@ -749,13 +765,14 @@ class TestShodanEngine:
         monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fail_fetch, raising=True)
 
         search = shodan_internetdb.SearchShodanInternetDB('example.test')
-        await search.process()
+        report = await search.process()
 
         assert not await search.get_hostnames()
         assert not await search.get_ips()
+        assert report == SourceExecutionReport('failed', 'dns-resolution-failed')
 
     @pytest.mark.asyncio
-    async def test_shodan_internetdb_provider_failure_completes_without_evidence(self, monkeypatch, caplog):
+    async def test_shodan_internetdb_provider_failure_reports_transport_error(self, monkeypatch, caplog):
         from theHarvester.discovery import shodan_internetdb
 
         patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1',))
@@ -767,12 +784,91 @@ class TestShodanEngine:
         caplog.set_level(logging.INFO, logger=shodan_internetdb.__name__)
 
         search = shodan_internetdb.SearchShodanInternetDB('example.test')
-        await search.process()
+        report = await search.process()
 
         assert not await search.get_hostnames()
         assert not await search.get_ips()
         assert 'Shodan InternetDB request failed' in caplog.text
         assert 'provider-secret-payload' not in caplog.text
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
+
+    @pytest.mark.asyncio
+    async def test_shodan_internetdb_no_resolved_ips_is_valid_empty(self, monkeypatch):
+        from theHarvester.discovery import shodan_internetdb
+
+        patch_resolution(monkeypatch, shodan_internetdb, ())
+
+        async def fail_fetch(*_args, **_kwargs):
+            raise AssertionError('provider request must not run')
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fail_fetch)
+
+        search = shodan_internetdb.SearchShodanInternetDB('example.test')
+
+        assert await search.process() is None
+        assert not await search.get_hostnames()
+        assert not await search.get_ips()
+
+    @pytest.mark.asyncio
+    async def test_shodan_internetdb_404_is_valid_empty(self, monkeypatch):
+        from theHarvester.discovery import shodan_internetdb
+
+        patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1',))
+
+        async def fake_fetch_all(*_args, **kwargs):
+            assert kwargs['include_metadata'] is True
+            return [FetcherResponse({'detail': 'provider detail'}, 404, {})]
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = shodan_internetdb.SearchShodanInternetDB('example.test')
+
+        assert await search.process() is None
+        assert not await search.get_hostnames()
+        assert not await search.get_ips()
+
+    @pytest.mark.asyncio
+    async def test_shodan_internetdb_retains_one_ip_when_another_request_fails(self, monkeypatch):
+        from theHarvester.discovery import shodan_internetdb
+
+        patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1', '203.0.113.2'))
+
+        async def fake_fetch_all(*_args, **kwargs):
+            assert kwargs['include_metadata'] is True
+            return [
+                FetcherResponse({'ip': '203.0.113.1', 'hostnames': ['API.Example.TEST.']}, 200, {}),
+                FetcherResponse({}, 503, {}),
+            ]
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = shodan_internetdb.SearchShodanInternetDB('example.test')
+
+        report = await search.process()
+
+        assert await search.get_hostnames() == {'api.example.test'}
+        assert await search.get_ips() == {'203.0.113.1'}
+        assert report == SourceExecutionReport('partial', 'http-503')
+
+    @pytest.mark.asyncio
+    async def test_shodan_internetdb_malformed_response_and_cancellation_are_distinct(self, monkeypatch):
+        from theHarvester.discovery import shodan_internetdb
+
+        patch_resolution(monkeypatch, shodan_internetdb, ('203.0.113.1',))
+
+        async def malformed(*_args, **_kwargs):
+            return [FetcherResponse('not-json', 200, {})]
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', malformed)
+        assert await shodan_internetdb.SearchShodanInternetDB('example.test').process() == SourceExecutionReport(
+            'failed', 'invalid-response'
+        )
+
+        async def cancelled(*_args, **_kwargs):
+            raise asyncio.CancelledError('operator-stop')
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', cancelled)
+        with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+            await shodan_internetdb.SearchShodanInternetDB('example.test').process()
 
 
 pytestmark = [

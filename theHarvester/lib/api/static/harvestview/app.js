@@ -42,6 +42,12 @@
     lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
     assessmentEvidence: $('#assessment-evidence'), assessmentProducers: $('#assessment-producers'),
     assessmentReview: $('#assessment-review'), reviewOutcomes: $('#review-outcomes-button'),
+    comparisonSection: $('#hostname-comparison-section'), comparisonSummary: $('#hostname-comparison-summary'),
+    comparisonCounts: $('#hostname-comparison-counts'), comparisonBody: $('#hostname-comparison-body'),
+    comparisonEmpty: $('#hostname-comparison-empty'), comparisonChange: $('#comparison-change-filter'),
+    comparisonSource: $('#comparison-source-filter'), comparisonResolution: $('#comparison-resolution-filter'),
+    comparisonSingleSource: $('#comparison-single-source-filter'),
+    comparisonStillReported: $('#comparison-still-reported-filter'),
     resultsSection: $('#results-section'),
     activityBands: $('#activity-bands'), requestOptions: $('#request-options'), providerBody: $('#provider-body'),
     providerSummary: $('#provider-summary'), providerOutcomeSummary: $('#provider-outcome-summary'), providerEmpty: $('#provider-empty'),
@@ -822,6 +828,77 @@
     screenshots.forEach((screenshot, index) => loadScreenshot(screenshot, nodes.screenshotGallery.children[index].querySelector('.screenshot-frame')));
   }
 
+  function comparisonUsesCurrentEvidence(row) {
+    return (row.sources_in_current_run || []).length > 0;
+  }
+
+  function comparisonSources(row) {
+    return comparisonUsesCurrentEvidence(row)
+      ? row.sources_in_current_run || []
+      : row.sources_in_previous_run || [];
+  }
+
+  function comparisonResolution(row) {
+    return comparisonUsesCurrentEvidence(row)
+      ? row.current_resolution_evidence
+      : row.previous_resolution_evidence;
+  }
+
+  function renderHostnameComparison(run) {
+    const report = run.hostname_comparison;
+    nodes.comparisonSection.hidden = !run.evidence_status || !report;
+    if (nodes.comparisonSection.hidden) return;
+    const comparison = report.comparisons?.[0];
+    const counts = comparison?.counts || {
+      newly_reported: 0, still_reported: 0, no_longer_reported: 0, uncertain: 0
+    };
+    const differenceTypes = [
+      ['newly_reported', 'Newly reported'],
+      ['no_longer_reported', 'No longer reported'],
+      ['uncertain', 'Uncertain'],
+      ['still_reported', 'Still reported'],
+    ];
+    nodes.comparisonCounts.innerHTML = differenceTypes
+      .map(([value, label]) => `<span class="comparison-count ${value}"><b>${Number(counts[value] || 0).toLocaleString()}</b> ${label}</span>`)
+      .join('');
+    nodes.comparisonSummary.textContent = comparison?.previous_comparable_run_id
+      ? `Previous comparable run: ${comparison.previous_comparable_run_id} · ${formatDate(comparison.previous_comparable_run_completed_at)}. Compared sources: ${(comparison.compared_sources || []).join(', ') || 'none'}.`
+      : comparison?.message || 'No comparable previous run is available.';
+    const allRows = report.hostname_differences || [];
+    const selectedSource = nodes.comparisonSource.value;
+    const sources = [...new Set(allRows.flatMap(comparisonSources))].sort();
+    nodes.comparisonSource.innerHTML = '<option value="">All sources</option>'
+      + sources.map(source => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join('');
+    nodes.comparisonSource.value = sources.includes(selectedSource) ? selectedSource : '';
+    const rows = allRows.filter(row => {
+      if (row.change_type === 'still_reported' && !nodes.comparisonStillReported.checked) return false;
+      if (nodes.comparisonChange.value && row.change_type !== nodes.comparisonChange.value) return false;
+      if (nodes.comparisonSource.value && !comparisonSources(row).includes(nodes.comparisonSource.value)) return false;
+      if (nodes.comparisonResolution.value && comparisonResolution(row) !== nodes.comparisonResolution.value) return false;
+      return !nodes.comparisonSingleSource.checked || row.reported_by_one_source;
+    });
+    nodes.comparisonBody.innerHTML = rows.map(row => {
+      const incompleteSources = (row.incomplete_source_outcomes || []).map(source => {
+        const reason = [source.status, source.error_type, source.stop_reason].filter(Boolean).join(' · ');
+        return `${escapeHtml(source.source)}${reason ? `: ${escapeHtml(reason)}` : ''}`;
+      }).join('<br>') || '—';
+      const previousDns = row.previous_resolution_evidence || 'not-checked';
+      const currentDns = row.current_resolution_evidence || 'not-checked';
+      const previousAddressability = row.previous_addressability || 'not classified';
+      const currentAddressability = row.current_addressability || 'not classified';
+      return `<tr>
+        <td><span class="comparison-state ${safeClass(row.change_type)}">${escapeHtml(row.change_type.replaceAll('_', ' '))}</span></td>
+        <td class="comparison-hostname">${escapeHtml(row.hostname)}</td>
+        <td>${escapeHtml(comparisonSources(row).join(', ') || '—')}${row.reported_by_one_source ? '<small>Reported by one source</small>' : ''}</td>
+        <td>${escapeHtml(previousDns)} <span aria-hidden="true">→</span> ${escapeHtml(currentDns)}</td>
+        <td>${escapeHtml(previousAddressability)} <span aria-hidden="true">→</span> ${escapeHtml(currentAddressability)}</td>
+        <td>${incompleteSources}</td>
+      </tr>`;
+    }).join('');
+    nodes.comparisonEmpty.hidden = rows.length > 0;
+    nodes.comparisonBody.closest('table').hidden = rows.length === 0;
+  }
+
   function renderDetail(previousRun = null) {
     const run = state.detail;
     nodes.loading.hidden = true;
@@ -845,6 +922,7 @@
     renderAuthorization(run);
     renderExecutions(run);
     renderAssessment(run);
+    renderHostnameComparison(run);
     if (!previousRun || previousRun.status !== run.status || JSON.stringify(previousRun.results) !== JSON.stringify(run.results)) {
       renderResults(run);
     }
@@ -1362,6 +1440,19 @@
     const query = event.target.value.trim().toLowerCase();
     state.resultTable?.setFilter(row => !query || row.value.toLowerCase().includes(query));
   });
+  nodes.comparisonChange.addEventListener('change', () => {
+    if (nodes.comparisonChange.value === 'still_reported') nodes.comparisonStillReported.checked = true;
+    renderHostnameComparison(state.detail);
+  });
+  nodes.comparisonStillReported.addEventListener('change', () => {
+    if (!nodes.comparisonStillReported.checked && nodes.comparisonChange.value === 'still_reported') {
+      nodes.comparisonChange.value = '';
+    }
+    renderHostnameComparison(state.detail);
+  });
+  for (const filter of [nodes.comparisonSource, nodes.comparisonResolution, nodes.comparisonSingleSource]) {
+    filter.addEventListener('change', () => renderHostnameComparison(state.detail));
+  }
   nodes.sourceSearch.addEventListener('input', event => renderSourceGroups(event.target.value));
   nodes.selectCapability.addEventListener('click', selectCapability);
   nodes.selectP0.addEventListener('click', () => setP0Selection(true));

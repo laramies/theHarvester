@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -38,6 +39,10 @@ async def test_process_uses_documented_endpoint_and_normalizes_only_scoped_subdo
         ]
 
     monkeypatch.setattr(leakix.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    session = AsyncMock()
+    build_session = AsyncMock(return_value=session)
+    monkeypatch.setattr(leakix.AsyncFetcher, '_build_session', build_session)
+    monkeypatch.setattr(leakix.AsyncFetcher, '_resolve_proxy', lambda proxy: ('http://proxy.example:8080', 'http'))
     search = leakix.SearchLeakix('example.com')
 
     await search.process(proxy=True)
@@ -46,13 +51,22 @@ async def test_process_uses_documented_endpoint_and_normalizes_only_scoped_subdo
         (
             ['https://leakix.net/api/subdomains/example.com'],
             {
-                'headers': {'User-Agent': 'test-agent', 'accept': 'application/json', 'api-key': 'test-key'},
+                'session': session,
                 'json': True,
-                'proxy': True,
                 'include_metadata': True,
             },
         )
     ]
+    build_session.assert_awaited_once_with(
+        {'User-Agent': 'test-agent', 'accept': 'application/json', 'api-key': 'test-key'},
+        ANY,
+        'http://proxy.example:8080',
+        'http',
+        ANY,
+        None,
+    )
+    assert build_session.call_args.args[1].total == 60
+    session.close.assert_awaited_once()
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
     assert await search.get_emails() == set()
 
