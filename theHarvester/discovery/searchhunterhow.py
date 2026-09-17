@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import logging
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -10,6 +11,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+logger = logging.getLogger(__name__)
 
 
 class SearchHunterHow:
@@ -99,7 +102,8 @@ class SearchHunterHow:
                         break
                     page += 1
                     await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
-        except Exception:
+        except Exception as error:
+            logger.info('Hunter HOW search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
         return report
 

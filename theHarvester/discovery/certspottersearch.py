@@ -14,7 +14,7 @@ class SearchCertspoter:
     API reference: https://sslmate.com/help/reference/ct_search_api_v1
     """
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.proxy = False

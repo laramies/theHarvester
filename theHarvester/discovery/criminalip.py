@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchCriminalIP:
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word.lower().strip()
         self.totalhosts: set = set()
         self.totalips: set = set()

@@ -550,6 +550,15 @@ class AsyncFetcher:
         return None, None
 
     @classmethod
+    def resolve_proxy(cls, proxy: str | bool | None) -> tuple[str | None, str | None]:
+        """Return the proxy URL and type for a proxy selection.
+
+        For adapters that need the resolved proxy for transports the shared
+        fetchers do not own, such as Playwright browser sessions.
+        """
+        return cls._resolve_proxy(proxy)
+
+    @classmethod
     @contextlib.contextmanager
     def proxy_scope(cls, required: bool) -> Iterator[bool]:
         if not required:

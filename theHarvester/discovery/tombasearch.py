@@ -121,7 +121,7 @@ class SearchTomba:
                 return None
         return normalize_scoped_hostname(candidate, self.word)
 
-    async def parse_resp(self, json_resp):
+    async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
         emails = list(sorted({email['email'] for email in json_resp['data']['emails']}))
         domains = list(
             sorted(
@@ -144,8 +144,8 @@ class SearchTomba:
             logger.info('Tomba returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')
 
-    async def get_emails(self):
+    async def get_emails(self) -> list[str]:
         return self.emails
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list[str]:
         return self.hostnames

@@ -29,7 +29,7 @@ class ErrorResult(NamedTuple):
 
 
 class SearchGithubCode:
-    def __init__(self, word, limit: int | None) -> None:
+    def __init__(self, word: str, limit: int | None) -> None:
         try:
             self.word = word
             self.total_results = ''

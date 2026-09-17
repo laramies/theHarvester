@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -8,6 +9,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchSubdomainfinderc99:
@@ -63,7 +66,8 @@ class SearchSubdomainfinderc99:
         self.proxy = proxy
         try:
             return await self.do_search()
-        except Exception:
+        except Exception as error:
+            logger.info('SubdomainFinder.c99 search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
 
     @staticmethod

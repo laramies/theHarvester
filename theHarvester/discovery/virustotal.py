@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
@@ -7,6 +8,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+logger = logging.getLogger(__name__)
 
 
 class SearchVirustotal:
@@ -66,7 +69,8 @@ class SearchVirustotal:
                         return SourceExecutionReport('partial' if self.hostnames else 'failed', 'repeated-cursor')
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
-        except Exception:
+        except Exception as error:
+            logger.info('VirusTotal search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
         return report
 

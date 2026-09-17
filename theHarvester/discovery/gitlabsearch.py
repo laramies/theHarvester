@@ -158,8 +158,9 @@ class SearchGitlab:
                                         readme_response[0] if isinstance(readme_response[0], str) else str(readme_response[0])
                                     )
                                     project_is_relevant = self._add_text_evidence(readme_text) or project_is_relevant
-                            except Exception:
-                                pass  # README might not exist or be accessible
+                            except Exception as error:
+                                # README might not exist or be accessible.
+                                logger.info('GitLab README fetch failed: %s', type(error).__name__)
 
                         if project_is_relevant and isinstance(web_url, str) and web_url.strip():
                             self.totalurls.add(web_url.strip())

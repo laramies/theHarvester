@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchHunter:
-    def __init__(self, word, limit: int | None, start) -> None:
+    def __init__(self, word: str, limit: int | None, start: int) -> None:
         self.word = word
         self.requested_limit = limit
         self.limit = min(limit, 10) if limit is not None else 10
@@ -111,7 +111,7 @@ class SearchHunter:
                 return SourceExecutionReport('partial', 'quota-exhausted')
         return None
 
-    async def parse_resp(self, json_resp):
+    async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
         emails = list(sorted({email['value'] for email in json_resp['data']['emails']}))
         domains = list(
             sorted(
@@ -134,8 +134,8 @@ class SearchHunter:
             logger.info('Hunter returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')
 
-    async def get_emails(self):
+    async def get_emails(self) -> list[str]:
         return self.emails
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list[str]:
         return self.hostnames

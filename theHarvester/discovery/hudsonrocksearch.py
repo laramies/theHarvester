@@ -1,5 +1,7 @@
 import asyncio
+import ipaddress
 import logging
+import re
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -8,6 +10,8 @@ from aiohttp import ClientError
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -93,10 +97,7 @@ class SearchHudsonRock:
             Whether the email address matches the supported format.
 
         """
-        import re
-
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return bool(re.match(pattern, email))
+        return bool(EMAIL_PATTERN.match(email))
 
     async def _search_domain(self, domain: str, session: ClientSession) -> SourceExecutionReport | None:
         """Search Hudson Rock by domain, retrying rate-limited responses.
@@ -352,8 +353,6 @@ class SearchHudsonRock:
         """
         if not ip or '*' in ip or '•' in ip:
             return False
-
-        import ipaddress
 
         try:
             ipaddress.ip_address(ip)

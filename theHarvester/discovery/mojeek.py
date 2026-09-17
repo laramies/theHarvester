@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class SearchMojeek:
     REQUEST_DELAY_SECONDS = 1.0
 
-    def __init__(self, word, limit: int | None) -> None:
+    def __init__(self, word: str, limit: int | None) -> None:
         self.word = word
         self.limit = limit
         self.total_results = ''
@@ -189,10 +189,10 @@ class SearchMojeek:
         async with AsyncFetcher.open_session(proxy=self.proxy) as session:
             return await self.do_search(session)
 
-    async def get_emails(self):
+    async def get_emails(self) -> list[str]:
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.emails()
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list[str]:
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames()

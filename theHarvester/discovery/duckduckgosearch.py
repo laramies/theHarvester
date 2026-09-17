@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlencode
 
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
@@ -78,17 +79,17 @@ def _provider_text(body: dict[str, Any]) -> str | None:
 
 
 class SearchDuckDuckGo:
-    def __init__(self, word, limit) -> None:
+    def __init__(self, word: str, limit: int | None) -> None:
         self.word = word
         self.results = ''
         self.totalresults = ''
-        self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
+        self.api = 'https://api.duckduckgo.com/'
         self.limit = limit
         self.proxy: bool = False
 
     async def do_search(self) -> SourceExecutionReport | None:
         # Query only the provider; URLs in the response are evidence, not crawl targets.
-        url = self.api.replace('x', self.word)
+        url = f'{self.api}?{urlencode({"q": self.word, "format": "json", "pretty": 1})}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             response = await AsyncFetcher.fetch_json(url, headers=headers, proxy=self.proxy)

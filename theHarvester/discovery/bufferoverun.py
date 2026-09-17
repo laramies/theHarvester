@@ -8,7 +8,7 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchBufferover:
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word
         self.totalhosts: set = set()
         self.totalips: set = set()

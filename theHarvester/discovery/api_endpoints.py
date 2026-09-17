@@ -4,12 +4,12 @@ import asyncio
 import json
 import logging
 import math
-import os
 import random
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -149,10 +149,8 @@ class SearchApiEndpoints:
         self.stop_reason: str | None = None
 
         # Set default wordlist path
-        default_wordlist = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'wordlists', 'api_endpoints.txt'
-        )
-        self.wordlist = wordlist or default_wordlist
+        default_wordlist = Path(__file__).resolve().parents[2] / 'wordlists' / 'api_endpoints.txt'
+        self.wordlist = wordlist or str(default_wordlist)
         self.exact_paths = exact_paths
 
         # Add comprehensive API paths categorized by functionality
@@ -1087,26 +1085,3 @@ class SearchApiEndpoints:
     def get_schema_detected(self) -> dict[str, dict[str, Any]]:
         """Get detected API schemas (Swagger/OpenAPI)."""
         return self.schema_detected
-
-    def export_results(self, output_file: str | None = None, format: str = 'json') -> str | dict | None:
-        """Write scan results to a file or return them to the caller.
-
-        Args:
-            output_file: Optional destination path.
-            format: Either ``json`` or ``dict``.
-
-        Returns:
-            The requested representation, or ``None`` when saved to a file.
-
-        """
-        results = {'summary': self.get_results_summary(), 'endpoints': self.get_detailed_results()}
-
-        if output_file:
-            with open(output_file, 'w') as f:
-                json.dump(results, f, indent=2)
-            return None
-
-        if format == 'json':
-            return json.dumps(results, indent=2)
-        else:
-            return results

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from ipaddress import ip_address
 from typing import Any
 
@@ -9,6 +10,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+
+logger = logging.getLogger(__name__)
 
 
 class SearchSecurityScorecard:
@@ -143,7 +146,8 @@ class SearchSecurityScorecard:
                     return self._report
                 if not await self._collect_assets(session, 'ips', 'ip'):
                     return self._report
-        except Exception:
+        except Exception as error:
+            logger.info('SecurityScorecard search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
         return self._report
 

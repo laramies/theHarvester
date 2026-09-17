@@ -23,7 +23,7 @@ class SearchCommoncrawl:
     MAX_CONSECUTIVE_PAGE_ERRORS = 3
     RUNTIME_SECONDS = 120.0
 
-    def __init__(self, word, limit: int | None = 500) -> None:
+    def __init__(self, word: str, limit: int | None = 500) -> None:
         self.word = word.lower().rstrip('.')
         self.limit = max(limit, 0) if limit is not None else None
         self.totalhosts: set[str] = set()

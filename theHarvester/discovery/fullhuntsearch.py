@@ -21,7 +21,7 @@ class SearchFullHunt:
 
     BASE_URL = 'https://fullhunt.io/api/v1'
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word
         try:
             self.key = Core.fullhunt_key()

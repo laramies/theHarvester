@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchLeakLookup:
-    def __init__(self, word: str):
+    def __init__(self, word: str) -> None:
         self.word = word
         key = Core.leaklookup_key()
         self.api_key = key.strip() if key else ''
