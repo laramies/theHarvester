@@ -32,6 +32,9 @@ from theHarvester.lib.takeover_rules import (
 
 DEFAULT_TAKEOVER_CONCURRENCY = 20
 MAX_TAKEOVER_RESPONSE_BYTES = 1024 * 1024
+# Generous per-request bound: a stalled or black-holing endpoint must never hang
+# the whole takeover scan, but slow origins still get a realistic window.
+TAKEOVER_REQUEST_TIMEOUT_SECONDS = 30
 MAX_CNAME_HOPS = 32
 
 if TYPE_CHECKING:
@@ -320,7 +323,6 @@ class TakeoverScanner:
                 f'{scheme}://{hostname}',
                 session=session,
                 follow_redirects=False,
-                request_timeout=None,
                 response_byte_limit=MAX_TAKEOVER_RESPONSE_BYTES,
             )
         except asyncio.CancelledError:
@@ -555,7 +557,7 @@ class TakeoverScanner:
                 headers={'User-Agent': Core.get_browser_user_agent()},
                 proxy=proxy,
                 cookie_jar=aiohttp.DummyCookieJar(),
-                unlimited_timeout=True,
+                request_timeout=TAKEOVER_REQUEST_TIMEOUT_SECONDS,
             )
             resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
             async with asyncio.TaskGroup() as group:

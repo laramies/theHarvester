@@ -142,7 +142,7 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
     assert build_calls[0]['proxy_url'] == 'http://proxy.example:8080'
     assert build_calls[0]['proxy_type'] == 'http'
     assert isinstance(build_calls[0]['cookie_jar'], aiohttp.DummyCookieJar)
-    assert build_calls[0]['client_timeout'].total is None
+    assert build_calls[0]['client_timeout'].total == takeover.TAKEOVER_REQUEST_TIMEOUT_SECONDS
     assert fetch_sessions == [shared_session, shared_session]
     assert shared_session.close_count == 1
 

@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -45,7 +44,7 @@ class SearchSubdomainfinderc99:
             second_resp = await AsyncFetcher.post_fetch(
                 self.server,
                 session=session,
-                data=json.dumps(data, separators=(',', ':')),
+                data=data,
                 include_metadata=True,
             )
             if error := provider_http_error(second_resp):

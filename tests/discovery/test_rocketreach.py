@@ -49,12 +49,6 @@ async def test_do_search_uses_people_data_endpoint_and_start_pagination(
 ) -> None:
     monkeypatch.setattr(rocketreach.Core, 'rocketreach_key', lambda: 'test-key')
     monkeypatch.setattr(rocketreach.Core, 'get_user_agent', lambda: 'test-agent')
-    monkeypatch.setattr(rocketreach, 'get_delay', lambda: 0)
-
-    async def fake_sleep(_seconds):
-        return None
-
-    monkeypatch.setattr(rocketreach.asyncio, 'sleep', fake_sleep)
 
     calls = []
 
@@ -116,12 +110,6 @@ async def test_do_search_uses_people_data_endpoint_and_start_pagination(
 async def test_do_search_stops_on_throttling_message(monkeypatch) -> None:
     monkeypatch.setattr(rocketreach.Core, 'rocketreach_key', lambda: 'test-key')
     monkeypatch.setattr(rocketreach.Core, 'get_user_agent', lambda: 'test-agent')
-    monkeypatch.setattr(rocketreach, 'get_delay', lambda: 0)
-
-    async def fake_sleep(_seconds):
-        return None
-
-    monkeypatch.setattr(rocketreach.asyncio, 'sleep', fake_sleep)
 
     calls = []
 
@@ -152,17 +140,12 @@ async def test_do_search_stops_on_throttling_message(monkeypatch) -> None:
 async def test_search_reports_terminal_outcomes(monkeypatch, response, expected) -> None:
     monkeypatch.setattr(rocketreach.Core, 'rocketreach_key', lambda: 'test-key')
     monkeypatch.setattr(rocketreach.Core, 'get_user_agent', lambda: 'test-agent')
-    monkeypatch.setattr(rocketreach, 'get_delay', lambda: -5)
 
     async def fake_post_fetch(*_args, **kwargs):
         assert kwargs['include_metadata'] is True
         return response
 
-    async def no_sleep(_seconds):
-        return None
-
     monkeypatch.setattr(rocketreach.AsyncFetcher, 'post_fetch', fake_post_fetch)
-    monkeypatch.setattr(rocketreach.asyncio, 'sleep', no_sleep)
 
     assert await rocketreach.SearchRocketReach('example.com', 10).process() == expected
 
