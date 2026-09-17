@@ -1,7 +1,8 @@
 import logging
 from urllib.parse import urlencode
 
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
@@ -37,15 +38,26 @@ class SearchCertspoter:
                 if cursor is not None:
                     params['after'] = cursor
 
-                responses = await AsyncFetcher.fetch_all([f'{base_url}?{urlencode(params)}'], json=True, proxy=self.proxy)
+                responses = await AsyncFetcher.fetch_all(
+                    [f'{base_url}?{urlencode(params)}'], json=True, proxy=self.proxy, include_metadata=True
+                )
                 if not responses:
                     self._mark_incomplete('no-response')
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
 
                 page = responses[0]
-                if isinstance(page, dict):
-                    code = page.get('code')
+                if not isinstance(page, FetcherResponse):
+                    self._mark_incomplete('transport-error')
+                    logger.warning('Cert Spotter stopped early; results may be incomplete.')
+                    break
+                if error := provider_http_error(page):
+                    self._report = SourceExecutionReport(*error)
+                    logger.warning(f'Cert Spotter stopped early ({error[1]}); results may be incomplete.')
+                    break
+                body = page.body
+                if isinstance(body, dict):
+                    code = body.get('code')
                     if isinstance(code, str):
                         self._mark_incomplete(code, rate_limited=code == 'rate_limited')
                         logger.warning(f'Cert Spotter stopped early ({code}); results may be incomplete.')
@@ -53,15 +65,15 @@ class SearchCertspoter:
                         self._mark_incomplete('invalid-response')
                         logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
-                if not isinstance(page, list):
+                if not isinstance(body, list):
                     self._mark_incomplete('invalid-response')
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
-                if not page:
+                if not body:
                     break
 
                 malformed_issuance = False
-                for issuance in page:
+                for issuance in body:
                     if not isinstance(issuance, dict):
                         malformed_issuance = True
                         continue
@@ -96,7 +108,7 @@ class SearchCertspoter:
                     self._mark_incomplete('malformed-issuance')
                     logger.warning('Cert Spotter ignored malformed issuance data; results may be incomplete.')
 
-                last_issuance = page[-1]
+                last_issuance = body[-1]
                 next_cursor = last_issuance.get('id') if isinstance(last_issuance, dict) else None
                 if isinstance(next_cursor, str):
                     next_cursor = next_cursor.strip()

@@ -39,9 +39,16 @@ def test_tomba_rejects_missing_or_blank_credentials(monkeypatch, credentials) ->
         tombasearch.SearchTomba('example.test', 10, 0)
 
 
-@pytest.mark.parametrize('status', [401, 403, 429])
+@pytest.mark.parametrize(
+    ('status', 'expected_report'),
+    [
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (403, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+    ],
+)
 @pytest.mark.asyncio
-async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status: int) -> None:
+async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status: int, expected_report) -> None:
     async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
         assert kwargs['include_metadata'] is True
         return [FetcherResponse(body={'error': 'provider detail'}, status=status, headers={})]
@@ -52,8 +59,9 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
     search = tombasearch.SearchTomba('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
 
@@ -62,15 +70,26 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
 
 
 @pytest.mark.parametrize(
-    ('response', 'message'),
+    ('response', 'message', 'expected_report'),
     [
-        ([], 'Tomba request failed without a response'),
-        ([FetcherResponse(body='not json', status=200, headers={})], 'Tomba returned malformed data'),
-        ([FetcherResponse(body={}, status=200, headers={})], 'Tomba returned malformed data'),
+        ([], 'Tomba request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        ([None], 'Tomba request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        (
+            [FetcherResponse(body='not json', status=200, headers={})],
+            'Tomba returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            [FetcherResponse(body={}, status=200, headers={})],
+            'Tomba returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_tomba_empty_or_malformed_response_returns_no_results(monkeypatch, caplog, response, message) -> None:
+async def test_tomba_empty_or_malformed_response_returns_no_results(
+    monkeypatch, caplog, response, message, expected_report
+) -> None:
     async def fake_fetch_all(*_args: Any, **_kwargs: Any):
         return response
 
@@ -80,8 +99,9 @@ async def test_tomba_empty_or_malformed_response_returns_no_results(monkeypatch,
     search = tombasearch.SearchTomba('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
     assert message in caplog.text
@@ -216,8 +236,9 @@ async def test_paid_tomba_search_preserves_first_page_after_rate_limit(monkeypat
     search = tombasearch.SearchTomba('example.test', 120, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == SourceExecutionReport('rate-limited', 'http-429')
     assert len(await search.get_emails()) == 50
     assert len(await search.get_hostnames()) == 50
     assert requests[-1] == 'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2'

@@ -2,7 +2,8 @@ import asyncio
 import logging
 from urllib.parse import unquote_plus, urlencode, urlsplit
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class SearchWaybackarchive:
         continuation_lines = [line.strip() for line in continuation.splitlines() if line.strip()]
         return body.splitlines(), continuation_lines[0] if len(continuation_lines) == 1 else None
 
-    async def _search_pattern(self, pattern: str, headers: dict[str, str]) -> str | None:
+    async def _search_pattern(self, pattern: str, headers: dict[str, str]) -> SourceExecutionReport | None:
         resume_key: str | None = None
         seen_resume_keys: set[str] = set()
         page_number = 0
@@ -73,19 +74,26 @@ class SearchWaybackarchive:
                 query['resumeKey'] = unquote_plus(resume_key)
 
             url = f'{self.hostname}/cdx/search/cdx?{urlencode(query)}'
-            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy, include_metadata=True)
             if not response or not isinstance(response, list):
                 logger.info(f'Wayback Archive returned an invalid response container for pattern {pattern}')
-                return 'invalid-response'
-            if not response[0]:
+                return SourceExecutionReport('failed', 'invalid-response')
+            page = response[0]
+            if not isinstance(page, FetcherResponse):
+                logger.info(f'Wayback Archive request failed for pattern {pattern}')
+                return SourceExecutionReport('failed', 'transport-error')
+            if error := provider_http_error(page):
+                logger.info(f'Wayback Archive request failed with HTTP {page.status} for pattern {pattern}')
+                return SourceExecutionReport(*error)
+            if not page.body:
                 logger.info(f'Wayback Archive returned no page data for pattern {pattern}')
                 return None
 
-            page = self._parse_page(response[0])
-            if page is None:
+            parsed = self._parse_page(page.body)
+            if parsed is None:
                 logger.info(f'Wayback Archive returned invalid page data for pattern {pattern}; stopping pagination')
-                return 'invalid-response'
-            lines, next_resume_key = page
+                return SourceExecutionReport('failed', 'invalid-response')
+            lines, next_resume_key = parsed
             for line in lines:
                 if not line:
                     continue
@@ -93,7 +101,7 @@ class SearchWaybackarchive:
                 if domain.endswith(f'.{self.word}') or domain == self.word:
                     self.totalhosts.add(domain)
                     if self.limit is not None and len(self.totalhosts) >= self.limit:
-                        return 'result-limit'
+                        return SourceExecutionReport('completed', 'result-limit')
 
             if page_number == 1 or page_number % 10 == 0:
                 logger.info(f'Wayback Archive page {page_number}: hosts={len(self.totalhosts)}')
@@ -101,7 +109,7 @@ class SearchWaybackarchive:
             if next_resume_key is None:
                 return None
             if next_resume_key in seen_resume_keys:
-                return 'repeated-cursor'
+                return SourceExecutionReport('failed', 'repeated-cursor')
             seen_resume_keys.add(next_resume_key)
             resume_key = next_resume_key
 
@@ -110,30 +118,30 @@ class SearchWaybackarchive:
             return None
         try:
             headers = {'User-agent': Core.get_user_agent()}
-            degraded_reason: str | None = None
+            degraded: SourceExecutionReport | None = None
             try:
                 async with asyncio.timeout(self.RUNTIME_SECONDS):
                     for pattern in (f'*.{self.word}', f'{self.word}/*'):
                         try:
                             outcome = await self._search_pattern(pattern, headers)
                         except Exception as e:
-                            degraded_reason = degraded_reason or 'request-error'
+                            degraded = degraded or SourceExecutionReport('failed', 'request-error')
                             logger.info(f'Wayback Archive API error for pattern {pattern}: {e}')
                             continue
-                        if outcome == 'result-limit':
-                            if degraded_reason is None:
-                                return SourceExecutionReport('completed', 'result-limit')
+                        if outcome is not None and outcome.status == 'completed':
+                            if degraded is None:
+                                return outcome
                             break
                         if outcome is not None:
-                            degraded_reason = degraded_reason or outcome
+                            degraded = degraded or outcome
             except TimeoutError:
                 logger.info(
                     f'Wayback Archive runtime limit reached after {self.RUNTIME_SECONDS:g}s; '
                     f'preserved {len(self.totalhosts)} hosts'
                 )
                 return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'runtime-limit')
-            if degraded_reason is not None:
-                return SourceExecutionReport('failed', degraded_reason)
+            if degraded is not None:
+                return degraded
         except Exception as e:
             logger.info(f'Wayback Archive API error: {e}')
             return SourceExecutionReport('failed', 'unexpected-error')

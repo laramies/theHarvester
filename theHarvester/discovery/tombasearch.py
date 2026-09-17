@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -24,7 +25,7 @@ class SearchTomba:
         self.hostnames: list = []
         self.emails: list = []
 
-    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | None:
+    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | SourceExecutionReport:
         response = await AsyncFetcher.fetch_all(
             [url],
             headers=headers,
@@ -35,18 +36,17 @@ class SearchTomba:
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
             logger.info('Tomba request failed without a response')
-            return None
-        if not 200 <= metadata.status < 300:
+            return SourceExecutionReport('failed', 'transport-error')
+        if error := provider_http_error(metadata):
             logger.info(f'Tomba request failed with HTTP {metadata.status}')
-            return None
+            return SourceExecutionReport(*error)
         if not isinstance(metadata.body, dict):
             logger.info('Tomba returned malformed data')
-            return None
+            return SourceExecutionReport('failed', 'invalid-response')
         return metadata.body
 
     async def do_search(self) -> SourceExecutionReport | None:
         # First determine if a user account is not a free account, this call is free
-        is_free = True
         headers = {
             'User-Agent': Core.get_user_agent(),
             'X-Tomba-Key': self.key[0],
@@ -54,13 +54,9 @@ class SearchTomba:
         }
         acc_info_url = 'https://api.tomba.io/v1/me'
         response = await self._fetch_json(acc_info_url, headers)
-        if response is None:
-            return None
-        is_free = (
-            is_free
-            if 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
-            else False
-        )
+        if isinstance(response, SourceExecutionReport):
+            return response
+        is_free = 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
         # Extract the total number of requests that are available for an account
 
         total_requests_avail = (
@@ -73,8 +69,8 @@ class SearchTomba:
         else:
             tomba_counter = f'https://api.tomba.io/v1/email-count?domain={self.word}'
             response = await self._fetch_json(tomba_counter, headers)
-            if response is None:
-                return None
+            if isinstance(response, SourceExecutionReport):
+                return response
             available_results = max(0, response['data']['total'] - self.start)
             total_results = (
                 min(available_results, self.requested_limit) if self.requested_limit is not None else available_results
@@ -94,8 +90,8 @@ class SearchTomba:
         for page in range(first_page, first_page + pages_to_fetch):
             req_url = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit={page_size}&page={page}'
             response = await self._fetch_json(req_url, headers)
-            if response is None:
-                return None
+            if isinstance(response, SourceExecutionReport):
+                return response
             skip = first_page_skip if page == first_page else 0
             raw_entries = response['data']['emails']
             provider_limit_reached = is_free and isinstance(raw_entries, list) and len(raw_entries) >= page_size

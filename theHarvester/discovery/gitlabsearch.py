@@ -93,22 +93,19 @@ class SearchGitlab:
             json=True,
             include_metadata=True,
         )
-        if not response:
+        payload = response[0] if response else None
+        if not isinstance(payload, FetcherResponse):
             return [], None, SourceExecutionReport('failed', 'transport-error')
-        payload = response[0]
-        headers: dict[str, str] | None = None
-        if isinstance(payload, FetcherResponse):
-            if error := provider_http_error(payload):
-                if page > 1 and payload.status == 400:
-                    return [], None, SourceExecutionReport('partial', 'provider-limit')
-                return [], None, SourceExecutionReport(*error)
-            headers = payload.headers
-            payload = payload.body
-        records = self._safe_parse_json(payload)
+        if error := provider_http_error(payload):
+            if page > 1 and payload.status == 400:
+                return [], None, SourceExecutionReport('partial', 'provider-limit')
+            return [], None, SourceExecutionReport(*error)
+        response_headers: dict[str, str] | None = payload.headers
+        records = self._safe_parse_json(payload.body)
         if not isinstance(records, list):
             return [], None, SourceExecutionReport('failed', 'invalid-response')
-        if headers is not None and 'x-next-page' in headers:
-            next_page = headers['x-next-page'].strip() or None
+        if response_headers is not None and 'x-next-page' in response_headers:
+            next_page = response_headers['x-next-page'].strip() or None
         else:
             next_page = str(page + 1) if len(records) >= per_page else None
         return records, next_page, None

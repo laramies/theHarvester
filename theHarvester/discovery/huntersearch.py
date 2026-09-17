@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -27,7 +28,7 @@ class SearchHunter:
         self.hostnames: list = []
         self.emails: list = []
 
-    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | None:
+    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | SourceExecutionReport:
         response = await AsyncFetcher.fetch_all(
             [url],
             headers=headers,
@@ -38,24 +39,23 @@ class SearchHunter:
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
             logger.info('Hunter request failed without a response')
-            return None
-        if not 200 <= metadata.status < 300:
+            return SourceExecutionReport('failed', 'transport-error')
+        if error := provider_http_error(metadata):
             logger.info(f'Hunter request failed with HTTP {metadata.status}')
-            return None
+            return SourceExecutionReport(*error)
         if not isinstance(metadata.body, dict):
             logger.info('Hunter returned malformed data')
-            return None
+            return SourceExecutionReport('failed', 'invalid-response')
         return metadata.body
 
     async def do_search(self) -> SourceExecutionReport | None:
         # First determine if a user account is not a free account, this call is free
-        is_free = True
         headers = {'User-Agent': Core.get_user_agent()}
         acc_info_url = f'https://api.hunter.io/v2/account?api_key={self.key}'
         response = await self._fetch_json(acc_info_url, headers)
-        if response is None:
-            return None
-        is_free = is_free if 'plan_name' in response['data'].keys() and response['data']['plan_name'].lower() == 'free' else False
+        if isinstance(response, SourceExecutionReport):
+            return response
+        is_free = 'plan_name' in response['data'].keys() and response['data']['plan_name'].lower() == 'free'
         # Extract the total number of requests that are available for an account
 
         total_requests_avail = (
@@ -63,23 +63,24 @@ class SearchHunter:
         )
         if is_free:
             response = await self._fetch_json(self.database, headers)
-            if response is not None:
-                self.emails, self.hostnames = await self.parse_resp(json_resp=response)
-                entries = response.get('data', {}).get('emails', [])
-                if (
-                    isinstance(entries, list)
-                    and len(entries) >= self.limit
-                    and (self.requested_limit is None or self.requested_limit > self.limit)
-                ):
-                    return SourceExecutionReport('partial', 'provider-limit')
+            if isinstance(response, SourceExecutionReport):
+                return response
+            self.emails, self.hostnames = await self.parse_resp(json_resp=response)
+            entries = response.get('data', {}).get('emails', [])
+            if (
+                isinstance(entries, list)
+                and len(entries) >= self.limit
+                and (self.requested_limit is None or self.requested_limit > self.limit)
+            ):
+                return SourceExecutionReport('partial', 'provider-limit')
         else:
             # Determine the total number of emails that are available
             # As the most emails you can get within one query are 100
             # This is only done where paid accounts are in play
             hunter_dinfo_url = f'https://api.hunter.io/v2/email-count?domain={self.word}'
             response = await self._fetch_json(hunter_dinfo_url, headers)
-            if response is None:
-                return None
+            if isinstance(response, SourceExecutionReport):
+                return response
             available_results = max(0, response['data']['total'] - self.start)
             total_results = (
                 min(available_results, self.requested_limit) if self.requested_limit is not None else available_results
@@ -100,8 +101,8 @@ class SearchHunter:
                 page_limit = min(100, result_end - offset)
                 req_url = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={page_limit}&offset={offset}'
                 response = await self._fetch_json(req_url, headers)
-                if response is None:
-                    return None
+                if isinstance(response, SourceExecutionReport):
+                    return response
                 temp_emails, temp_hostnames = await self.parse_resp(response)
                 self.emails.extend(temp_emails)
                 self.hostnames.extend(temp_hostnames)
