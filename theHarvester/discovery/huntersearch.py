@@ -4,6 +4,7 @@ import logging
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -116,10 +117,10 @@ class SearchHunter:
         domains = list(
             sorted(
                 {
-                    source['domain']
+                    source_domain
                     for email in json_resp['data']['emails']
                     for source in email['sources']
-                    if self.word in source['domain']
+                    if (source_domain := normalize_scoped_hostname(source['domain'], self.word)) is not None
                 }
             )
         )

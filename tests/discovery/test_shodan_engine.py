@@ -9,6 +9,7 @@ from uuid import UUID
 
 import pytest
 
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -22,6 +23,16 @@ def patch_resolution(monkeypatch, module, addresses=('203.0.113.10',)):
 
     monkeypatch.setattr(module, 'resolve_ip_addresses', resolve_ip_addresses, raising=True)
     return requested_targets
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('key', [None, '', '   '])
+async def test_missing_or_blank_key_raises(monkeypatch, key) -> None:
+    from theHarvester.discovery import shodansearch
+
+    monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: key)
+    with pytest.raises(MissingKey):
+        shodansearch.SearchShodan()
 
 
 @pytest.fixture(autouse=True)

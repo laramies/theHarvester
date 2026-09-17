@@ -14,7 +14,7 @@ class SearchRocketReach:
         self.ips: set = set()
         self.word = word
         self.key = Core.rocketreach_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('RocketReach')
         self.hosts: set = set()
         self.proxy = False

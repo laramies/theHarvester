@@ -313,6 +313,48 @@ async def test_free_tomba_unlimited_reports_saturated_provider_boundary(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_free_tomba_search_rejects_out_of_scope_source_websites(monkeypatch) -> None:
+    responses = iter(
+        [
+            {
+                'data': {
+                    'pricing': {'name': 'Free'},
+                    'requests': {'domains': {'available': 10, 'used': 0}},
+                }
+            },
+            {
+                'data': {
+                    'emails': [
+                        {
+                            'email': 'alice@example.test',
+                            'sources': [
+                                {'website_url': 'api.example.test'},
+                                {'website_url': 'https://portal.example.test'},
+                                {'website_url': 'notexample.test'},
+                                {'website_url': 'example.test.evil.net'},
+                            ],
+                        },
+                    ]
+                }
+            },
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
+    monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = tombasearch.SearchTomba('example.test', 10, 0)
+    await search.process()
+
+    assert await search.get_emails() == ['alice@example.test']
+    assert set(await search.get_hostnames()) == {'api.example.test', 'portal.example.test'}
+
+
+@pytest.mark.asyncio
 async def test_paid_tomba_search_stops_before_exceeding_quota(monkeypatch) -> None:
     requests: list[str] = []
     responses = iter(

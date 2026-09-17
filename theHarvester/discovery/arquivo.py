@@ -60,7 +60,7 @@ class SearchArquivo:
                 logger.info('Arquivo.pt returned malformed CDX data')
                 return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'invalid-response')
             if response.body == previous_page:
-                return SourceExecutionReport('partial', 'repeated-page')
+                return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'repeated-page')
             previous_page = response.body
 
             lines = response.body.splitlines()

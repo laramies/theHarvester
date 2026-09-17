@@ -247,6 +247,42 @@ async def test_free_hunter_unlimited_reports_saturated_provider_boundary(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_free_hunter_search_rejects_out_of_scope_source_domains(monkeypatch) -> None:
+    responses = iter(
+        [
+            {'data': {'plan_name': 'Free', 'requests': {'searches': {'available': 10, 'used': 0}}}},
+            {
+                'data': {
+                    'emails': [
+                        {
+                            'value': 'alice@example.test',
+                            'sources': [
+                                {'domain': 'api.example.test'},
+                                {'domain': 'notexample.test'},
+                                {'domain': 'example.test.evil.net'},
+                            ],
+                        },
+                    ]
+                }
+            },
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = huntersearch.SearchHunter('example.test', 10, 0)
+    await search.process()
+
+    assert await search.get_emails() == ['alice@example.test']
+    assert await search.get_hostnames() == ['api.example.test']
+
+
+@pytest.mark.asyncio
 async def test_paid_hunter_search_stops_before_exceeding_quota(monkeypatch) -> None:
     requests: list[str] = []
     responses = iter(

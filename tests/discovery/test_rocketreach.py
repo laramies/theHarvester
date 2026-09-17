@@ -35,6 +35,14 @@ async def test_missing_key_raises(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('key', ['', '   '])
+async def test_blank_key_raises(monkeypatch, key) -> None:
+    monkeypatch.setattr(rocketreach.Core, 'rocketreach_key', lambda: key)
+    with pytest.raises(MissingKey):
+        rocketreach.SearchRocketReach('example.com', 10)
+
+
+@pytest.mark.asyncio
 async def test_do_search_uses_people_data_endpoint_and_start_pagination(
     monkeypatch: pytest.MonkeyPatch,
     proxy_aware_session: list[dict[str, Any]],

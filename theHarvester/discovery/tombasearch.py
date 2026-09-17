@@ -1,9 +1,11 @@
 import asyncio
 import logging
+from urllib.parse import urlsplit
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -108,15 +110,27 @@ class SearchTomba:
             return SourceExecutionReport('partial', 'provider-limit')
         return None
 
+    def _scoped_source_website(self, value: object) -> str | None:
+        """Return the scoped hostname for a source website URL or bare domain."""
+        if not isinstance(value, str) or not value.strip():
+            return None
+        candidate = value.strip()
+        if '://' in candidate:
+            try:
+                candidate = urlsplit(candidate).hostname or ''
+            except ValueError:
+                return None
+        return normalize_scoped_hostname(candidate, self.word)
+
     async def parse_resp(self, json_resp):
         emails = list(sorted({email['email'] for email in json_resp['data']['emails']}))
         domains = list(
             sorted(
                 {
-                    source['website_url']
+                    source_domain
                     for email in json_resp['data']['emails']
                     for source in email['sources']
-                    if self.word in source['website_url']
+                    if (source_domain := self._scoped_source_website(source['website_url'])) is not None
                 }
             )
         )
