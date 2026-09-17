@@ -269,10 +269,8 @@ class TestMojeekSearch:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         requests: list[dict[str, Any]] = []
-
-        async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
-            requests.append({'urls': urls, **kwargs})
-            return [
+        responses = iter(
+            [
                 FetcherResponse(
                     status=200,
                     headers={},
@@ -290,6 +288,11 @@ class TestMojeekSearch:
                 ),
                 FetcherResponse(body={'response': {'results': []}}, status=200, headers={}),
             ]
+        )
+
+        async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
+            requests.append({'urls': urls, **kwargs})
+            return [next(responses)]
 
         async def reject_scrape(**_kwargs: Any) -> FetcherResponse:
             raise AssertionError('successful keyed API calls must not scrape')
@@ -304,15 +307,19 @@ class TestMojeekSearch:
 
         assert requests == [
             {
-                'urls': [
-                    'https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=1',
-                    'https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=11',
-                ],
+                'urls': ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=1'],
                 'headers': {'User-Agent': 'UA'},
                 'proxy': True,
                 'json': True,
                 'include_metadata': True,
-            }
+            },
+            {
+                'urls': ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=11'],
+                'headers': {'User-Agent': 'UA'},
+                'proxy': True,
+                'json': True,
+                'include_metadata': True,
+            },
         ]
         assert await search.get_emails() == {'admin@example.com'}
         assert set(await search.get_hostnames()) - {'example.com'} == {
@@ -320,6 +327,45 @@ class TestMojeekSearch:
             'blog.example.com',
         }
         assert report is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('limit', 'expected_offsets'),
+        [
+            (1, ['s=1']),
+            (10, ['s=1']),
+            (11, ['s=1', 's=11']),
+            (25, ['s=1', 's=11', 's=21']),
+        ],
+    )
+    async def test_keyed_api_enumerates_every_page_covering_the_limit(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        limit: int,
+        expected_offsets: list[str],
+    ) -> None:
+        requested_urls: list[str] = []
+
+        async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
+            requested_urls.extend(urls)
+            offset = urls[0].rsplit('s=', 1)[1]
+            return [
+                FetcherResponse(
+                    body={'response': {'results': [{'url': f'https://page-{offset}.example.com'}]}},
+                    status=200,
+                    headers={},
+                )
+            ]
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key'))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+        search = mojeek.SearchMojeek(word='example.com', limit=limit)
+        await search.process()
+
+        assert requested_urls == [
+            f'https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&{offset}' for offset in expected_offsets
+        ]
 
 
 pytestmark = pytest.mark.provider_contract('mojeek')

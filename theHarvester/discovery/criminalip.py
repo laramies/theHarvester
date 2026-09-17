@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 if TYPE_CHECKING:
@@ -88,32 +89,53 @@ class SearchCriminalIP:
             for nested_value in value.values():
                 self._collect_hosts_from_value(nested_value)
 
+    @staticmethod
+    def _transport_report(response: object, stage: str) -> SourceExecutionReport | None:
+        """Classify transport and HTTP failures for one CriminalIP response."""
+        if not isinstance(response, FetcherResponse):
+            logger.info(f'CriminalIP {stage} request failed without a response')
+            return SourceExecutionReport('failed', 'transport-error')
+        if error := provider_http_error(response):
+            logger.info(f'CriminalIP {stage} request failed with HTTP {response.status}')
+            return SourceExecutionReport(*error)
+        return None
+
+    @staticmethod
+    def _provider_status_report(payload: dict, stage: str) -> SourceExecutionReport | None:
+        """Classify application-level status codes reported inside a 200 response."""
+        status = payload.get('status')
+        if status == 200:
+            return None
+        logger.info(f'CriminalIP {stage} request failed with status {status}')
+        if status == 429:
+            return SourceExecutionReport('rate-limited', 'http-429')
+        if status in {401, 403}:
+            return SourceExecutionReport('failed', 'access-denied')
+        return SourceExecutionReport('failed', 'provider-error')
+
     async def do_search(self, session: aiohttp.ClientSession) -> SourceExecutionReport | None:
         # https://www.criminalip.io/developer/api/post-domain-scan
         # https://www.criminalip.io/developer/api/get-domain-status-id
         # https://www.criminalip.io/developer/api/get-v2-domain-report-id
         url = 'https://api.criminalip.io/v1/domain/scan'
-        data = f'{{"query": "{self.word}"}}'
         response = await AsyncFetcher.post_fetch(
             url,
             json=True,
-            data=data,
+            json_body={'query': self.word},
             session=session,
+            include_metadata=True,
         )
         # Expected response format:
         # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
-        if not isinstance(response, dict):
-            logger.info(f'CriminalIP scan response has unexpected type: {type(response).__name__}')
+        if report := self._transport_report(response, 'scan'):
+            return report
+        if not isinstance(response.body, dict):
+            logger.info(f'CriminalIP scan response has unexpected type: {type(response.body).__name__}')
             return SourceExecutionReport('failed', 'invalid-response')
-        if response.get('status') != 200:
-            logger.info(f'CriminalIP scan request failed with status {response.get("status")}')
-            if response.get('status') == 429:
-                return SourceExecutionReport('rate-limited', 'http-429')
-            if response.get('status') in {401, 403}:
-                return SourceExecutionReport('failed', 'access-denied')
-            return SourceExecutionReport('failed', 'provider-error')
+        if report := self._provider_status_report(response.body, 'scan'):
+            return report
 
-        scan_id = response.get('data', {}).get('scan_id')
+        scan_id = response.body.get('data', {}).get('scan_id')
         if scan_id is None:
             logger.info('CriminalIP scan response did not include a scan_id')
             return SourceExecutionReport('failed', 'invalid-response')
@@ -123,22 +145,21 @@ class SearchCriminalIP:
         status: dict[str, Any] = {}
         while scan_percentage != 100:
             status_url = f'https://api.criminalip.io/v1/domain/status/{scan_id}'
-            status = await AsyncFetcher.fetch(
+            poll = await AsyncFetcher.fetch(
                 session=session,
                 url=status_url,
                 json=True,
                 request_timeout=60,
+                include_metadata=True,
             )
-            if not isinstance(status, dict):
-                logger.info(f'CriminalIP status response has unexpected type: {type(status).__name__}')
+            if report := self._transport_report(poll, 'status'):
+                return report
+            if not isinstance(poll.body, dict):
+                logger.info(f'CriminalIP status response has unexpected type: {type(poll.body).__name__}')
                 return SourceExecutionReport('failed', 'invalid-response')
-            if status.get('status') != 200:
-                logger.info(f'CriminalIP status request failed with status {status.get("status")}')
-                if status.get('status') == 429:
-                    return SourceExecutionReport('rate-limited', 'http-429')
-                if status.get('status') in {401, 403}:
-                    return SourceExecutionReport('failed', 'access-denied')
-                return SourceExecutionReport('failed', 'provider-error')
+            status = poll.body
+            if report := self._provider_status_report(status, 'status'):
+                return report
 
             # Expected format:
             # {"data": {"scan_percentage": 100}, "message": "api success", "status": 200}
@@ -172,20 +193,18 @@ class SearchCriminalIP:
             url=report_url,
             json=True,
             request_timeout=60,
+            include_metadata=True,
         )
-        if not isinstance(scan, dict):
-            logger.info(f'CriminalIP report response has unexpected type: {type(scan).__name__}')
+        if report := self._transport_report(scan, 'report'):
+            return report
+        if not isinstance(scan.body, dict):
+            logger.info(f'CriminalIP report response has unexpected type: {type(scan.body).__name__}')
             return SourceExecutionReport('failed', 'invalid-response')
-        if scan.get('status') != 200:
-            logger.info(f'CriminalIP report request failed with status {scan.get("status")}')
-            if scan.get('status') == 429:
-                return SourceExecutionReport('rate-limited', 'http-429')
-            if scan.get('status') in {401, 403}:
-                return SourceExecutionReport('failed', 'access-denied')
-            return SourceExecutionReport('failed', 'provider-error')
+        if report := self._provider_status_report(scan.body, 'report'):
+            return report
 
         try:
-            await self.parser(scan)
+            await self.parser(scan.body)
         except Exception as e:
             logger.info(f'CriminalIP report parsing failed with {type(e).__name__}')
             return SourceExecutionReport('failed', 'invalid-response')

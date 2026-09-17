@@ -99,7 +99,7 @@ class SearchHudsonRock:
         return bool(re.match(pattern, email))
 
     async def _search_domain(self, domain: str, session: ClientSession) -> SourceExecutionReport | None:
-        """Search Hudson Rock by domain with retry logic.
+        """Search Hudson Rock by domain, retrying rate-limited responses.
 
         Args:
             domain: Domain to search.
@@ -115,7 +115,7 @@ class SearchHudsonRock:
         return None
 
     async def _search_email(self, email: str, session: ClientSession) -> SourceExecutionReport | None:
-        """Search Hudson Rock by email with retry logic.
+        """Search Hudson Rock by email, retrying rate-limited responses.
 
         Args:
             email: Email address to search.
@@ -133,43 +133,37 @@ class SearchHudsonRock:
     async def _fetch_response(
         self, url: str, search_type: str, target: str, session: ClientSession
     ) -> tuple[dict | None, SourceExecutionReport | None]:
+        # The shared transport swallows transport errors and returns None elements,
+        # so only HTTP 429 responses are retried here; transport failures are terminal.
         for attempt in range(self.max_retries):
-            try:
-                self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
-                responses = await AsyncFetcher.fetch_all([url], session=session, json=True, include_metadata=True)
-                response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
-                if response is None:
-                    self.logger.warning(f'Invalid response format for {search_type} search: {target}')
-                    return None, SourceExecutionReport('failed', 'transport-error')
-                if isinstance(response, FetcherResponse) and response.status == 429:
-                    if attempt == self.max_retries - 1:
-                        self.logger.info(f'Hudson Rock {search_type} search returned HTTP 429 after {self.max_retries} attempts')
-                        return None, SourceExecutionReport('rate-limited', 'http-429')
-                    retry_after = response.headers.get('retry-after')
-                    try:
-                        delay = int(retry_after) if retry_after is not None else 2**attempt
-                    except ValueError:
-                        delay = 2**attempt
-                    await asyncio.sleep(max(0, min(delay, 60)))
-                    continue
-                if error := provider_http_error(response):
-                    self.logger.info(f'Hudson Rock {search_type} search failed with HTTP {response.status}')
-                    return None, SourceExecutionReport(*error)
-                if not isinstance(response.body, dict):
-                    self.logger.warning(f'Invalid response format for {search_type} search: {target}')
-                    return None, SourceExecutionReport('failed', 'invalid-response')
-                if response.body.get('error'):
-                    self.logger.info(f'Hudson Rock {search_type} search returned a provider error')
-                    return None, SourceExecutionReport('failed', 'provider-error')
-                return response.body, None
-
-            except OSError, RuntimeError, ValueError:
-                self.logger.error(f'Hudson Rock {search_type} search attempt {attempt + 1} failed')
-                if attempt < self.max_retries - 1:
-                    await asyncio.sleep(2**attempt)
-                else:
-                    return None, SourceExecutionReport('failed', 'transport-error')
-        return None, SourceExecutionReport('failed', 'transport-error')
+            self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
+            responses = await AsyncFetcher.fetch_all([url], session=session, json=True, include_metadata=True)
+            response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
+            if response is None:
+                self.logger.warning(f'Invalid response format for {search_type} search: {target}')
+                return None, SourceExecutionReport('failed', 'transport-error')
+            if response.status == 429:
+                if attempt == self.max_retries - 1:
+                    self.logger.info(f'Hudson Rock {search_type} search returned HTTP 429 after {self.max_retries} attempts')
+                    return None, SourceExecutionReport('rate-limited', 'http-429')
+                retry_after = response.headers.get('retry-after')
+                try:
+                    delay = int(retry_after) if retry_after is not None else 2**attempt
+                except ValueError:
+                    delay = 2**attempt
+                await asyncio.sleep(max(0, min(delay, 60)))
+                continue
+            if error := provider_http_error(response):
+                self.logger.info(f'Hudson Rock {search_type} search failed with HTTP {response.status}')
+                return None, SourceExecutionReport(*error)
+            if not isinstance(response.body, dict):
+                self.logger.warning(f'Invalid response format for {search_type} search: {target}')
+                return None, SourceExecutionReport('failed', 'invalid-response')
+            if response.body.get('error'):
+                self.logger.info(f'Hudson Rock {search_type} search returned a provider error')
+                return None, SourceExecutionReport('failed', 'provider-error')
+            return response.body, None
+        return None, SourceExecutionReport('rate-limited', 'http-429')
 
     def _process_domain_response(self, response: dict) -> bool:
         """Process domain search response from Hudson Rock API.

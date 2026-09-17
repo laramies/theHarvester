@@ -323,4 +323,40 @@ async def test_github_code_cancellation_propagates(monkeypatch: pytest.MonkeyPat
         await search.process()
 
 
+@pytest.mark.asyncio
+async def test_github_code_forbidden_fails_immediately_as_access_denied(install_github_responses) -> None:
+    class ForbiddenResponse(FakeResponse):
+        status = 403
+
+    requested_urls = install_github_responses(ForbiddenResponse({}, {}))
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 1
+    assert report == githubcode.SourceExecutionReport('failed', 'access-denied')
+
+
+@pytest.mark.asyncio
+async def test_github_code_rate_limited_retries_then_reports(
+    install_github_responses,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class TooManyRequestsResponse(FakeResponse):
+        status = 429
+
+    requested_urls = install_github_responses(*(TooManyRequestsResponse({}, {}) for _ in range(4)))
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(githubcode.asyncio, 'sleep', no_sleep)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 4
+    assert report == githubcode.SourceExecutionReport('rate-limited', 'rate-limited')
+
+
 pytestmark = pytest.mark.provider_contract('github-code')

@@ -98,7 +98,7 @@ class SearchGithubCode:
                 next_page = await self.page_from_response('next', links) or 0
                 last_page = await self.page_from_response('last', links) or 0
                 return SuccessResult(results, next_page, last_page)
-            if status in (429, 403):
+            if status == 429:
                 return RetryResult(60)
             return ErrorResult(status, json_data if isinstance(json_data, dict) else text)
         except Exception as e:

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import asyncio
+import json
 import logging
 
 import pytest
 
 from theHarvester.discovery import criminalip
 from theHarvester.lib import core as core_module
+from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 
@@ -15,7 +17,9 @@ async def test_failed_response_body_is_not_logged(monkeypatch, caplog) -> None:
     monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
 
     async def fake_post_fetch(*args, **kwargs):
-        return {'status': 500, 'secret': 'provider-secret-payload'}
+        assert kwargs['include_metadata'] is True
+        assert kwargs['json_body'] == {'query': 'example.com'}
+        return FetcherResponse(body={'status': 500, 'secret': 'provider-secret-payload'}, status=200, headers={})
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
     caplog.set_level(logging.INFO, logger=criminalip.__name__)
@@ -89,15 +93,15 @@ async def test_do_search_uses_v2_report_endpoint(monkeypatch) -> None:
 
     async def fake_post_fetch(url, **kwargs):
         assert url == 'https://api.criminalip.io/v1/domain/scan'
-        return {'status': 200, 'data': {'scan_id': 12345}}
+        return FetcherResponse(body={'status': 200, 'data': {'scan_id': 12345}}, status=200, headers={})
 
     async def fake_fetch(*_args, url, **_kwargs):
         called_urls.append(url)
         if '/v1/domain/status/' in url:
-            return {'status': 200, 'data': {'scan_percentage': 100}}
+            return FetcherResponse(body={'status': 200, 'data': {'scan_percentage': 100}}, status=200, headers={})
         if '/v2/domain/report/' in url:
-            return {'status': 200, 'data': {}}
-        return {'status': 500}
+            return FetcherResponse(body={'status': 200, 'data': {}}, status=200, headers={})
+        return FetcherResponse(body={'status': 500}, status=200, headers={})
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
     monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch', fake_fetch)
@@ -131,6 +135,9 @@ async def test_provider_conversation_uses_one_session_and_proxy(monkeypatch: pyt
 
         async def __aexit__(self, *_args) -> None:
             return None
+
+        async def text(self) -> str:
+            return json.dumps(self.body)
 
         async def json(self):
             return self.body
@@ -177,12 +184,12 @@ async def test_waiting_scan_reports_runtime_limit(monkeypatch) -> None:
     status_calls = 0
 
     async def fake_post_fetch(*_args, **_kwargs):
-        return {'status': 200, 'data': {'scan_id': 12345}}
+        return FetcherResponse(body={'status': 200, 'data': {'scan_id': 12345}}, status=200, headers={})
 
     async def fake_fetch(*_args, **_kwargs):
         nonlocal status_calls
         status_calls += 1
-        return {'status': 200, 'data': {'scan_percentage': 50}}
+        return FetcherResponse(body={'status': 200, 'data': {'scan_percentage': 50}}, status=200, headers={})
 
     async def no_sleep(*_args, **_kwargs):
         return None
@@ -203,10 +210,10 @@ async def test_polling_cancellation_propagates(monkeypatch) -> None:
     monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
 
     async def fake_post_fetch(*_args, **_kwargs):
-        return {'status': 200, 'data': {'scan_id': 12345}}
+        return FetcherResponse(body={'status': 200, 'data': {'scan_id': 12345}}, status=200, headers={})
 
     async def fake_fetch(*_args, **_kwargs):
-        return {'status': 200, 'data': {'scan_percentage': 50}}
+        return FetcherResponse(body={'status': 200, 'data': {'scan_percentage': 50}}, status=200, headers={})
 
     async def cancel(*_args, **_kwargs):
         raise asyncio.CancelledError
@@ -228,6 +235,42 @@ async def test_provider_timeout_returns_explicit_transport_error(monkeypatch) ->
         raise TimeoutError
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', timeout)
+
+    assert await criminalip.SearchCriminalIP('example.com').process() == SourceExecutionReport('failed', 'transport-error')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('status', 'expected_report'),
+    [
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (403, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+        (500, SourceExecutionReport('failed', 'http-500')),
+    ],
+)
+async def test_http_failures_are_classified_before_body_inspection(monkeypatch, status, expected_report) -> None:
+    monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
+    monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
+
+    async def fake_post_fetch(*_args, **kwargs):
+        assert kwargs['include_metadata'] is True
+        return FetcherResponse(body='provider detail', status=status, headers={})
+
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
+
+    assert await criminalip.SearchCriminalIP('example.com').process() == expected_report
+
+
+@pytest.mark.asyncio
+async def test_transport_failure_without_a_response(monkeypatch) -> None:
+    monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
+    monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
+
+    async def fake_post_fetch(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
 
     assert await criminalip.SearchCriminalIP('example.com').process() == SourceExecutionReport('failed', 'transport-error')
 

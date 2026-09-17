@@ -102,23 +102,15 @@ class SearchMojeek:
             return
 
         result_limit = self.limit
-        urls = [
-            f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={num}'
-            for num in range(1, result_limit, 10)
-        ]
-        responses = await AsyncFetcher.fetch_all(
-            urls,
-            headers=headers,
-            proxy=self.proxy,
-            json=True,
-            include_metadata=True,
-        )
         seen_finite_pages: set[tuple[str, ...]] = set()
-        for response in responses:
-            if not isinstance(response, FetcherResponse):
+        offset = 1
+        while offset <= result_limit:
+            url = f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={offset}'
+            responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy, json=True, include_metadata=True)
+            if len(responses) != 1 or not isinstance(responses[0], FetcherResponse):
                 self._stop('failed', 'transport-error')
                 return
-            parsed_results = self._api_page_results(response)
+            parsed_results = self._api_page_results(responses[0])
             if parsed_results is None:
                 return
             if not parsed_results:
@@ -129,6 +121,7 @@ class SearchMojeek:
                 return
             seen_finite_pages.add(signature)
             self.total_results += f' {" ".join(parsed_results)} '
+            offset += 10
         logger.info('[*] Mojeek: API search completed successfully.')
 
     async def _search_keyless(self, headers: dict[str, str]) -> None:
