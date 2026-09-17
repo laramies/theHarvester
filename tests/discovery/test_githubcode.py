@@ -78,20 +78,6 @@ class TestSearchGithubCode:
         assert test_result == []
 
     @pytest.mark.asyncio
-    async def test_next_page(self):
-        Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-        test_result = githubcode.SuccessResult(list(), next_page=2, last_page=4)
-        assert 2 == await test_class_instance.next_page_or_end(test_result)
-
-    @pytest.mark.asyncio
-    async def test_last_page(self):
-        Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-        test_result = githubcode.SuccessResult(list(), 0, 0)
-        assert await test_class_instance.next_page_or_end(test_result) == 0
-
-    @pytest.mark.asyncio
     async def test_infinite_loop_fix_page_zero(self):
         """Stop pagination when the next page is zero."""
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]

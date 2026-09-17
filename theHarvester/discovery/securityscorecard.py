@@ -158,12 +158,3 @@ class SearchSecurityScorecard:
 
     async def get_grades(self) -> dict[str, Any]:
         return self.grades
-
-    async def get_issues(self) -> list[dict[str, Any]]:
-        return self.issues
-
-    async def get_recommendations(self) -> list[dict[str, Any]]:
-        return self.recommendations
-
-    async def get_history(self) -> list[dict[str, Any]]:
-        return self.history

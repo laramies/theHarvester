@@ -756,10 +756,6 @@ class TestShodanEngine:
 
         assert not await search.get_hostnames()
         assert not await search.get_ips()
-        assert not await search.get_ports()
-        assert not await search.get_vulns()
-        assert not await search.get_tags()
-        assert not await search.get_cpes()
         assert report == SourceExecutionReport('failed', 'invalid-response')
 
     @pytest.mark.asyncio

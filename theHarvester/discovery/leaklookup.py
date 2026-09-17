@@ -16,12 +16,9 @@ class SearchLeakLookup:
         if not self.api_key:
             raise MissingKey('Leak-Lookup')
         self.url = 'https://leak-lookup.com/api/search'
-        self.hosts: set[str] = set()
         self.emails: set[str] = set()
         self.leaks: list[dict[str, str]] = []
-        self.passwords: set[str] = set()
         self.sources: set[str] = set()
-        self.leak_dates: set[str] = set()
         self.breach_names: set[str] = set()
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
@@ -83,23 +80,14 @@ class SearchLeakLookup:
         ]
         return SourceExecutionReport('failed', 'invalid-response') if malformed else None
 
-    async def get_hostnames(self) -> set[str]:
-        return self.hosts
-
     async def get_emails(self) -> set[str]:
         return self.emails
 
     async def get_leaks(self) -> list[dict[str, str]]:
         return self.leaks
 
-    async def get_passwords(self) -> set[str]:
-        return self.passwords
-
     async def get_sources(self) -> set[str]:
         return self.sources
-
-    async def get_leak_dates(self) -> set[str]:
-        return self.leak_dates
 
     async def get_breach_names(self) -> set[str]:
         return self.breach_names

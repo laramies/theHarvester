@@ -21,7 +21,6 @@ class SearchHunter:
         if not self.key:
             raise MissingKey('Hunter')
         self.total_results = ''
-        self.counter = start
         self.database = (
             f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={self.limit}&offset={self.start}'
         )

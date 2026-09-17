@@ -22,7 +22,6 @@ class SearchTomba:
         if not all(self.key):
             raise MissingKey('Tomba Key and/or Secret')
         self.total_results = ''
-        self.counter = start
         self.proxy = False
         self.hostnames: list = []
         self.emails: list = []

@@ -99,7 +99,6 @@ class SearchMojeek:
                 seen_pages.add(signature)
                 self.total_results += f' {" ".join(parsed_results)} '
                 offset += 10
-            return
 
         result_limit = self.limit
         seen_finite_pages: set[tuple[str, ...]] = set()

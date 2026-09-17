@@ -12,10 +12,8 @@ class SearchHaveIBeenPwned:
         self.base_url = 'https://haveibeenpwned.com/api/v3'
         self.headers = {'User-Agent': Core.get_user_agent(), 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
-        self.emails: set[str] = set()
         self.breaches: list[dict] = []
         self.breach_names: set[str] = set()
-        self.pastes: list[dict] = []
         self.breach_dates: set[str] = set()
         self.breach_types: set[str] = set()
         self.affected_data: set[str] = set()
@@ -69,17 +67,11 @@ class SearchHaveIBeenPwned:
     async def get_hostnames(self) -> set[str]:
         return self.hosts
 
-    async def get_emails(self) -> set[str]:
-        return self.emails
-
     async def get_breaches(self) -> list[dict]:
         return self.breaches
 
     async def get_breach_names(self) -> set[str]:
         return self.breach_names
-
-    async def get_pastes(self) -> list[dict]:
-        return self.pastes
 
     async def get_breach_dates(self) -> set[str]:
         return self.breach_dates

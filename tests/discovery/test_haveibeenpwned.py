@@ -50,8 +50,6 @@ async def test_public_breach_catalog_preserves_metadata(monkeypatch: pytest.Monk
     assert await search.get_breach_names() == {'ExampleBreach'}
     assert await search.get_breach_dates() == {'2024-01-02'}
     assert await search.get_affected_data() == {'Email addresses', 'Passwords'}
-    assert await search.get_emails() == set()
-    assert await search.get_pastes() == []
     assert await search.get_breach_types() == set()
     assert await search.get_breaches() == [
         {

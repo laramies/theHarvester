@@ -29,7 +29,7 @@ class SearchWindvane:
     The provider grants full endpoint access and pagination with an API key.
     Unauthenticated requests have limited access.
 
-    Set the key with ``WINDVANE_API_KEY`` or ``search.set_api_key("your-key")``.
+    Set the key in ``api-keys.yaml`` under the ``windvane`` entry.
     """
 
     def __init__(self, word: str, limit: int | None = None) -> None:
@@ -232,15 +232,6 @@ class SearchWindvane:
         )
         logger.info(f'[*] Found {len(self.totalhosts)} subdomains with limited access')
         return report
-
-    def set_api_key(self, api_key: str) -> None:
-        """Set the API key for authenticated requests.
-
-        Args:
-            api_key: Windvane API key.
-
-        """
-        self.api_key = api_key
 
     def _is_valid_ip(self, ip: str) -> bool:
         """Return whether a string is a valid IP address."""

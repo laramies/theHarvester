@@ -82,11 +82,7 @@ class SearchDuckDuckGo:
         self.word = word
         self.results = ''
         self.totalresults = ''
-        self.dorks: list[str] = []
-        self.links: list[str] = []
-        self.database = 'https://duckduckgo.com/?q='
         self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
-        self.quantity = '100'
         self.limit = limit
         self.proxy: bool = False
 

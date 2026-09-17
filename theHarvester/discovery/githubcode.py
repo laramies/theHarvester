@@ -26,7 +26,6 @@ class SuccessResult(NamedTuple):
 
 class ErrorResult(NamedTuple):
     status_code: int
-    body: Any
 
 
 class SearchGithubCode:
@@ -91,7 +90,7 @@ class SearchGithubCode:
 
     async def handle_response(self, response: tuple[str, dict, int, Any]) -> ErrorResult | RetryResult | SuccessResult:
         try:
-            text, json_data, status, links = response
+            _text, json_data, status, links = response
             if status == 200:
                 results = await self.fragments_from_response(json_data)
                 # Ensure next_page and last_page default to 0 if None
@@ -100,17 +99,10 @@ class SearchGithubCode:
                 return SuccessResult(results, next_page, last_page)
             if status == 429:
                 return RetryResult(60)
-            return ErrorResult(status, json_data if isinstance(json_data, dict) else text)
+            return ErrorResult(status)
         except Exception as e:
             logger.info(f'Error handling response: {e}')
-            return ErrorResult(500, str(e))
-
-    @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> int | None:
-        if result.next_page is not None:
-            return result.next_page
-        else:
-            return result.last_page
+            return ErrorResult(500)
 
     async def do_search(
         self,

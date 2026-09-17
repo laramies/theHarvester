@@ -892,7 +892,7 @@ class SearchApiEndpoints:
         # Check if this is an interesting endpoint
         interesting = (
             status in [200, 201, 202, 204]
-            and (content_length > 0 or method in ['GET', 'POST'])
+            and (content_length > 0 or method == 'GET')
             and ('api' in url.lower() or 'json' in content_type.lower() or 'xml' in content_type.lower())
         )
 

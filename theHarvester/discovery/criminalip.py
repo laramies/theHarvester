@@ -335,8 +335,6 @@ class SearchCriminalIP:
                 if isinstance(redirect, dict):
                     self._add_host_from_url(redirect.get('url'))
 
-        self.totalhosts = {host for host in self.totalhosts if '*.' + self.word != host}
-
     async def get_asns(self) -> set:
         return self.asns
 

@@ -44,7 +44,7 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(
             inst,
             "handle_response",
-            AsyncMock(return_value=githubcode.ErrorResult(500, "err")),
+            AsyncMock(return_value=githubcode.ErrorResult(500)),
         )
         monkeypatch.setattr(
             inst,

@@ -13,8 +13,6 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
-# from theHarvester.parsers import myparser
-
 
 class SearchOnyphe:
     """Collect ONYPHE results and retain physical/logical IP attribution.
