@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
 
 WORKER_LEASE_TIMEOUT_SECONDS = 30
 DATABASE_IMPORT_BATCH_SIZE = 100
+
+logger = logging.getLogger(__name__)
 
 
 def _execution_status(value: object) -> ExecutionStatus:
@@ -444,15 +447,27 @@ class RunStore:
         for record in await self.lifecycle.running():
             run_id = str(record['run_id'])
             target = str(record['target'])
-            evidence, evidence_error = read_child_evidence(self.artifact_directory(run_id), target)
-            error = 'theHarvester restarted before child completion'
-            if evidence_error:
-                error += f'; {evidence_error}'
-            evidence_run_id, evidence_status = await self._terminal_evidence_reference(
-                record,
-                evidence,
-                recovered_at,
-            )
+            try:
+                evidence, evidence_error = read_child_evidence(self.artifact_directory(run_id), target)
+                error = 'theHarvester restarted before child completion'
+                if evidence_error:
+                    error += f'; {evidence_error}'
+                evidence_run_id, evidence_status = await self._terminal_evidence_reference(
+                    record,
+                    evidence,
+                    recovered_at,
+                )
+            except Exception as evidence_failure:
+                # One unreadable checkpoint must not abort recovery of the
+                # remaining orphaned runs or crash every future startup.
+                logger.warning(
+                    'Run %s has unreadable evidence and will be failed without it: %s',
+                    run_id,
+                    type(evidence_failure).__name__,
+                )
+                error = f'theHarvester restarted before child completion; unreadable evidence: {type(evidence_failure).__name__}'
+                evidence_run_id = None
+                evidence_status = None
             await self.lifecycle.fail(
                 run_id,
                 status='failed',

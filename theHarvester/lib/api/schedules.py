@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import ValidationError
 
 from .auth import get_api_key
 from .runs import canonical_run_sources
@@ -161,6 +162,11 @@ async def run_schedule_now(
         )
     try:
         dispatch = await scheduler.dispatcher().dispatch_now(schedule_id)
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Stored run template is no longer valid',
+        ) from error
     except (RuntimeError, ScheduleStoreError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     if dispatch is None:

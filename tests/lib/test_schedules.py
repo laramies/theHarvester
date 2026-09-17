@@ -348,6 +348,43 @@ def test_run_now_rejects_an_unavailable_worker_without_creating_runs(tmp_path, m
     assert asyncio.run(RunStore().list_runs(limit=10)) == []
 
 
+def test_run_now_maps_a_stale_run_template_to_a_sanitized_503(tmp_path, monkeypatch) -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api import schedule_service
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app) as client:
+        schedule_id = client.post('/api/v1/schedules', headers=headers, json=_payload()).json()['schedule_id']
+
+    real_run_request = schedule_service.RunRequest
+    try:
+        real_run_request.model_validate({'target': 'example.test', 'sources': []})
+    except ValidationError as error:
+        stale_template_error = error
+    else:  # pragma: no cover - the payload above is always invalid
+        pytest.fail('expected an invalid RunRequest payload')
+
+    class StaleRunRequest:
+        @staticmethod
+        def model_validate(_payload):
+            raise stale_template_error
+
+    monkeypatch.setattr(schedule_service, 'RunRequest', StaleRunRequest)
+
+    with TestClient(api.app) as client:
+        response = client.post(f'/api/v1/schedules/{schedule_id}/run-now', headers=headers)
+
+    assert response.status_code == 503
+    assert response.json() == {'detail': 'Stored run template is no longer valid'}
+
+
 def test_recurrence_handles_intervals_dst_and_downtime() -> None:
     from theHarvester.lib.api.schedule_models import ScheduleTiming
 

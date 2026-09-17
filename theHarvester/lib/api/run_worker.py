@@ -67,9 +67,21 @@ def _enabled_from_environment() -> bool:
     return os.getenv('THEHARVESTER_RUN_WORKER', 'enabled').casefold() != 'disabled'
 
 
+MAX_PROCESS_OUTPUT_BYTES = 256 * 1024
+
+
 async def _process_output(process: asyncio.subprocess.Process) -> str:
     async def read(stream: asyncio.StreamReader | None) -> bytes:
-        return await stream.read() if stream is not None else b''
+        if stream is None:
+            return b''
+        # Drain the stream to EOF but only retain the most recent tail so a
+        # verbose child cannot grow API-process memory without bound.
+        tail = bytearray()
+        while chunk := await stream.read(65536):
+            tail.extend(chunk)
+            if len(tail) > MAX_PROCESS_OUTPUT_BYTES:
+                del tail[: len(tail) - MAX_PROCESS_OUTPUT_BYTES]
+        return bytes(tail)
 
     stdout, stderr = await asyncio.gather(read(process.stdout), read(process.stderr))
     return '\n'.join(part.decode('utf-8', errors='replace').strip() for part in (stdout, stderr) if part).strip()
@@ -286,7 +298,9 @@ class RunWorker:
                         await store.fail(run_id, 'Worker lost its execution lease', await output_task)
                         return
                     next_heartbeat = asyncio.get_running_loop().time() + 5
-                current = await store.get(run_id)
+                # Poll the lifecycle row only; the full detail projection is
+                # not needed every 50 ms while waiting for the child.
+                current = await store.lifecycle.get(run_id)
                 stopping = stop_event is not None and stop_event.is_set()
                 if current is not None and current['status'] == 'cancelling':
                     await self._stop_process(process, wait_task)
@@ -382,7 +396,7 @@ class RunWorker:
                 continue
 
 
-async def _child_execute(run_id: str, database: Path) -> None:
+async def _child_execute(run_id: str, database: Path) -> int:
     import anyio
 
     from theHarvester import __main__ as main_module
@@ -478,7 +492,9 @@ async def _child_execute(run_id: str, database: Path) -> None:
     try:
         response = await task
     except asyncio.CancelledError:
-        return
+        # A terminated child must not report clean completion to the parent:
+        # leftover checkpoint evidence is partial, not terminal.
+        return 2
     finally:
         if signal_handler_installed:
             loop.remove_signal_handler(signal.SIGTERM)
@@ -486,6 +502,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
     if not isinstance(evidence, CompletedResult):
         raise RuntimeError('theHarvester did not return terminal evidence')
     write_child_evidence(artifact_dir, evidence, partial=False)
+    return 0
 
 
 if __name__ == '__main__':
@@ -493,4 +510,4 @@ if __name__ == '__main__':
     parser.add_argument('--execute', required=True)
     parser.add_argument('--database', required=True, type=Path)
     child_args = parser.parse_args()
-    asyncio.run(_child_execute(child_args.execute, child_args.database))
+    raise SystemExit(asyncio.run(_child_execute(child_args.execute, child_args.database)))

@@ -434,14 +434,16 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
         store = RunStore(database)
         queued = await store.create(RunRequest(target='example.test', sources=['crtsh'], screenshot=True))
         await store.claim_next()
-        await _child_execute(queued['run_id'], database)
+        termination_code = await _child_execute(queued['run_id'], database)
         evidence, error = read_child_evidence(store.artifact_directory(queued['run_id']))
         assert error is None
         assert evidence is not None
         await store.fail(queued['run_id'], 'cancelled', '', cancelled=True, evidence=evidence)
-        return await store.get(queued['run_id'])
+        return await store.get(queued['run_id']), termination_code
 
-    run = asyncio.run(scenario())
+    run, termination_code = asyncio.run(scenario())
+
+    assert termination_code == 2
 
     assert run is not None
     assert run['status'] == 'cancelled'
@@ -553,6 +555,62 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
     assert running['status'] == 'failed'
     assert running['results'] == [{'type': 'hostname', 'value': f'api.{running["target"]}', 'sources': [], 'actions': []}]
     assert {run['target']: run['status'] for run in history}['third.example'] == 'queued'
+
+
+def test_orphan_recovery_survives_unreadable_evidence_for_one_run(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def scenario():
+        store = RunStore()
+        corrupt = await store.create(RunRequest(target='first.example', sources=['crtsh']))
+        healthy = await store.create(RunRequest(target='second.example', sources=['crtsh']))
+        assert await store.claim_next() is not None
+        assert await store.claim_next() is not None
+
+        # A result entry without a value passes shallow evidence validation but
+        # breaks evidence reconstruction with a KeyError.
+        corrupt_dir = store.artifact_directory(corrupt['run_id'])
+        ensure_private_directory(corrupt_dir)
+        (corrupt_dir / 'evidence.json').write_text(
+            json.dumps({'target': 'first.example', 'status': 'partial', 'results': [{'type': 'email'}]}),
+            encoding='utf-8',
+        )
+
+        now = datetime.now(UTC)
+        healthy_dir = store.artifact_directory(healthy['run_id'])
+        ensure_private_directory(healthy_dir)
+        write_child_evidence(
+            healthy_dir,
+            CompletedResult.finish(
+                target='second.example',
+                started_at=now,
+                completed_at=now,
+                groups={'email': ['saved@second.example']},
+            ),
+            partial=True,
+        )
+
+        await store.recover_orphans()
+        return await store.get(corrupt['run_id']), await store.get(healthy['run_id'])
+
+    corrupt, healthy = asyncio.run(scenario())
+
+    assert corrupt is not None
+    assert corrupt['status'] == 'failed'
+    assert corrupt['evidence_status'] is None
+    assert corrupt['results'] == []
+    assert 'unreadable evidence' in corrupt['error']
+
+    assert healthy is not None
+    assert healthy['status'] == 'failed'
+    assert healthy['evidence_status'] == 'partial'
+    assert healthy['results'] == [{'type': 'email', 'value': 'saved@second.example', 'sources': [], 'actions': []}]
 
 
 def test_orphan_recovery_prefers_immutable_persisted_evidence_over_a_newer_checkpoint(tmp_path, monkeypatch) -> None:
@@ -1383,6 +1441,75 @@ def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tm
     assert 'does not match run target' in detail['error']
 
 
+def test_worker_fails_an_externally_terminated_child_with_partial_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def terminated_process(_run_id, _database, artifact_dir):
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        (artifact_dir / 'evidence.json').write_text(
+            json.dumps(
+                {
+                    'target': 'expected.example',
+                    'status': 'partial',
+                    'results': [{'type': 'email', 'value': 'saved@expected.example'}],
+                }
+            ),
+            encoding='utf-8',
+        )
+        return await asyncio.create_subprocess_exec(
+            sys.executable,
+            '-c',
+            'import sys; sys.exit(2)',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+    worker = run_worker.RunWorker(process_factory=terminated_process)
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        run = await store.claim_next()
+        assert run is not None
+        await worker.execute_claimed(store, run)
+        return await store.get(run['run_id'])
+
+    detail = asyncio.run(scenario())
+
+    assert detail is not None
+    assert detail['status'] == 'failed'
+    assert detail['evidence_status'] == 'partial'
+    assert detail['results'] == [{'type': 'email', 'value': 'saved@expected.example', 'sources': [], 'actions': []}]
+    assert 'exited with status 2' in detail['error']
+
+
+def test_process_output_retains_only_a_bounded_tail() -> None:
+    from theHarvester.lib.api import run_worker
+
+    class FakeStream:
+        def __init__(self, total_bytes: int) -> None:
+            self._remaining = total_bytes
+
+        async def read(self, _limit: int = -1) -> bytes:
+            if self._remaining <= 0:
+                return b''
+            chunk = b'a' * min(65536, self._remaining)
+            self._remaining -= len(chunk)
+            return chunk
+
+    class FakeProcess:
+        stdout = FakeStream(run_worker.MAX_PROCESS_OUTPUT_BYTES * 4)
+        stderr = None
+
+    output = asyncio.run(run_worker._process_output(FakeProcess()))
+
+    assert len(output) <= run_worker.MAX_PROCESS_OUTPUT_BYTES
+
+
 @pytest.mark.parametrize('source_workers', [0, -1, True, 1.5])
 def test_run_request_requires_positive_source_workers(source_workers: object) -> None:
     from pydantic import ValidationError
@@ -1413,7 +1540,7 @@ def test_source_workers_are_preserved_from_rest_request_to_child(tmp_path, monke
         store = RunStore(tmp_path / 'runs.sqlite')
         created = await store.create(RunRequest(target='example.test', sources=['crtsh'], source_workers=7))
         assert await store.claim_next() is not None
-        await run_worker._child_execute(created['run_id'], store.database)
+        assert await run_worker._child_execute(created['run_id'], store.database) == 0
 
     asyncio.run(scenario())
 
