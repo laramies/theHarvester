@@ -114,6 +114,31 @@ async def test_seed_normalization_stops_at_runtime_deadline(monkeypatch: pytest.
 
 
 @pytest.mark.asyncio
+async def test_recursive_dns_skips_candidates_rejected_by_validation() -> None:
+    current = {'example.com', 'api.example.com'}
+    resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('example.com',),
+        ('_dmarc', 'api'),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=1_000, runtime_seconds=5),
+    )
+
+    assert [(finding.hostname, finding.parent) for finding in result.findings] == [
+        ('api.example.com', 'example.com'),
+    ]
+    assert [
+        (classification.hostname, classification.parent, classification.addressability.value)
+        for classification in result.classifications
+    ] == [
+        ('api.example.com', 'example.com', 'currently-addressable'),
+    ]
+    assert result.stop_reason == 'depth-limit'
+
+
+@pytest.mark.asyncio
 async def test_recursive_dns_advances_only_current_candidates_breadth_first() -> None:
     current = {'api.example.com', 'dev.api.example.com', 'v2.dev.api.example.com'}
     resolvers = tuple(

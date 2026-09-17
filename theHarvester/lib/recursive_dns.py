@@ -197,6 +197,11 @@ async def discover_recursive_dns(
         while batch := tuple(islice(candidates, 50)):
             batch_yield = 0
             for candidate, parent in batch:
+                if normalize_scoped_hostname(candidate, normalized_target) is None:
+                    # A label such as _dmarc passes _normalize_label but is not a
+                    # valid scoped hostname; validate_dns_candidates would drop it,
+                    # so skip it here instead of aborting the whole action.
+                    continue
                 consensus = await validate(candidate)
                 if consensus is None:
                     stopped = True
