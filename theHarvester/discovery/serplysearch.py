@@ -106,12 +106,15 @@ class SearchSerply:
                     if any(not isinstance(row, dict) for row in rows):
                         return SourceExecutionReport('failed', 'invalid-response')
 
-                    results = rows[:remaining]
-                    if not results:
+                    if not rows:
                         break
 
+                    # Deduplicate the whole page before trimming to the limit:
+                    # Google windows can overlap, and a page whose first rows
+                    # repeat the previous window may still carry fresh links
+                    # further down.
                     fresh = []
-                    for result in results:
+                    for result in rows:
                         title = result.get('title', '')
                         description = result.get('description', '')
                         link = result.get('link', '')
@@ -121,17 +124,18 @@ class SearchSerply:
                             continue
                         seen_links.add(link)
                         fresh.append(result)
-                        self.totalresults += f'{title} {description} {link}\n'
 
-                    # A page that repeats the previous window means the provider
-                    # has no further results for this query.
+                    # A page that only repeats the previous window means the
+                    # provider has no further results for this query.
                     if not fresh:
                         break
 
-                    self.results.extend(fresh)
+                    for result in fresh[:remaining]:
+                        self.totalresults += f'{result["title"]} {result["description"]} {result["link"]}\n'
+                        self.results.append(result)
                     if self.limit is not None and len(self.results) >= self.limit:
                         return SourceExecutionReport('completed', 'result-limit')
-                    if len(results) < self.PAGE_SIZE:
+                    if len(rows) < params['num']:
                         break
 
                     await asyncio.sleep(get_delay())

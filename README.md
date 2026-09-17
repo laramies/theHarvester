@@ -318,7 +318,7 @@ For Serply, set `apikeys.serply.key` in `api-keys.yaml`:
 uv run theHarvester -d example.com -b serply -l 100
 ```
 
-Serply reads Google's index. Each request costs one API credit and returns at most ten organic rows, so `-l` bounds both the result count and the spend. Pagination uses the provider's `start` offset and stops once a page repeats results already seen for that query.
+Serply reads Google's index. Each request returns at most ten organic rows and is billed against the account's plan, so `-l` bounds the number of requests as well as the result count; see [Serply pricing](https://serply.io/pricing) for current terms. Pagination uses the provider's `start` offset and stops once a page repeats results already seen for that query.
 
 ## Output and local data
 

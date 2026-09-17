@@ -79,15 +79,23 @@ async def test_serply_normalizes_in_scope_evidence(
     )
 
     request_proxies: list[bool | None] = []
+    request_sessions: list[object] = []
     session_options: list[dict[str, Any]] = []
+    lifecycle: list[str] = []
+    owned_session = object()
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
         session_options.append(kwargs)
-        yield object()
+        lifecycle.append('open')
+        try:
+            yield owned_session
+        finally:
+            lifecycle.append('close')
 
     async def fake_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
         request_proxies.append(kwargs.get('proxy'))
+        request_sessions.append(kwargs.get('session'))
         return next(responses)
 
     monkeypatch.setattr(serplysearch.AsyncFetcher, 'open_session', fake_open_session)
@@ -98,6 +106,8 @@ async def test_serply_normalizes_in_scope_evidence(
 
     assert session_options == [{'headers': search_headers(search), 'proxy': True, 'request_timeout': 60}]
     assert request_proxies == [None, None]
+    assert request_sessions == [owned_session, owned_session]
+    assert lifecycle == ['open', 'close']
     assert await search.get_emails() == {'admin@example.com'}
     assert await search.get_hostnames() == ['blog.example.com', 'example.com']
 
@@ -216,11 +226,24 @@ async def test_serply_propagates_cancellation(
     async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
         raise serplysearch.asyncio.CancelledError
 
+    lifecycle: list[str] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        lifecycle.append('open')
+        try:
+            yield object()
+        finally:
+            lifecycle.append('close')
+
+    monkeypatch.setattr(serplysearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(serplysearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = serplysearch.SearchSerply('example.com', 10, credential_adapter=serply_credentials)
 
     with pytest.raises(serplysearch.asyncio.CancelledError):
         await search.process()
+
+    assert lifecycle == ['open', 'close']
 
 
 @pytest.mark.asyncio
@@ -318,6 +341,50 @@ async def test_serply_paginates_with_start_offsets_and_one_global_limit(
         {'q': ['"example.com"'], 'num': ['5'], 'start': ['20']},
     ]
     assert len(search.results) == 25
+    assert report == SourceExecutionReport('completed', 'result-limit')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('second_page', [range(5, 15), range(8, 18)], ids=['overlap-5', 'overlap-8'])
+async def test_serply_keeps_fresh_rows_from_an_overlapping_final_page(
+    monkeypatch: pytest.MonkeyPatch,
+    serply_credentials: InMemoryCredentialAdapter,
+    second_page: range,
+) -> None:
+    """Rows are deduplicated across the whole page before the limit trims them."""
+
+    responses = iter(
+        [
+            _response([_result(index) for index in range(10)]),
+            _response([_result(index) for index in second_page]),
+        ]
+    )
+    requests: list[dict[str, list[str]]] = []
+    borrowed_sessions: list[object] = []
+    owned_session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield owned_session
+
+    async def fake_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        url = kwargs.get('url', _args[0] if _args else '')
+        requests.append(parse_qs(urlparse(url).query))
+        borrowed_sessions.append(kwargs.get('session'))
+        return next(responses)
+
+    monkeypatch.setattr(serplysearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(serplysearch.AsyncFetcher, 'fetch_json', fake_fetch)
+    search = serplysearch.SearchSerply('example.com', 15, credential_adapter=serply_credentials)
+    report = await search.process()
+
+    assert requests == [
+        {'q': ['"example.com"'], 'num': ['10'], 'start': ['0']},
+        {'q': ['"example.com"'], 'num': ['5'], 'start': ['10']},
+    ]
+    assert borrowed_sessions == [owned_session, owned_session]
+    assert [result['link'] for result in search.results] == [_result(index)['link'] for index in range(15)]
+    assert search.totalresults.count('\n') == 15
     assert report == SourceExecutionReport('completed', 'result-limit')
 
 
