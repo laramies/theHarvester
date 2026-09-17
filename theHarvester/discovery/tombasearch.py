@@ -27,11 +27,11 @@ class SearchTomba:
         self.hostnames: list = []
         self.emails: list = []
 
-    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | SourceExecutionReport:
+    async def _fetch_json(self, url: str, headers: dict[str, str], session) -> dict | SourceExecutionReport:
         response = await AsyncFetcher.fetch_all(
             [url],
             headers=headers,
-            proxy=self.proxy,
+            session=session,
             json=True,
             include_metadata=True,
         )
@@ -47,7 +47,7 @@ class SearchTomba:
             return SourceExecutionReport('failed', 'invalid-response')
         return metadata.body
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         # First determine if a user account is not a free account, this call is free
         headers = {
             'User-Agent': Core.get_user_agent(),
@@ -55,7 +55,7 @@ class SearchTomba:
             'X-Tomba-Secret': self.key[1],
         }
         acc_info_url = 'https://api.tomba.io/v1/me'
-        response = await self._fetch_json(acc_info_url, headers)
+        response = await self._fetch_json(acc_info_url, headers, session)
         if isinstance(response, SourceExecutionReport):
             return response
         is_free = 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
@@ -70,7 +70,7 @@ class SearchTomba:
             total_results = self.limit
         else:
             tomba_counter = f'https://api.tomba.io/v1/email-count?domain={self.word}'
-            response = await self._fetch_json(tomba_counter, headers)
+            response = await self._fetch_json(tomba_counter, headers, session)
             if isinstance(response, SourceExecutionReport):
                 return response
             available_results = max(0, response['data']['total'] - self.start)
@@ -91,7 +91,7 @@ class SearchTomba:
         pages_to_fetch = min(total_number_reqs, max(total_requests_avail, 0))
         for page in range(first_page, first_page + pages_to_fetch):
             req_url = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit={page_size}&page={page}'
-            response = await self._fetch_json(req_url, headers)
+            response = await self._fetch_json(req_url, headers, session)
             if isinstance(response, SourceExecutionReport):
                 return response
             skip = first_page_skip if page == first_page else 0
@@ -139,7 +139,8 @@ class SearchTomba:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            return await self.do_search()  # Only need to do it once.
+            async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+                return await self.do_search(session)  # Only need to do it once.
         except AttributeError, KeyError, TypeError:
             logger.info('Tomba returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')

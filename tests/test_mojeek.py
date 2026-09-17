@@ -1,10 +1,25 @@
 import asyncio
+import contextlib
 from typing import Any
 
 import pytest
 
 from theHarvester.discovery import mojeek
 from theHarvester.lib.core import FetcherResponse
+
+
+def install_session(monkeypatch: pytest.MonkeyPatch) -> tuple[object, list[object]]:
+    """Patch AsyncFetcher.open_session to yield one sentinel session per process call."""
+    session = object()
+    proxies: list[object] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        proxies.append(kwargs.get('proxy'))
+        yield session
+
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'open_session', fake_open_session)
+    return session, proxies
 
 
 class TestMojeekSearch:
@@ -127,6 +142,7 @@ class TestMojeekSearch:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        session, session_proxies = install_session(monkeypatch)
         calls: list[dict[str, Any]] = []
         delays: list[float] = []
         responses = iter(
@@ -160,14 +176,15 @@ class TestMojeekSearch:
 
         report = await search.process(proxy=True)
 
+        assert session_proxies == [True]
         assert [call['url'] for call in calls] == [
             'https://www.mojeek.com/search?q=example.com&s=0',
             'https://www.mojeek.com/search?q=example.com&s=10',
         ]
+        assert all(call['session'] is session for call in calls)
         assert all(call['include_metadata'] is True for call in calls)
         assert all(call['headers'] == {'User-Agent': 'UA'} for call in calls)
         assert all(call['follow_redirects'] is False for call in calls)
-        assert all(call['proxy'] is True for call in calls)
         assert delays == [1.0]
         assert await search.get_hostnames() == ['docs.example.com', 'example.com']
         assert await search.get_emails() == {'admin@example.com'}
@@ -240,6 +257,7 @@ class TestMojeekSearch:
 
     @pytest.mark.asyncio
     async def test_failed_keyed_api_does_not_fall_back_to_scraping(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        session, session_proxies = install_session(monkeypatch)
         calls: list[dict[str, Any]] = []
 
         async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
@@ -256,9 +274,10 @@ class TestMojeekSearch:
 
         report = await search.process(proxy=True)
 
+        assert session_proxies == [True]
         assert len(calls) == 1
+        assert calls[0]['session'] is session
         assert calls[0]['include_metadata'] is True
-        assert calls[0]['proxy'] is True
         assert report.status == 'failed'
         assert report.stop_reason == 'access-denied'
         assert await search.get_hostnames() == []
@@ -268,6 +287,7 @@ class TestMojeekSearch:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        session, _session_proxies = install_session(monkeypatch)
         requests: list[dict[str, Any]] = []
         responses = iter(
             [
@@ -308,15 +328,15 @@ class TestMojeekSearch:
         assert requests == [
             {
                 'urls': ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=1'],
+                'session': session,
                 'headers': {'User-Agent': 'UA'},
-                'proxy': True,
                 'json': True,
                 'include_metadata': True,
             },
             {
                 'urls': ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=11'],
+                'session': session,
                 'headers': {'User-Agent': 'UA'},
-                'proxy': True,
                 'json': True,
                 'include_metadata': True,
             },

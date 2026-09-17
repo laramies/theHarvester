@@ -106,14 +106,14 @@ class SearchCommoncrawl:
                 selected.append(entry)
         return selected
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         try:
             if self.limit == 0:
                 return None
 
             headers = {'User-agent': Core.get_user_agent()}
             catalog_response = await AsyncFetcher.fetch_all(
-                [f'{self.hostname}/collinfo.json'], headers=headers, proxy=self.proxy, json=True
+                [f'{self.hostname}/collinfo.json'], headers=headers, session=session, json=True
             )
             if not catalog_response or not isinstance(catalog_response[0], list) or not catalog_response[0]:
                 logger.error('Common Crawl API error: invalid index catalog')
@@ -149,7 +149,7 @@ class SearchCommoncrawl:
                     try:
                         query_had_errors = False
                         count_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "showNumPages": "true"})}'
-                        count_response = await AsyncFetcher.fetch_all([count_url], headers=headers, proxy=self.proxy)
+                        count_response = await AsyncFetcher.fetch_all([count_url], headers=headers, session=session)
                         count_payload = json.loads(count_response[0])
                         page_count = count_payload.get('pages') if isinstance(count_payload, dict) else None
                         if isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 0:
@@ -165,7 +165,7 @@ class SearchCommoncrawl:
                                 return None
                             page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page, "limit": min(remaining, self.MAX_RECORDS_PER_REQUEST)})}'
                             first_page += 1
-                            responses = await AsyncFetcher.fetch_all([page_url], headers=headers, proxy=self.proxy)
+                            responses = await AsyncFetcher.fetch_all([page_url], headers=headers, session=session)
                             if not isinstance(responses, list) or not responses:
                                 raise ValueError('invalid page response')
                             try:
@@ -216,8 +216,11 @@ class SearchCommoncrawl:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            async with asyncio.timeout(self.RUNTIME_SECONDS):
-                return await self.do_search()
+            async with (
+                AsyncFetcher.open_session(headers={'User-agent': Core.get_user_agent()}, proxy=self.proxy) as session,
+                asyncio.timeout(self.RUNTIME_SECONDS),
+            ):
+                return await self.do_search(session)
         except TimeoutError:
             logger.info(
                 f'Common Crawl runtime limit reached after {self.RUNTIME_SECONDS:g}s; preserved {len(self.totalhosts)} hosts'

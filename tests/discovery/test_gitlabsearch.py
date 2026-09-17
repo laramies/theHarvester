@@ -22,7 +22,17 @@ if TYPE_CHECKING:
 async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import contextlib
+
     requests: list[dict[str, object]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
+
     projects = [
         {
             'id': 'group/project',
@@ -55,11 +65,11 @@ async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
     async def fake_fetch_all(
         urls: list[str] | set[str],
         headers: dict[str, str] | None = None,
-        proxy: bool = False,
+        session: object | None = None,
         **_kwargs: Any,
     ) -> list[FetcherResponse]:
         url = next(iter(urls))
-        requests.append({'url': url, 'headers': headers, 'proxy': proxy})
+        requests.append({'url': url, 'headers': headers, 'session': session})
         responses = {
             'https://gitlab.com/api/v4/projects?search=example.test&per_page=100&page=1': json.dumps(projects),
             'https://gitlab.com/api/v4/projects/group%2Fproject/repository/files/README.md/raw?ref=feature%2Freadme': (
@@ -73,13 +83,15 @@ async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
         return [FetcherResponse(responses[url], 200, {})]
 
     monkeypatch.setattr(gitlabsearch.Core, 'get_user_agent', staticmethod(lambda: 'UA'))
+    monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = gitlabsearch.SearchGitlab('example.test')
 
     await search.process(proxy=True)
 
+    assert session_proxy == [True]
     assert requests == [
-        {'url': url, 'headers': {'User-agent': 'UA'}, 'proxy': True}
+        {'url': url, 'headers': {'User-agent': 'UA'}, 'session': session}
         for url in (
             'https://gitlab.com/api/v4/projects?search=example.test&per_page=100&page=1',
             'https://gitlab.com/api/v4/projects/group%2Fproject/repository/files/README.md/raw?ref=feature%2Freadme',

@@ -80,6 +80,7 @@ class SearchGitlab:
 
     async def _fetch_page(
         self,
+        session,
         endpoint: str,
         term: str,
         page: int,
@@ -89,7 +90,7 @@ class SearchGitlab:
         response = await AsyncFetcher.fetch_all(
             [url],
             headers={'User-agent': Core.get_user_agent()},
-            proxy=self.proxy,
+            session=session,
             json=True,
             include_metadata=True,
         )
@@ -110,7 +111,7 @@ class SearchGitlab:
             next_page = str(page + 1) if len(records) >= per_page else None
         return records, next_page, None
 
-    async def search_projects(self) -> SourceExecutionReport | None:
+    async def search_projects(self, session) -> SourceExecutionReport | None:
         """Search GitLab projects for references to the target domain."""
         try:
             headers = {'User-agent': Core.get_user_agent()}
@@ -123,7 +124,7 @@ class SearchGitlab:
                 seen_cursors: set[str] = set()
                 while self.limit is None or records_seen < self.limit:
                     per_page = min(100, self.limit - records_seen) if self.limit is not None else 100
-                    projects, next_page, page_report = await self._fetch_page('projects', term, page, per_page)
+                    projects, next_page, page_report = await self._fetch_page(session, 'projects', term, page, per_page)
                     if page_report is not None:
                         report = self._combine_reports(report, page_report)
                         break
@@ -151,7 +152,7 @@ class SearchGitlab:
                                 f'/repository/files/README.md/raw?ref={quote(default_branch, safe="")}'
                             )
                             try:
-                                readme_response = await AsyncFetcher.fetch_all([readme_url], headers=headers, proxy=self.proxy)
+                                readme_response = await AsyncFetcher.fetch_all([readme_url], headers=headers, session=session)
                                 if readme_response and readme_response[0]:
                                     readme_text = (
                                         readme_response[0] if isinstance(readme_response[0], str) else str(readme_response[0])
@@ -181,7 +182,7 @@ class SearchGitlab:
             logger.info(f'GitLab API projects search error: {e}')
             return SourceExecutionReport('failed', 'transport-error')
 
-    async def search_users(self) -> SourceExecutionReport | None:
+    async def search_users(self, session) -> SourceExecutionReport | None:
         """Search GitLab users for references to the target domain."""
         try:
             page = 1
@@ -190,7 +191,7 @@ class SearchGitlab:
             seen_cursors: set[str] = set()
             while self.limit is None or records_seen < self.limit:
                 per_page = min(100, self.limit - records_seen) if self.limit is not None else 100
-                users, next_page, report = await self._fetch_page('users', self.word, page, per_page)
+                users, next_page, report = await self._fetch_page(session, 'users', self.word, page, per_page)
                 if report is not None:
                     return report
                 signature = json.dumps(users, sort_keys=True, default=str)
@@ -240,9 +241,9 @@ class SearchGitlab:
             logger.info(f'GitLab API users search error: {e}')
             return SourceExecutionReport('failed', 'transport-error')
 
-    async def do_search(self) -> SourceExecutionReport | None:
-        project_report = await self.search_projects()
-        user_report = await self.search_users()
+    async def do_search(self, session) -> SourceExecutionReport | None:
+        project_report = await self.search_projects(session)
+        user_report = await self.search_users(session)
         return self._combine_reports(project_report, user_report)
 
     async def get_hostnames(self) -> set:
@@ -256,4 +257,5 @@ class SearchGitlab:
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        return await self.do_search()
+        async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            return await self.do_search(session)

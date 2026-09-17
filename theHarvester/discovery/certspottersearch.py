@@ -24,7 +24,7 @@ class SearchCertspoter:
         status: SourceReportStatus = 'rate-limited' if rate_limited else 'partial'
         self._report = SourceExecutionReport(status, reason)
 
-    async def do_search(self) -> None:
+    async def do_search(self, session) -> None:
         base_url = 'https://api.certspotter.com/v1/issuances'
         cursor = None
         seen_cursors: set[str] = set()
@@ -39,7 +39,7 @@ class SearchCertspoter:
                     params['after'] = cursor
 
                 responses = await AsyncFetcher.fetch_all(
-                    [f'{base_url}?{urlencode(params)}'], json=True, proxy=self.proxy, include_metadata=True
+                    [f'{base_url}?{urlencode(params)}'], json=True, session=session, include_metadata=True
                 )
                 if not responses:
                     self._mark_incomplete('no-response')
@@ -140,6 +140,7 @@ class SearchCertspoter:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         self._report = None
-        await self.do_search()
+        async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            await self.do_search(session)
         logger.info('\tSearching results.')
         return self._report

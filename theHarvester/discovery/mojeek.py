@@ -75,14 +75,14 @@ class SearchMojeek:
             parsed_results.append(f'{url} {title} {description}')
         return parsed_results
 
-    async def _search_api(self, headers: dict[str, str]) -> None:
+    async def _search_api(self, headers: dict[str, str], session) -> None:
         if self.limit is None:
             seen_pages: set[tuple[str, ...]] = set()
             offset = 1
             while True:
                 url = f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={offset}'
                 responses = await AsyncFetcher.fetch_all(
-                    [url], headers=headers, proxy=self.proxy, json=True, include_metadata=True
+                    [url], headers=headers, session=session, json=True, include_metadata=True
                 )
                 if len(responses) != 1 or not isinstance(responses[0], FetcherResponse):
                     self._stop('failed', 'transport-error')
@@ -106,7 +106,7 @@ class SearchMojeek:
         offset = 1
         while offset <= result_limit:
             url = f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={offset}'
-            responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy, json=True, include_metadata=True)
+            responses = await AsyncFetcher.fetch_all([url], headers=headers, session=session, json=True, include_metadata=True)
             if len(responses) != 1 or not isinstance(responses[0], FetcherResponse):
                 self._stop('failed', 'transport-error')
                 return
@@ -124,7 +124,7 @@ class SearchMojeek:
             offset += 10
         logger.info('[*] Mojeek: API search completed successfully.')
 
-    async def _search_keyless(self, headers: dict[str, str]) -> None:
+    async def _search_keyless(self, headers: dict[str, str], session) -> None:
         seen_bodies: set[str] = set()
         offset = 0
         page = 0
@@ -133,9 +133,9 @@ class SearchMojeek:
             if page:
                 await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
             response = await AsyncFetcher.fetch(
+                session=session,
                 url=url,
                 headers=headers,
-                proxy=self.proxy,
                 request_timeout=60,
                 follow_redirects=False,
                 include_metadata=True,
@@ -175,19 +175,20 @@ class SearchMojeek:
             offset += 10
             page += 1
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         self._report = None
         user_agent = Core.get_user_agent() if self.api_key else Core.get_browser_user_agent()
         headers = {'User-Agent': user_agent}
         if self.api_key:
-            await self._search_api(headers)
+            await self._search_api(headers, session)
         else:
-            await self._search_keyless(headers)
+            await self._search_keyless(headers, session)
         return self._report
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        return await self.do_search()
+        async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            return await self.do_search(session)
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

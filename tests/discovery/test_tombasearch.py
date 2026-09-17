@@ -109,7 +109,17 @@ async def test_tomba_empty_or_malformed_response_returns_no_results(
 
 @pytest.mark.asyncio
 async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch) -> None:
-    requests: list[tuple[str, bool]] = []
+    import contextlib
+
+    requests: list[tuple[str, object]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
+
     responses = iter(
         [
             {
@@ -125,8 +135,8 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
         ]
     )
 
-    async def fake_fetch_all(urls, *, proxy=False, **_kwargs):
-        requests.append((urls[0], proxy))
+    async def fake_fetch_all(urls, *, session=None, **_kwargs):
+        requests.append((urls[0], session))
         return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     async def no_sleep(_seconds: float) -> None:
@@ -134,18 +144,21 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
 
     monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
     monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(tombasearch.asyncio, 'sleep', no_sleep)
 
     search = tombasearch.SearchTomba('example.test', 120, 0)
     await search.process(proxy=True)
 
-    assert requests == [
-        ('https://api.tomba.io/v1/me', True),
-        ('https://api.tomba.io/v1/email-count?domain=example.test', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=1', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=3', True),
+    assert session_proxy == [True]
+    assert all(entry[1] is session for entry in requests)
+    assert [entry[0] for entry in requests] == [
+        'https://api.tomba.io/v1/me',
+        'https://api.tomba.io/v1/email-count?domain=example.test',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=1',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=3',
     ]
     emails = await search.get_emails()
     hostnames = await search.get_hostnames()
