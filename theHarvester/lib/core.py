@@ -228,6 +228,7 @@ class Core:
         'routeviews': ('key',),
         'securityscorecard': ('key',),
         'securityTrails': ('key',),
+        'serply': ('key',),
         'sherlockeye': ('key',),
         'shodan': ('key',),
         'tomba': ('key', 'secret'),
@@ -415,6 +416,10 @@ class Core:
     @staticmethod
     def security_trails_key() -> str:
         return Core._api_key_value('securityTrails')
+
+    @staticmethod
+    def serply_key() -> str:
+        return Core._api_key_value('serply')
 
     @staticmethod
     def sherlockeye_key() -> str:
