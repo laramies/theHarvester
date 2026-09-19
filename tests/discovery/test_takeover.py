@@ -958,3 +958,145 @@ async def test_takeover_cancellation_closes_resolvers_and_propagates(monkeypatch
     assert resolver_closed.is_set()
     assert session_closed.is_set()
     assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('takeover-')]
+
+
+class _MissingBucketResolver:
+    """Point every candidate at an S3 bucket CNAME; wildcard controls do not exist."""
+
+    def __init__(self, nameserver: str) -> None:
+        self.nameserver = nameserver
+
+    async def query(self, hostname: str) -> TakeoverDNSOutcome:
+        if hostname.startswith('takeover-control-'):
+            return TakeoverDNSOutcome(resolver=self.nameserver, cname_chain=(), terminal_rcode='NXDOMAIN')
+        return TakeoverDNSOutcome(
+            resolver=self.nameserver,
+            cname_chain=(f'{hostname.split(".")[0]}.s3.amazonaws.com',),
+            terminal_rcode='NOERROR',
+        )
+
+    async def close(self) -> None:
+        return None
+
+
+_MISSING_BUCKET_BODY = 'The specified bucket does not exist <BucketName>valid</BucketName>'
+
+
+@pytest.mark.parametrize(
+    ('failure', 'error_type'),
+    [
+        pytest.param(
+            FetcherResponse(body=_MISSING_BUCKET_BODY, status=999, headers={}),
+            'InvalidResponseError',
+            id='status-outside-http-range',
+        ),
+        pytest.param(LookupError('unknown encoding: x-bogus'), 'InvalidResponseError', id='unknown-charset'),
+        pytest.param(
+            ResponseStreamError('response-limit', status=999, headers={}),
+            'ResponseLimitError',
+            id='limited-response-status-outside-http-range',
+        ),
+        pytest.param(
+            ResponseStreamError('response-limit', status=200, headers={'location': ''}),
+            'ResponseLimitError',
+            id='limited-response-empty-location',
+        ),
+    ],
+)
+async def test_takeover_invalid_response_is_inconclusive_and_does_not_stop_siblings(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: FetcherResponse | Exception,
+    error_type: str,
+) -> None:
+    async def fake_fetch_text(url: str, **_kwargs: object) -> FetcherResponse:
+        if '://odd.' in url:
+            if isinstance(failure, Exception):
+                raise failure
+            return failure
+        return FetcherResponse(body=_MISSING_BUCKET_BODY, status=404, headers={})
+
+    monkeypatch.setattr(takeover, 'TakeoverDNSResolver', _MissingBucketResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, 'fetch_text', fake_fetch_text)
+    scanner = takeover.TakeoverScanner(
+        ['odd.example.test', 'valid.example.test'],
+        target='example.test',
+        nameservers=['1.1.1.1'],
+    )
+
+    await scanner.process()
+
+    outcomes = await scanner.get_takeover_outcomes()
+    assert scanner.scan_error_type is None
+    assert scanner.stop_reason == 'incomplete-candidates'
+    assert [(item.hostname, item.status) for item in outcomes] == [
+        ('odd.example.test', 'inconclusive'),
+        ('valid.example.test', 'indicator'),
+    ]
+    assert outcomes[0].error_types == (error_type,)
+    assert {item.location for item in outcomes[0].http} == {None}
+    assert {item.status for item in outcomes[0].http} <= {None, 200}
+    assert scanner.completed_count == 2
+    assert scanner.request_error_types == {error_type}
+
+
+@pytest.mark.parametrize(
+    ('location', 'stored'),
+    [
+        pytest.param('', None, id='empty'),
+        pytest.param('   ', None, id='blank'),
+        pytest.param('/' + 'a' * 2048, None, id='longer-than-the-evidence-limit'),
+        # aiohttp decodes header bytes with surrogateescape, so a Latin-1 byte
+        # arrives as a lone surrogate that UTF-8 persistence cannot encode.
+        pytest.param('/caf\udce9', '/caf�', id='undecodable-header-bytes'),
+    ],
+)
+async def test_takeover_evaluates_hosts_whose_redirect_location_cannot_be_kept(
+    monkeypatch: pytest.MonkeyPatch,
+    location: str,
+    stored: str | None,
+) -> None:
+    async def fake_fetch_text(url: str, **_kwargs: object) -> FetcherResponse:
+        headers = {'location': location} if '://odd.' in url else {}
+        return FetcherResponse(body=_MISSING_BUCKET_BODY, status=404, headers=headers)
+
+    monkeypatch.setattr(takeover, 'TakeoverDNSResolver', _MissingBucketResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, 'fetch_text', fake_fetch_text)
+    scanner = takeover.TakeoverScanner(
+        ['odd.example.test', 'valid.example.test'],
+        target='example.test',
+        nameservers=['1.1.1.1'],
+    )
+
+    await scanner.process()
+
+    outcomes = await scanner.get_takeover_outcomes()
+    assert scanner.stop_reason is None
+    assert [(item.hostname, item.status) for item in outcomes] == [
+        ('odd.example.test', 'indicator'),
+        ('valid.example.test', 'indicator'),
+    ]
+    assert {item.location for item in outcomes[0].http} == {stored}
+    # The details are persisted as UTF-8 JSON.
+    json.dumps([item.to_details() for item in outcomes], ensure_ascii=False).encode('utf-8')
+
+
+def test_takeover_accepts_resolved_hosts_with_several_or_ipv6_addresses() -> None:
+    scanner = takeover.TakeoverScanner(
+        [
+            'one.example.test:192.0.2.1',
+            'multi.example.test:192.0.2.1,192.0.2.2',
+            'dual.example.test:192.0.2.3,2001:db8::2',
+            'v6.example.test:2001:db8::1',
+            'unresolved.example.test:not-an-address',
+            'outside.test:192.0.2.9',
+        ],
+        target='example.test',
+        nameservers=['1.1.1.1'],
+    )
+
+    assert scanner.hosts == (
+        'dual.example.test',
+        'multi.example.test',
+        'one.example.test',
+        'v6.example.test',
+    )
