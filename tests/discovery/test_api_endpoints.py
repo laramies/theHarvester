@@ -377,6 +377,72 @@ async def test_api_endpoint_scan_reuses_one_real_https_connection(
 
 
 @pytest.mark.asyncio
+async def test_api_endpoint_scan_does_not_report_missing_paths_as_found(
+    monkeypatch: pytest.MonkeyPatch,
+    api_tls_cert_chain: tuple[Path, Path],
+) -> None:
+    certificate, private_key = api_tls_cert_chain
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_cert_chain(certificate, private_key)
+    requests: list[tuple[str, str]] = []
+
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        try:
+            while True:
+                try:
+                    request = await reader.readuntil(b'\r\n\r\n')
+                except asyncio.IncompleteReadError:
+                    break
+                method, path, _ = request.decode().split(' ', 2)
+                requests.append((method, path))
+                # Like many CORS-enabled servers, OPTIONS succeeds for any path.
+                if method == 'OPTIONS':
+                    status = b'204 No Content'
+                elif path.startswith('/retired'):
+                    status = b'410 Gone'
+                else:
+                    status = b'404 Not Found'
+                body = b'' if method in {'HEAD', 'OPTIONS'} else b'<html>not here</html>'
+                writer.write(
+                    b'HTTP/1.1 '
+                    + status
+                    + b'\r\nContent-Type: text/html\r\nContent-Length: '
+                    + str(len(body)).encode()
+                    + b'\r\nConnection: keep-alive\r\n\r\n'
+                    + body
+                )
+                await writer.drain()
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    server = await asyncio.start_server(handle, '127.0.0.1', 0, ssl=server_context)
+    port = server.sockets[0].getsockname()[1]
+    search = api_endpoints.SearchApiEndpoints(
+        f'127.0.0.1:{port}',
+        concurrency=1,
+        exact_paths=True,
+        verify_ssl=False,
+    )
+    monkeypatch.setattr(search, '_load_wordlist', lambda: ['/api', '/v1/users', '/retired/api'])
+
+    try:
+        await search.do_search()
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert search.get_found_endpoints() == {}
+    assert search.get_interesting_endpoints() == {}
+    assert search.get_results_summary()['found_endpoints'] == 0
+    # A missing path is not probed again with HEAD or OPTIONS.
+    assert {method for method, _path in requests} == {'GET'}
+    # The probes still count as checked and their statuses stay visible.
+    assert len(search.get_endpoints()) == 3
+    assert search.get_status_codes() == {404, 410}
+
+
+@pytest.mark.asyncio
 async def test_api_endpoint_scan_stops_at_the_total_request_budget(monkeypatch) -> None:
     search = api_endpoints.SearchApiEndpoints(
         'example.com',

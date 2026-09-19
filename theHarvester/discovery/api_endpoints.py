@@ -28,6 +28,8 @@ _DIAGNOSTIC_RESPONSE_HEADERS = {
     'retry-after',
     'www-authenticate',
 }
+# Statuses that say the probed path does not exist on the target.
+_MISSING_ENDPOINT_STATUSES = frozenset({404, 410})
 
 
 @dataclass
@@ -672,6 +674,10 @@ class SearchApiEndpoints:
                         break
                     result = self._process_response(url, method, response, response_time, body_truncated=body_truncated)
                     if result is None:
+                        if response.status in _MISSING_ENDPOINT_STATUSES:
+                            # Other methods cannot make a missing path exist,
+                            # and OPTIONS often succeeds for any path.
+                            return None
                         break
                     if await self._retry_limited_response(response.status, response.headers, attempt):
                         continue
@@ -823,6 +829,10 @@ class SearchApiEndpoints:
         self.endpoints.add(url)
         self.methods.add(method)
         self.status_codes.add(status)
+
+        # The path does not exist; keep it counted as checked but not as found.
+        if status in _MISSING_ENDPOINT_STATUSES:
+            return None
 
         # Get response headers safely
         try:
