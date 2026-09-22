@@ -1391,7 +1391,7 @@ async def start(
                     return {}, set()
                 try:
                     outcomes = await search_take.get_takeover_outcomes()
-                except asyncio.CancelledError, Exception:
+                except (asyncio.CancelledError, Exception):
                     if not best_effort:
                         raise
                     return {}, set()
