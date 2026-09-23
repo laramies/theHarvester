@@ -108,4 +108,4 @@ class Parser:
         return urls
 
     async def unique(self) -> list:
-        return list(set(self.temp))
+        return list(dict.fromkeys(self.temp))

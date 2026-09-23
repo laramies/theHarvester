@@ -40,6 +40,13 @@ class TestMyParser(object):
         assert await parse.hostnames() == ['encrypted.google.com']
 
     @pytest.mark.asyncio
+    async def test_unique_preserves_order_while_deduplicating(self) -> None:
+        parse = myparser.Parser('alpha beta alpha gamma beta', 'example.com')
+        parse.temp = ['beta', 'alpha', 'beta', 'gamma', 'alpha']
+
+        assert await parse.unique() == ['beta', 'alpha', 'gamma']
+
+    @pytest.mark.asyncio
     async def test_empty_target_fails_closed(self) -> None:
         parse = myparser.Parser('admin@example.com api.example.com', '')
 
