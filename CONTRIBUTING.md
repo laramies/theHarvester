@@ -87,6 +87,8 @@ CI runs additional source smoke tests, CodeQL, dependency review, and container 
 
 Push the topic branch to your fork and open a pull request against `laramies/theHarvester:dev`.
 
+During review, use [CODING_STANDARDS.md](CODING_STANDARDS.md) for the judgment-based checks that complement automated verification.
+
 The pull request should include:
 
 - the problem and relevant issue;
@@ -96,6 +98,10 @@ The pull request should include:
 - any compatibility, provider, rate-limit, or operational risk reviewers should know about.
 
 Use a draft pull request when work is incomplete or verification is still pending. Keep the branch current, respond to review feedback, and ensure required checks pass before requesting a final review.
+
+### GitHub CLI diagnostics
+
+When GitHub access fails, run `gh api user --silent` in the same host context used for `git push`. Report DNS, network, and service errors as connectivity blockers. A sandboxed `gh auth status` failure alone does not establish a credential failure. Use browser publication only when the host command reports missing or invalid credentials.
 
 ## Prepare a release
 

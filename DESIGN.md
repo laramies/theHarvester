@@ -54,4 +54,4 @@ Primary references: [Bootstrap 5.3 installation](https://getbootstrap.com/docs/5
 
 ## Voice
 
-Use precise operator language: “Start enumeration,” “Request cancellation,” “Import result file,” and “No runs yet.” Errors state what failed and the next action. Avoid scan, session, job, and vague success/error labels where the glossary has a precise term.
+Use precise operator language: “Start enumeration,” “Request cancellation,” “Import result file,” and “No runs yet.” Errors state what failed and the next action. Use the relevant [domain glossary](CONTEXT.md) terms for run, evidence, and status labels.
