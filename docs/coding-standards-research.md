@@ -24,15 +24,28 @@ Date: 2026-09-26. Scope: Python 3.14 and aiohttp 3.14.3, as pinned in [`pyprojec
 2. Mechanical checks already have a CI path: [Python CI](../.github/workflows/theHarvester.yml) runs lint, formatting, pytest, and typing. The [test harness](../tests/conftest.py) enforces offline Python networking, and [provider coverage](../tests/test_provider_contract_coverage.py) checks catalog registration. Add judgment about coverage quality without duplicating those checks in prose.
 3. Test-code linting and typing remain a separate improvement candidate: [Ruff excludes tests and ty includes only the application package](../pyproject.toml). Browser verification has a [separate workflow](../.github/workflows/harvestview-e2e.yml). This documentation change does not expand those gates or claim whole-repository coverage.
 
-## AGENTS.md refinement research
+## Agent-instruction research across tools
 
-Reviewed official OpenAI guidance on 2026-09-26:
+The initial OpenAI review was recorded on 2026-09-26. OpenAI and Anthropic documentation were compared on 2026-09-27. The project recommendations below apply to contributors using any coding assistant; instruction-file discovery remains client-specific.
 
 | Source | Relevant guidance | Application here |
 | --- | --- | --- |
-| [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance) | Global and project instructions are layered; more local guidance can specialize the shared defaults. | Keep this file about theHarvester. Leave personal skill choices and model preferences in global guidance. |
-| [Codex best practices](https://learn.chatgpt.com/guides/best-practices#make-guidance-reusable-with-agentsmd) | Keep instructions accurate and practical, with verification, constraints, and a clear completion expectation. | Retain the `uv` entry command, publication-head checks, and explicit reporting of unrun checks. |
-| [Harness engineering](https://openai.com/index/harness-engineering/) | Use a small instruction file to navigate authoritative repository documentation; a monolithic manual obscures priorities and becomes stale. | Preserve the project introduction and link to existing guides. Move the GitHub diagnostic procedure into the contributor guide behind a failure-triggered pointer. |
-| [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra#up-to-date-agentsmd) | Make document reading conditional on the task, prune instructions that no longer help, and avoid unnecessary verification. | Add a provider-work pointer and keep tests scoped to affected behavior before publication checks. Preserve the no-overlapping-test rule. |
+| OpenAI: [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance) | Codex layers personal and project instructions, with directory-specific guidance. | Keep repository policy in shared project documents and personal tool preferences in user configuration. |
+| OpenAI: [Codex best practices](https://learn.chatgpt.com/guides/best-practices#make-guidance-reusable-with-agentsmd) | Keep guidance practical, concise, and current; link task-specific documents and state how to verify completion. | Retain the project introduction, `uv` commands, task-triggered reading pointers, and reporting of unrun checks. |
+| Anthropic: [Write an effective CLAUDE.md](https://code.claude.com/docs/en/best-practices#write-an-effective-claudemd) | Keep broadly applicable instructions short, remove redundant information, and link detailed references. | Keep the common entry point concise and retain architecture, provider contracts, and review judgments in their existing documents. |
+| Anthropic: [Give Claude a way to verify its work](https://code.claude.com/docs/en/best-practices#give-claude-a-way-to-verify-its-work) | Give the agent observable verification criteria and require evidence from the checks it runs. | Start with affected offline behavior, retain publication checks, and distinguish observed results from unverified claims. |
+| Anthropic: [Automate actions with hooks](https://code.claude.com/docs/en/hooks-guide) | Command hooks can execute checks at defined lifecycle events; instruction text alone does not ensure an action runs. | Keep mechanical checks in the existing test harness and CI. This research does not introduce Claude-specific hooks or change permission settings. |
 
-The changes are a project-specific interpretation of these sources, not an OpenAI-required template. [AGENTS.md](../AGENTS.md) retains concise confidentiality and live-reconnaissance boundaries during implementation; [CODING_STANDARDS.md](../CODING_STANDARDS.md) holds the corresponding review judgments. No global guidance, model configuration, publication authority, or test gate changed.
+### Shared project conclusions
+
+Keep [AGENTS.md](../AGENTS.md) as the shared repository entry point and [CODING_STANDARDS.md](../CODING_STANDARDS.md) as the review reference. The same confidentiality, reconnaissance, compatibility, and verification expectations apply regardless of the contributor's assistant. These are our project-specific conclusions from the sources, not a vendor-mandated template or evidence that every assistant follows instructions identically. Model choices, permission modes, and vendor workflow examples remain outside repository policy.
+
+The initial review also used OpenAI's [Harness engineering](https://openai.com/index/harness-engineering/) and [GPT-6 Astra prompting article](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra#up-to-date-agentsmd). They explain that review's background; model-specific recommendations are not requirements for Claude or other agents. The general guidance above supports the shared document structure independently of that model-specific advice.
+
+### Instruction discovery and Claude compatibility
+
+- Codex discovers `AGENTS.md` using its documented [directory and override rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance).
+- Claude Code supports native `AGENTS.md` loading from v2.1.277, subject to settings and plugin availability. By default, a project or ancestor `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` takes precedence. See Anthropic's [discovery rules and availability caveats](https://code.claude.com/docs/en/memory#agentsmd).
+- For sessions without native loading, Anthropic documents a neighboring `CLAUDE.md` containing `@AGENTS.md`. This optional import shares the existing instructions without copying them; it is not necessary for every current Claude Code setup. See [sharing instructions across tools](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools).
+
+Other assistants should use their documented instruction-loading mechanism to reach the same project files. This review verified documentation, not instruction loading or compliance in installed clients. No global guidance, model configuration, publication authority, or test gate changed.
