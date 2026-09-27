@@ -17,6 +17,7 @@ For release procedures and checks, read [CONTRIBUTING.md](../CONTRIBUTING.md#pre
 - Every provider, DNS, or direct action stays within the operator's explicit target and selected activity. P0, P1, and P2 describe observable network behavior, not confidence or importance.
 - The authorized hostname boundary is the operator's exact DNS name after canonicalization. A leading `www.` label is part of that boundary and is never stripped as a convenience alias of the registrable domain.
 - P0 sources query existing providers or datasets. P1 actions query DNS about authorized names or addresses. P2 actions contact a target endpoint or cause equivalent direct interaction.
+- DNS wildcard controls use fresh, high-entropy nonce labels at the applicable closest-encloser depth to learn wildcard responses. Their answers remain validation evidence, never discovered subdomains.
 - Scope-extension candidates and external relationships remain review evidence. An operator decision is the only path that promotes them into a later run's authorized scope.
 - ASN labels, registry records, BGP origins, RPKI states, DNS answers, and endpoint responses remain time-bound evidence. None establishes ownership, legal control, reachability, or authorization by itself.
 
@@ -29,6 +30,7 @@ For release procedures and checks, read [CONTRIBUTING.md](../CONTRIBUTING.md#pre
 - HTTP proxy mode is fail-closed for supported HTTP(S) requests. If no configured proxy is available, execution makes no HTTP(S) request and terminates with the sanitized `proxy-unavailable` reason. DNS queries use the operator-selected recursive resolver vantages independently and may coexist with proxied HTTP(S); a configured proxy endpoint failure is recorded as `transport-error`.
 - Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
 - Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
+- After dispatching or skipping a scheduled occurrence, recurrence advances past missed due times without replaying each one. Dispatch reservations retain one run identity per occurrence and target across retries or restarts.
 - Imported runs enter as completed run records and execute no source or action. Action-only runs create independent run records instead of mutating the evidence of the run that supplied their candidate.
 
 ## Evidence and portability

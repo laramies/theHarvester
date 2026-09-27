@@ -1,6 +1,18 @@
-# theHarvester domain language
+# theHarvester domain glossary
 
-Use these terms in code, tests, issues, and operator documentation. For product behavior and implementation rules, read the [architecture guide](docs/architecture.md). For release procedures and checks, read [CONTRIBUTING.md](CONTRIBUTING.md#prepare-a-release).
+This glossary defines the shared language for authorized enumeration, source evidence, and saved-run analysis. Use these meanings in code, tests, issue titles, and operator-facing labels. Each `_Avoid_` list names misleading substitutes for that concept, rather than words forbidden in every context.
+
+For product-wide behavior, see the [architecture guide](docs/architecture.md); [ADRs](docs/adr/) explain consequential architectural trade-offs.
+
+Read the section relevant to the task:
+
+- [Targets and activity](#targets-and-activity)
+- [Runs and schedules](#runs-and-schedules)
+- [Results and provenance](#results-and-provenance)
+- [DNS evidence](#dns-evidence)
+- [Network relationships](#network-relationships)
+- [Saved evidence and reports](#saved-evidence-and-reports)
+- [Hostname comparisons](#hostname-comparisons)
 
 ## Targets and activity
 
@@ -68,7 +80,7 @@ The completeness classification reported by a finished enumeration result: compl
 _Avoid_: Lifecycle status, completion state
 
 **Cancellation request**:
-The operator's durable request that the run worker prevent queued work from starting or ask the running child process to stop. A request is not itself proof that execution has ended.
+The operator's durable request to prevent a queued run from starting or to stop an active run. It does not establish that execution has ended.
 _Avoid_: Cancelled run, process killed
 
 **Action-only run**:
@@ -76,11 +88,11 @@ An enumeration run with no discovery sources that performs an explicitly selecte
 _Avoid_: Result action, parent-run update, inline scan
 
 **Run schedule**:
-A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
+A durable local plan combining authorized targets, run options, recurrence timing, and an overlap policy. A schedule is separate from the enumeration runs and evidence produced under that plan.
 _Avoid_: Scan schedule, cron job, monitoring run
 
 **Scheduled occurrence**:
-One due time in a run schedule. It produces at most one ordinary enumeration run per scheduled target and advances past missed recurrence times without replaying each one.
+One due time in a run schedule, associated with at most one ordinary enumeration run per scheduled target.
 _Avoid_: Monitoring cycle, recurring run
 
 **Dispatch reservation**:
@@ -150,7 +162,7 @@ An in-scope DNS-existing, historical, dangling-alias, or indeterminate name obse
 _Avoid_: Invalid subdomain, dead host, false positive
 
 **Synthetic wildcard-control probe**:
-An in-scope DNS query for a fresh, high-entropy nonce label that is overwhelmingly unlikely to be an exact node, used at an applicable closest-encloser depth to learn the wildcard response distribution. Its answer is validation evidence, never a discovered subdomain.
+An in-scope DNS query for a deliberately invented name used to distinguish wildcard answers from evidence about a discovered candidate. Its answer is validation evidence, never a discovered subdomain.
 _Avoid_: Random wildcard control, random name, test subdomain
 
 **Resolver consensus**:
@@ -208,11 +220,11 @@ A completed-result record with stable run ID, target, timestamps, normalized res
 _Avoid_: Successful run, lifecycle row, complete-only result
 
 **JSONL run interchange**:
-One finalized evidence record encoded as a summary line followed by normalized finding lines. It is the primary streamable format for one-run automation and round trips.
+The primary streamable representation of one finalized evidence record for single-run automation and round trips of its supported evidence.
 _Avoid_: JSON report, event log, lifecycle export
 
 **Portable SQLite export**:
-A validated database containing finalized evidence records and their original run IDs without API lifecycle, cancellation, worker-lease, or legacy-observation state.
+A validated database of finalized evidence records with their original run IDs, excluding execution-control state and observations outside those records.
 _Avoid_: Database backup, worker-state export, application clone
 
 **Source contribution**:
@@ -239,7 +251,7 @@ The latest earlier finalized enumeration run for the same canonical target and c
 _Avoid_: Baseline, similar run, matching run
 
 **Hostname comparison**:
-A read-only comparison between selected finalized runs and each run's comparable previous run. It is derived when requested, is not stored as new canonical evidence, and never initiates discovery or DNS activity.
+A read-only view of hostname evidence between selected finalized runs and each run's comparable previous run. It adds no canonical evidence and initiates no discovery or DNS activity.
 _Avoid_: Hostname tracking, monitoring view, DNS refresh
 
 **Hostname difference**:
