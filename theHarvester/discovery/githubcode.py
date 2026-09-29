@@ -104,6 +104,11 @@ class SearchGithubCode:
             logger.info(f'Error handling response: {e}')
             return ErrorResult(500)
 
+    @staticmethod
+    def _is_rate_limited(status: int, headers: dict[str, str]) -> bool:
+        # GitHub reports primary and secondary rate limits as 403 with these headers.
+        return status == 403 and (headers.get('x-ratelimit-remaining') == '0' or 'retry-after' in headers)
+
     async def do_search(
         self,
         page: int,
@@ -116,7 +121,8 @@ class SearchGithubCode:
             url = f'{self.base_url}&page={page}' if page else self.base_url
             response = await AsyncFetcher.fetch_json(url, session=session)
             body = response.body if isinstance(response.body, dict) else {}
-            return '', body, response.status, response.links
+            status = 429 if self._is_rate_limited(response.status, response.headers) else response.status
+            return '', body, status, response.links
         except ResponseStreamError:
             raise
         except Exception as e:

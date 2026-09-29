@@ -114,12 +114,12 @@ class SearchTomba:
         if not isinstance(value, str) or not value.strip():
             return None
         candidate = value.strip()
-        if '://' in candidate:
-            try:
-                candidate = urlsplit(candidate).hostname or ''
-            except ValueError:
-                return None
-        return normalize_scoped_hostname(candidate, self.word)
+        try:
+            # A network-path prefix lets urlsplit find the host in scheme-less values.
+            hostname = urlsplit(candidate if '://' in candidate else f'//{candidate}').hostname or ''
+        except ValueError:
+            return None
+        return normalize_scoped_hostname(hostname, self.word)
 
     async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
         emails = list(sorted({email['email'] for email in json_resp['data']['emails']}))
@@ -138,7 +138,7 @@ class SearchTomba:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
                 return await self.do_search(session)  # Only need to do it once.
         except AttributeError, KeyError, TypeError:
             logger.info('Tomba returned malformed data')

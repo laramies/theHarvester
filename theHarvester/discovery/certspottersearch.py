@@ -140,7 +140,9 @@ class SearchCertspoter:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         self._report = None
-        async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+        async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
             await self.do_search(session)
         logger.info('\tSearching results.')
+        if self._report is not None and self._report.status == 'partial' and not self.totalhosts:
+            return SourceExecutionReport('failed', self._report.stop_reason)
         return self._report

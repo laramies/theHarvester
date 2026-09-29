@@ -338,6 +338,36 @@ async def test_github_code_forbidden_fails_immediately_as_access_denied(install_
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('headers', [{'x-ratelimit-remaining': '0'}, {'retry-after': '60'}])
+async def test_github_code_rate_limit_forbidden_retries_then_succeeds(
+    install_github_responses,
+    monkeypatch: pytest.MonkeyPatch,
+    headers: dict[str, str],
+) -> None:
+    class RateLimitedResponse(FakeResponse):
+        status = 403
+
+    limited = RateLimitedResponse({}, {})
+    limited.headers = headers
+    requested_urls = install_github_responses(
+        limited,
+        FakeResponse({'items': [{'text_matches': [{'fragment': 'api.example.com'}]}]}, {}),
+    )
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(githubcode.asyncio, 'sleep', no_sleep)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 2
+    assert report is None
+    assert search.counter == 1
+
+
+@pytest.mark.asyncio
 async def test_github_code_rate_limited_retries_then_reports(
     install_github_responses,
     monkeypatch: pytest.MonkeyPatch,

@@ -613,6 +613,49 @@ def test_orphan_recovery_survives_unreadable_evidence_for_one_run(tmp_path, monk
     assert healthy['results'] == [{'type': 'email', 'value': 'saved@second.example', 'sources': [], 'actions': []}]
 
 
+def test_orphan_recovery_storage_failure_keeps_run_recoverable(tmp_path, monkeypatch) -> None:
+    from sqlalchemy.exc import OperationalError
+
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def locked_save(_completed):
+        raise OperationalError('INSERT', {}, Exception('database is locked'))
+
+    async def scenario():
+        store = RunStore()
+        run = await store.create(RunRequest(target='locked.example', sources=['crtsh']))
+        assert await store.claim_next() is not None
+        now = datetime.now(UTC)
+        artifact_dir = store.artifact_directory(run['run_id'])
+        ensure_private_directory(artifact_dir)
+        write_child_evidence(
+            artifact_dir,
+            CompletedResult.finish(
+                target='locked.example',
+                started_at=now,
+                completed_at=now,
+                groups={'email': ['saved@locked.example']},
+            ),
+            partial=True,
+        )
+        monkeypatch.setattr(store.results, 'save_run', locked_save)
+
+        with pytest.raises(OperationalError):
+            await store.recover_orphans()
+        return await store.get(run['run_id'])
+
+    recovered = asyncio.run(scenario())
+
+    assert recovered is not None
+    assert recovered['status'] == 'running'
+
+
 def test_orphan_recovery_prefers_immutable_persisted_evidence_over_a_newer_checkpoint(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
     from theHarvester.lib.api.run_models import RunRequest

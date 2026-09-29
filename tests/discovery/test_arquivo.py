@@ -17,7 +17,8 @@ async def test_process_collects_scoped_hosts_from_one_cdx_request(monkeypatch: p
     async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
         requested_urls.extend(urls)
         assert kwargs['include_metadata'] is True
-        assert kwargs['headers']['User-agent']
+        assert 'headers' not in kwargs
+        assert kwargs['session'].headers['User-agent']
         return [
             FetcherResponse(
                 body='\n'.join(
