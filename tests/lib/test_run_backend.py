@@ -613,6 +613,68 @@ def test_orphan_recovery_survives_unreadable_evidence_for_one_run(tmp_path, monk
     assert healthy['results'] == [{'type': 'email', 'value': 'saved@second.example', 'sources': [], 'actions': []}]
 
 
+@pytest.mark.parametrize('failing_statement', [r'^INSERT INTO runs\b', r'\bFROM runs\b'])
+def test_orphan_recovery_storage_failure_keeps_run_recoverable(tmp_path, monkeypatch, failing_statement) -> None:
+    import re
+
+    from sqlalchemy import event
+
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+    from theHarvester.lib.database import ResultStoreUnavailableError, _database_for
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    def locked_result_store(_cursor, statement, _parameters, _context) -> None:
+        # Fail at the SQLite driver so the store's own exception translation runs.
+        if re.search(failing_statement, statement):
+            raise sqlite3.OperationalError('database is locked')
+
+    async def scenario():
+        store = RunStore()
+        run = await store.create(RunRequest(target='locked.example', sources=['crtsh']))
+        assert await store.claim_next() is not None
+        now = datetime.now(UTC)
+        artifact_dir = store.artifact_directory(run['run_id'])
+        ensure_private_directory(artifact_dir)
+        write_child_evidence(
+            artifact_dir,
+            CompletedResult.finish(
+                target='locked.example',
+                started_at=now,
+                completed_at=now,
+                groups={'email': ['saved@locked.example']},
+            ),
+            partial=True,
+        )
+        engine = _database_for(store.database).engine.sync_engine
+        event.listen(engine, 'do_execute', locked_result_store)
+        try:
+            with pytest.raises(ResultStoreUnavailableError):
+                await store.recover_orphans()
+        finally:
+            event.remove(engine, 'do_execute', locked_result_store)
+        during_fault = await store.lifecycle.get(run['run_id'])
+
+        await store.recover_orphans()
+        return during_fault, await store.lifecycle.get(run['run_id']), await store.get(run['run_id'])
+
+    during_fault, recovered_record, recovered = asyncio.run(scenario())
+
+    assert during_fault is not None
+    assert during_fault['status'] == 'running'
+    assert during_fault['evidence_run_id'] is None
+    assert recovered_record is not None
+    assert recovered_record['evidence_run_id'] == recovered_record['run_id']
+    assert recovered is not None
+    assert recovered['status'] == 'failed'
+    assert recovered['error'] == 'theHarvester restarted before child completion'
+    assert recovered['results'] == [{'type': 'email', 'value': 'saved@locked.example', 'sources': [], 'actions': []}]
+
+
 def test_orphan_recovery_prefers_immutable_persisted_evidence_over_a_newer_checkpoint(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
     from theHarvester.lib.api.run_models import RunRequest

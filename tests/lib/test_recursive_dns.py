@@ -139,6 +139,23 @@ async def test_recursive_dns_skips_candidates_rejected_by_validation() -> None:
 
 
 @pytest.mark.asyncio
+async def test_recursive_dns_invalid_labels_do_not_count_as_zero_yield_batches() -> None:
+    current = {'example.com', 'api.example.com'}
+    resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('example.com',),
+        (*(f'_invalid{index}' for index in range(50)), 'api'),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=1_000, runtime_seconds=5),
+    )
+
+    assert [finding.hostname for finding in result.findings] == ['api.example.com']
+    assert result.zero_yield_batches == 0
+
+
+@pytest.mark.asyncio
 async def test_recursive_dns_advances_only_current_candidates_breadth_first() -> None:
     current = {'api.example.com', 'dev.api.example.com', 'v2.dev.api.example.com'}
     resolvers = tuple(

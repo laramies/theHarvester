@@ -343,6 +343,7 @@ async def test_free_tomba_search_rejects_out_of_scope_source_websites(monkeypatc
                             'sources': [
                                 {'website_url': 'api.example.test'},
                                 {'website_url': 'https://portal.example.test'},
+                                {'website_url': 'Docs.Example.Test/contact'},
                                 {'website_url': 'notexample.test'},
                                 {'website_url': 'example.test.evil.net'},
                             ],
@@ -364,7 +365,7 @@ async def test_free_tomba_search_rejects_out_of_scope_source_websites(monkeypatc
     await search.process()
 
     assert await search.get_emails() == ['alice@example.test']
-    assert set(await search.get_hostnames()) == {'api.example.test', 'portal.example.test'}
+    assert set(await search.get_hostnames()) == {'api.example.test', 'portal.example.test', 'docs.example.test'}
 
 
 @pytest.mark.asyncio

@@ -27,7 +27,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import URL
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import (
+    DisconnectionError,
+    IntegrityError,
+    InterfaceError,
+    InternalError,
+    OperationalError,
+    SQLAlchemyError,
+)
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -102,6 +110,15 @@ class ResultStoreError(RuntimeError):
 
 class DuplicateRunError(ResultStoreError):
     """A persisted enumeration run already uses the requested run ID."""
+
+
+class ResultStoreUnavailableError(ResultStoreError):
+    """The result store could not be reached; retrying later may succeed."""
+
+
+# Failures of the database itself (locks, I/O, lost connections) rather than of
+# the evidence being stored or loaded.
+_STORAGE_ACCESS_ERRORS = (OperationalError, InterfaceError, InternalError, DisconnectionError, PoolTimeoutError)
 
 
 def _sqlite_has_wal_reset_fix(version: tuple[int, int, int]) -> bool:
@@ -766,7 +783,7 @@ class ResultStore:
         try:
             await _database_for(self.database).initialize()
         except SQLAlchemyError as error:
-            raise ResultStoreError('Could not initialize result store') from error
+            raise ResultStoreUnavailableError('Could not initialize result store') from error
 
     async def save_run(self, result: CompletedResult) -> None:
         run_id = str(result.run_id)
@@ -1357,6 +1374,8 @@ class ResultStore:
         try:
             async with _database_for(self.database).session() as session:
                 yield session
+        except _STORAGE_ACCESS_ERRORS as error:
+            raise ResultStoreUnavailableError('Could not access result store') from error
         except SQLAlchemyError as error:
             raise ResultStoreError('Could not access result store') from error
 

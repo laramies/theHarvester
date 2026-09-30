@@ -128,7 +128,7 @@ class SearchHunter:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
                 return await self.do_search(session)  # Only need to do it once.
         except AttributeError, KeyError, TypeError:
             logger.info('Hunter returned malformed data')

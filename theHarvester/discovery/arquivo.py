@@ -22,10 +22,10 @@ class SearchArquivo:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         headers = {'User-agent': Core.get_user_agent()}
-        async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
-            return await self._search(session, headers)
+        async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=60) as session:
+            return await self._search(session)
 
-    async def _search(self, session, headers: dict[str, str]) -> SourceExecutionReport | None:
+    async def _search(self, session) -> SourceExecutionReport | None:
         offset = 0
         previous_page = None
         report = None
@@ -44,7 +44,6 @@ class SearchArquivo:
             try:
                 responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
                     [f'https://arquivo.pt/wayback/cdx?{query}'],
-                    headers=headers,
                     session=session,
                     include_metadata=True,
                 )

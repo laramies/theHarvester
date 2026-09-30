@@ -115,7 +115,7 @@ class SearchWindvane:
             response = await AsyncFetcher.post_fetch(
                 url,
                 headers=headers,
-                data=json.dumps(request_data, separators=(',', ':')),
+                json_body=request_data,
                 session=session,
             )
             if not response:

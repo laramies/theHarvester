@@ -1276,3 +1276,10 @@ async def test_detect_schema_reuses_session_with_configured_request_policy(monke
             {'ssl': True, 'allow_redirects': False},
         )
     ]
+
+
+def test_default_wordlist_is_the_packaged_api_wordlist() -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+
+    assert Path(search.wordlist).is_file()
+    assert search._load_wordlist()

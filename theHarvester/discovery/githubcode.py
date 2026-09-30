@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 import urllib.parse as urlparse
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -29,6 +30,11 @@ class ErrorResult(NamedTuple):
 
 
 class SearchGithubCode:
+    # GitHub asks clients without a rate-limit deadline to wait at least a minute.
+    DEFAULT_RATE_LIMIT_WAIT_SECONDS = 60.0
+    # Longer deadlines end the source as rate-limited instead of holding the run.
+    MAX_RATE_LIMIT_WAIT_SECONDS = 300.0
+
     def __init__(self, word: str, limit: int | None) -> None:
         try:
             self.word = word
@@ -88,27 +94,53 @@ class SearchGithubCode:
             logger.info(f'Error parsing page response: {e}')
             return None
 
-    async def handle_response(self, response: tuple[str, dict, int, Any]) -> ErrorResult | RetryResult | SuccessResult:
+    async def handle_response(
+        self,
+        response: tuple[str, dict, int, Any, dict[str, str]],
+    ) -> ErrorResult | RetryResult | SuccessResult:
         try:
-            _text, json_data, status, links = response
+            _text, json_data, status, links, headers = response
             if status == 200:
                 results = await self.fragments_from_response(json_data)
                 # Ensure next_page and last_page default to 0 if None
                 next_page = await self.page_from_response('next', links) or 0
                 last_page = await self.page_from_response('last', links) or 0
                 return SuccessResult(results, next_page, last_page)
-            if status == 429:
-                return RetryResult(60)
+            if status == 429 or self._is_rate_limited(status, headers):
+                return RetryResult(self._rate_limit_wait(headers))
             return ErrorResult(status)
         except Exception as e:
             logger.info(f'Error handling response: {e}')
             return ErrorResult(500)
 
+    @staticmethod
+    def _is_rate_limited(status: int, headers: dict[str, str]) -> bool:
+        # GitHub reports primary and secondary rate limits as 403 with these headers.
+        return status == 403 and (headers.get('x-ratelimit-remaining') == '0' or 'retry-after' in headers)
+
+    @classmethod
+    def _rate_limit_wait(cls, headers: dict[str, str]) -> float:
+        """Return the seconds GitHub requires before the next request."""
+        # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#exceeding-the-rate-limit
+        deadlines: list[float] = []
+        try:
+            deadlines.append(float(headers['retry-after']))
+        except KeyError, ValueError:
+            pass
+        if headers.get('x-ratelimit-remaining') == '0':
+            try:
+                deadlines.append(float(headers['x-ratelimit-reset']) - time.time())
+            except KeyError, ValueError:
+                pass
+        if not deadlines:
+            return cls.DEFAULT_RATE_LIMIT_WAIT_SECONDS
+        return max(0.0, *deadlines)
+
     async def do_search(
         self,
         page: int,
         session: aiohttp.ClientSession | None = None,
-    ) -> tuple[str, dict, int, Any]:
+    ) -> tuple[str, dict, int, Any, dict[str, str]]:
         try:
             if session is None:
                 async with AsyncFetcher.open_session(headers=self.headers, proxy=self.proxy) as owned_session:
@@ -116,12 +148,12 @@ class SearchGithubCode:
             url = f'{self.base_url}&page={page}' if page else self.base_url
             response = await AsyncFetcher.fetch_json(url, session=session)
             body = response.body if isinstance(response.body, dict) else {}
-            return '', body, response.status, response.links
+            return '', body, response.status, response.links, response.headers
         except ResponseStreamError:
             raise
         except Exception as e:
             logger.info(f'Error performing search: {e}')
-            return '', {}, 500, {}
+            return '', {}, 500, {}, {}
 
     def _failure_report(self, reason: str, *, empty_status: SourceReportStatus = 'failed') -> SourceExecutionReport:
         status = 'partial' if self.counter else empty_status
@@ -171,6 +203,10 @@ class SearchGithubCode:
                             self.retry_count += 1
                             if self.retry_count > self.max_retries:
                                 logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
+                                self.page = 0
+                                return self._failure_report('rate-limited', empty_status='rate-limited')
+                            if result.time > self.MAX_RATE_LIMIT_WAIT_SECONDS:
+                                logger.info(f'\tGitHub rate limit resets in {result.time:.0f} seconds; stopping.')
                                 self.page = 0
                                 return self._failure_report('rate-limited', empty_status='rate-limited')
                             sleepy_time = get_delay() + result.time

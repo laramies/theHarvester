@@ -13,7 +13,7 @@ async def test_process_does_not_log_error_body(monkeypatch, caplog) -> None:
     monkeypatch.setattr(
         search,
         'do_search',
-        AsyncMock(return_value=('', {'secret': 'provider-secret-payload'}, 500, {})),
+        AsyncMock(return_value=('', {'secret': 'provider-secret-payload'}, 500, {}, {})),
     )
     caplog.set_level(logging.INFO, logger=githubcode.__name__)
 

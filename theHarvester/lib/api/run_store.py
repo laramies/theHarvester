@@ -17,7 +17,13 @@ from theHarvester.lib.completed_result import (
     SourceExecution,
     parse_virtual_host_details,
 )
-from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
+from theHarvester.lib.database import (
+    DuplicateRunError,
+    ResultStore,
+    ResultStoreError,
+    ResultStoreUnavailableError,
+    RunLifecycleStore,
+)
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
 from theHarvester.lib.hostname_comparison import hostname_comparison
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
@@ -457,7 +463,10 @@ class RunStore:
                     evidence,
                     recovered_at,
                 )
-            except Exception as evidence_failure:
+            except ResultStoreUnavailableError:
+                # Storage failures propagate so the run stays recoverable.
+                raise
+            except (HTTPException, KeyError, TypeError, ValueError, ResultStoreError) as evidence_failure:
                 # One unreadable checkpoint must not abort recovery of the
                 # remaining orphaned runs or crash every future startup.
                 logger.warning(
@@ -556,6 +565,8 @@ class RunStore:
     async def _existing_evidence(self, run_id: str, target: str) -> CompletedResult | None:
         try:
             completed = await self.results.load_run(UUID(run_id))
+        except ResultStoreUnavailableError:
+            raise
         except LookupError, ResultStoreError, ValueError:
             return None
         return completed if completed.target == target else None

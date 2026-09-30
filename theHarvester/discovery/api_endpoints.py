@@ -9,14 +9,13 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import aiohttp
 
 from theHarvester.lib.cancellation import drain_tasks_after_cancellation
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.core import DATA_DIR, AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 
 logger = logging.getLogger(__name__)
 _DIAGNOSTIC_RESPONSE_HEADERS = {
@@ -151,7 +150,7 @@ class SearchApiEndpoints:
         self.stop_reason: str | None = None
 
         # Set default wordlist path
-        default_wordlist = Path(__file__).resolve().parents[2] / 'wordlists' / 'api_endpoints.txt'
+        default_wordlist = DATA_DIR / 'wordlists' / 'api_endpoints.txt'
         self.wordlist = wordlist or str(default_wordlist)
         self.exact_paths = exact_paths
 

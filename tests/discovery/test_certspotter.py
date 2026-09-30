@@ -196,9 +196,10 @@ class TestCertspotterSearch:
         [
             ([], 'no-response'),
             ([FetcherResponse('not a list', 200, {})], 'invalid-response'),
+            ([None], 'transport-error'),
         ],
     )
-    async def test_search_reports_invalid_response_as_incomplete(
+    async def test_search_reports_first_page_failure_as_failed(
         self,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
@@ -214,7 +215,7 @@ class TestCertspotterSearch:
             report = await search.process()
 
         assert await search.get_hostnames() == set()
-        assert report.status == 'partial'
+        assert report.status == 'failed'
         assert report.stop_reason == stop_reason
         assert 'results may be incomplete' in caplog.text
 
