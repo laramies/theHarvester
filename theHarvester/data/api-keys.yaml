@@ -92,6 +92,9 @@ apikeys:
   securityTrails:
     key:
 
+  serply:
+    key:
+
   sherlockeye:
     key:
 
