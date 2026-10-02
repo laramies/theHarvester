@@ -81,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed unused schedule-store helpers and action-yield reporting interfaces from the 5.0 development line; scheduler tests now use bulk dispatch reservations directly.
+- Removed the single-range `reverse_all_ips_in_range` Python helper. Use `reverse_ip_ranges((iprange,), callback, nameservers)`; see the 5.0 migration guide.
+- Removed API endpoint post-scan path-pattern logging, which did not contribute findings or perform further scanning.
 - Removed the unused legacy `-e`/`--dns-server` CLI option and internal field; use `--dns-resolvers` to select resolver addresses.
 - Removed the unused legacy SecurityTrails parser that stripped leading `www.` labels outside the shared hostname-scope boundary.
 - Removed the mutable runtime takeover fingerprint download and silent handwritten fallback rules.
