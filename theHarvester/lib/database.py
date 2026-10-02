@@ -42,7 +42,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from theHarvester.lib.active_evidence import (
     ActionExecution,
     ActionObservation,
-    ActionYield,
     ActiveEvidence,
     ArtifactReference,
 )
@@ -1225,7 +1224,7 @@ class ResultStore:
         source reported it. Sources that ran without matching results still appear with
         zero counts.
         """
-        contributions = await self._producer_contributions(run_id, 'source', kind=kind)
+        contributions = await self._source_contribution_counts(run_id, kind=kind)
         return [
             SourceContribution(
                 source=name,
@@ -1300,22 +1299,9 @@ class ResultStore:
             addressability=tuple(sorted(addressability.items())),
         )
 
-    async def action_yields(self, run_id: UUID) -> list[ActionYield]:
-        yields = await self._producer_contributions(run_id, 'action')
-        return [
-            ActionYield(
-                action=name,
-                observed_result_count=observed,
-                unique_result_count=unique,
-                shared_result_count=shared,
-            )
-            for name, observed, unique, shared, _resolved, _unique_resolved in yields
-        ]
-
-    async def _producer_contributions(
+    async def _source_contribution_counts(
         self,
         run_id: UUID,
-        producer_kind: str,
         *,
         kind: ResultKind | None = None,
     ) -> list[tuple[str, int, int, int, int, int]]:
@@ -1326,7 +1312,7 @@ class ResultStore:
                 result_query = result_query.where(_ResultRow.kind == kind)
             result_rows = (await session.scalars(result_query)).all()
             origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
-        producer_by_position = {row.position: row.name for row in execution_rows if row.producer_kind == producer_kind}
+        producer_by_position = {row.position: row.name for row in execution_rows if row.producer_kind == 'source'}
         dns_resolution_positions = {
             row.position for row in execution_rows if row.producer_kind == 'action' and row.name == 'dns-resolve'
         }

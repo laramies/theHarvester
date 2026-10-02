@@ -517,10 +517,6 @@ class SearchApiEndpoints:
 
             self.logger.info(f'API endpoint scan completed. Found {len(self.found_endpoints)} endpoints.')
 
-            # Additional processing after scan
-            async with asyncio.timeout_at(deadline):
-                await self._post_scan_analysis()
-
         except asyncio.CancelledError as error:
             self.stop_reason = 'cancelled'
             self.scan_error_type = 'CancelledError'
@@ -990,24 +986,6 @@ class SearchApiEndpoints:
                 self.logger.error(f'JSON at {url} is not a dictionary. Type: {type(json_data).__name__}')
 
         return result
-
-    async def _post_scan_analysis(self) -> None:
-        """Log path patterns found among interesting endpoints."""
-        # Analyze patterns in successful endpoints
-        if self.interesting_endpoints:
-            self.logger.info(f'Performing post-scan analysis on {len(self.interesting_endpoints)} interesting endpoints')
-
-            # Extract path patterns from successful endpoints to find more
-            path_patterns = set()
-            for url in self.interesting_endpoints:
-                parts = urlparse(url).path.split('/')
-                if len(parts) > 2:
-                    # Extract patterns like /api/*, /v1/*, etc.
-                    pattern = '/'.join(parts[:3]) + '/*'
-                    path_patterns.add(pattern)
-
-            # Additional scan based on patterns (implementation omitted for brevity)
-            self.logger.info(f'Identified {len(path_patterns)} API path patterns for potential further scanning')
 
     def get_results_summary(self) -> dict[str, Any]:
         """Summarize the scan results.

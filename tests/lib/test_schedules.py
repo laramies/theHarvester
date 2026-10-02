@@ -240,11 +240,10 @@ def test_replacing_a_completed_once_schedule_resets_occurrence_state(tmp_path, m
         store = ScheduleStore()
         created = await store.create(ScheduleCreate.model_validate(original_payload))
         run_id = '99999999-9999-4999-8999-999999999999'
-        await store.reserve_dispatch(
+        await store.reserve_dispatches(
             created.schedule_id,
             datetime(2029, 1, 1, 9, tzinfo=UTC),
-            'example.test',
-            run_id,
+            {'example.test': run_id},
         )
         await store.set_dispatch_state(run_id, 'completed')
         claimed = await store.claim_due('scheduler-a', now=datetime(2029, 1, 1, 10, tzinfo=UTC))
@@ -563,8 +562,8 @@ def test_dispatch_recovery_reuses_reservations_and_run_ids(tmp_path, monkeypatch
         monkeypatch.setattr(schedule_service, 'utc_now_datetime', lambda: scheduled_for)
         first_run_id = '11111111-1111-4111-8111-111111111111'
         second_run_id = '22222222-2222-4222-8222-222222222222'
-        await schedule_store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.test', first_run_id)
-        await schedule_store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.org', second_run_id)
+        await schedule_store.reserve_dispatches(schedule.schedule_id, scheduled_for, {'example.test': first_run_id})
+        await schedule_store.reserve_dispatches(schedule.schedule_id, scheduled_for, {'example.org': second_run_id})
         await run_store.create(RunRequest(target='example.org', sources=['crtsh']), run_id=second_run_id)
 
         dispatcher = ScheduleDispatcher(schedule_store, run_store, worker=ready_worker())
@@ -601,8 +600,8 @@ def test_overlap_policy_recovers_current_occurrence_reservations(tmp_path, monke
         schedule = await store.create(ScheduleCreate.model_validate(payload))
         first_run_id = '55555555-5555-4555-8555-555555555555'
         second_run_id = '66666666-6666-4666-8666-666666666666'
-        await store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.test', first_run_id)
-        await store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.org', second_run_id)
+        await store.reserve_dispatches(schedule.schedule_id, scheduled_for, {'example.test': first_run_id})
+        await store.reserve_dispatches(schedule.schedule_id, scheduled_for, {'example.org': second_run_id})
         await run_store.create(RunRequest(target='example.org', sources=['crtsh']), run_id=second_run_id)
 
         claimed = await store.claim_due('recovery-owner', now=scheduled_for, limit=1)
@@ -638,7 +637,7 @@ def test_recovered_queued_occurrence_completes_without_a_false_error(tmp_path, m
             ScheduleCreate.model_validate(_payload(start_at=scheduled_for.isoformat(), targets=['example.test']))
         )
         run_id = '77777777-7777-4777-8777-777777777777'
-        await store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.test', run_id)
+        await store.reserve_dispatches(schedule.schedule_id, scheduled_for, {'example.test': run_id})
         await run_store.create(RunRequest(target='example.test', sources=['crtsh']), run_id=run_id)
         await store.set_dispatch_state(run_id, 'queued')
 
@@ -686,7 +685,7 @@ def test_newer_occurrence_terminalizes_a_stale_runless_reservation(
             next_run_at=stale,
         )
         stale_run_id = '88888888-8888-4888-8888-888888888888'
-        await store.reserve_dispatch(schedule.schedule_id, stale, 'example.test', stale_run_id)
+        await store.reserve_dispatches(schedule.schedule_id, stale, {'example.test': stale_run_id})
 
         if transition == 'pause-resume':
             assert await store.set_enabled(schedule.schedule_id, False) is not None
@@ -748,11 +747,10 @@ def test_large_reservation_reconciliation_renews_the_schedule_claim(tmp_path, mo
             next_run_at=stale,
         )
         for index in range(100):
-            await store.reserve_dispatch(
+            await store.reserve_dispatches(
                 schedule.schedule_id,
                 stale,
-                f'example-{index}.test',
-                f'00000000-0000-4000-8000-{index:012d}',
+                {f'example-{index}.test': f'00000000-0000-4000-8000-{index:012d}'},
             )
 
         assert await store.set_enabled(schedule.schedule_id, False) is not None
@@ -811,11 +809,10 @@ def test_dispatch_mirrors_cancelling_run_state(tmp_path, monkeypatch) -> None:
         run_store = RunStore()
         schedule = await schedule_store.create(ScheduleCreate.model_validate(_payload()))
         run = await run_store.create(RunRequest(target='example.test', sources=['crtsh']))
-        await schedule_store.reserve_dispatch(
+        await schedule_store.reserve_dispatches(
             schedule.schedule_id,
             datetime(2026, 8, 20, 13, tzinfo=UTC),
-            'example.test',
-            run['run_id'],
+            {'example.test': run['run_id']},
         )
         await schedule_store.set_dispatch_state(run['run_id'], 'queued')
         assert await run_store.claim_next() is not None
@@ -928,7 +925,7 @@ def test_due_schedules_skip_or_queue_while_a_prior_batch_is_active(tmp_path, mon
         payload = {**_payload(start_at='2026-08-20T09:00:00+00:00'), 'name': policy, 'overlap_policy': policy}
         schedule = await store.create(ScheduleCreate.model_validate(payload))
         prior = datetime(2026, 8, 19, 9, tzinfo=UTC)
-        await store.reserve_dispatch(schedule.schedule_id, prior, 'example.test', prior_run_id)
+        await store.reserve_dispatches(schedule.schedule_id, prior, {'example.test': prior_run_id})
         await RunStore().create(RunRequest(target='example.test', sources=['crtsh']), run_id=prior_run_id)
         await store.set_dispatch_state(prior_run_id, 'queued')
         claimed = await store.claim_due(owner, now=datetime(2026, 8, 20, 10, tzinfo=UTC), limit=1)

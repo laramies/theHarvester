@@ -489,16 +489,6 @@ class ScheduleStore:
         except SQLAlchemyError as store_error:
             raise ScheduleStoreError('Could not defer schedule claim') from store_error
 
-    async def reserve_dispatch(
-        self,
-        schedule_id: str,
-        scheduled_for: datetime,
-        target: str,
-        run_id: str,
-    ) -> ScheduleDispatchRecord | None:
-        dispatches = await self.reserve_dispatches(schedule_id, scheduled_for, {target: run_id})
-        return dispatches[0] if dispatches else None
-
     async def reserve_dispatches(
         self,
         schedule_id: str,
@@ -546,18 +536,6 @@ class ScheduleStore:
                 return [records[target] for target in target_run_ids]
         except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not reserve scheduled runs') from error
-
-    async def get_dispatch(self, dispatch_id: str) -> ScheduleDispatchRecord | None:
-        try:
-            async with self._session() as session:
-                row = (
-                    (await session.execute(select(_SCHEDULE_DISPATCHES).where(_SCHEDULE_DISPATCHES.c.dispatch_id == dispatch_id)))
-                    .mappings()
-                    .one_or_none()
-                )
-                return self._dispatch(row) if row is not None else None
-        except SQLAlchemyError as error:
-            raise ScheduleStoreError('Could not read scheduled run') from error
 
     async def set_dispatch_state(self, run_id: str, state: DispatchState, error: str | None = None) -> None:
         try:

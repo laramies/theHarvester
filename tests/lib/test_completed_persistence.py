@@ -1061,26 +1061,6 @@ async def test_mixed_source_action_artifact_round_trip_uses_unified_tables(tmp_p
     await store.save_run(result)
 
     assert await store.load_run(result.run_id) == result
-    assert [item.to_dict() for item in await store.action_yields(result.run_id)] == [
-        {
-            'action': 'screenshot',
-            'observed_result_count': 0,
-            'unique_result_count': 0,
-            'shared_result_count': 0,
-        },
-        {
-            'action': 'shared-name',
-            'observed_result_count': 1,
-            'unique_result_count': 1,
-            'shared_result_count': 0,
-        },
-        {
-            'action': 'takeover',
-            'observed_result_count': 0,
-            'unique_result_count': 0,
-            'shared_result_count': 0,
-        },
-    ]
     with sqlite3.connect(database) as db:
         tables = {
             row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
