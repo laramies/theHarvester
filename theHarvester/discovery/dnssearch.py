@@ -269,29 +269,6 @@ async def reverse_ip_ranges(
     return ReverseDNSResult(request_count, completed_count, stop_reason)
 
 
-async def reverse_all_ips_in_range(
-    iprange: str,
-    callback: Callable,
-    nameservers: list[str] | None = None,
-    error_types: set[str] | None = None,
-) -> None:
-    """Resolve usable addresses from one range with the shared bounds.
-
-    Parameters
-    ----------
-    iprange: str
-        An IPv4 range formatted as ``x.x.x.x/y``. Host bits are ignored.
-    callback: Callable
-        Function called for each resolved hostname.
-    nameservers: list[str] | None
-        DNS servers to query.
-    error_types: set[str] | None
-        Sink for unexpected resolver or transport error names.
-
-    """
-    await reverse_ip_ranges((iprange,), callback, nameservers, error_types)
-
-
 #####################################################################
 # IO
 #####################################################################

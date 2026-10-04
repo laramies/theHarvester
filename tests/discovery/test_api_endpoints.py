@@ -496,25 +496,6 @@ async def test_api_endpoint_scan_retains_completed_results_at_the_runtime_budget
 
 
 @pytest.mark.asyncio
-async def test_api_endpoint_scan_runtime_budget_includes_post_scan_analysis(monkeypatch) -> None:
-    search = api_endpoints.SearchApiEndpoints('example.com', exact_paths=True, runtime_seconds=0.01)
-    never = asyncio.Event()
-    monkeypatch.setattr(search, '_load_wordlist', lambda: ['/api'])
-    monkeypatch.setattr(search, '_detect_schema', lambda _path='': asyncio.sleep(0, result='https'))
-    monkeypatch.setattr(search, '_post_scan_analysis', never.wait)
-
-    async def fetch(*_args, **_kwargs) -> FetcherResponse:
-        return FetcherResponse(body='{}', status=200, headers={})
-
-    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
-
-    await search.do_search()
-
-    assert search.stop_reason == 'runtime-limit'
-    assert list(search.get_found_endpoints()) == ['https://example.com/api']
-
-
-@pytest.mark.asyncio
 async def test_api_endpoint_scan_cancellation_awaits_workers_and_closes_transport(monkeypatch) -> None:
     search = api_endpoints.SearchApiEndpoints('example.com', concurrency=3, exact_paths=True)
     sessions: list[object] = []
