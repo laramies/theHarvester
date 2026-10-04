@@ -2,7 +2,7 @@
 
 This glossary defines the shared language for authorized enumeration, source evidence, and saved-run analysis. Use these meanings in code, tests, issue titles, and operator-facing labels. Each `_Avoid_` list names misleading substitutes for that concept, rather than words forbidden in every context.
 
-For product-wide behavior, see the [architecture guide](docs/architecture.md); [ADRs](docs/adr/) explain consequential architectural trade-offs.
+Product behavior and implementation rules belong in the [architecture guide](docs/architecture.md); design decisions belong in [ADRs](docs/adr/).
 
 Read the section relevant to the task:
 

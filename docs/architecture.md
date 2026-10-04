@@ -1,6 +1,6 @@
 # theHarvester architecture
 
-These rules govern the 5.0.0 development line on `dev`. [CONTEXT.md](../CONTEXT.md) defines the domain terms; the source catalog, type declarations, CLI help, and OpenAPI document define exact interfaces.
+These rules govern the 5.0.0 development line on `dev`. [GLOSSARY.md](../GLOSSARY.md) defines the domain terms; the source catalog, type declarations, CLI help, and OpenAPI document define exact interfaces.
 
 When changing a rule, update this guide, the affected code, regression coverage, and operator documentation in the same PR. Update the glossary when the meaning of a term changes. Record a new decision only when the trade-off is hard to reverse and would otherwise surprise a future contributor.
 
