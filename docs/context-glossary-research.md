@@ -1,5 +1,7 @@
 # Should theHarvester keep `CONTEXT.md`?
 
+Update (2026-10-04): the updated Matt Pocock skills use `GLOSSARY.md`. The repository glossary has been renamed accordingly. The assessment below is retained as historical research; its recommendation to keep the old filename is superseded.
+
 Research checked 2026-09-26 against Matt Pocock's current `main` [domain-modeling explanation](https://github.com/mattpocock/skills/blob/main/docs/engineering/domain-modeling.md), [skill](https://github.com/mattpocock/skills/blob/main/skills/engineering/domain-modeling/SKILL.md), and [format](https://github.com/mattpocock/skills/blob/main/skills/engineering/domain-modeling/CONTEXT-FORMAT.md). These are mutable upstream pages; the conclusions below describe the versions retrieved on this date.
 
 ## Author's position
@@ -10,7 +12,7 @@ Matt says to prune implementation detail before considering a split. He regards 
 
 ## Application to this repository (our assessment)
 
-**Keep the root `CONTEXT.md` as a glossary.** Its 58 entries distinguish concepts that would otherwise be conflated in source identifiers, persisted records, UI labels, and reviews: an authorized target versus a related entity; P0/P1/P2 activity; run lifecycle versus terminal evidence status; one observation versus a merged result; and reported versus uncertain hostname differences ([local glossary](../CONTEXT.md)). These are consequential distinctions in the [architecture](architecture.md), not a speculative vocabulary list. One root file still describes a shared reconnaissance domain. A map or rename would add maintenance without resolving a current domain boundary.
+**Keep the root `CONTEXT.md` as a glossary.** Its 58 entries distinguish concepts that would otherwise be conflated in source identifiers, persisted records, UI labels, and reviews: an authorized target versus a related entity; P0/P1/P2 activity; run lifecycle versus terminal evidence status; one observation versus a merged result; and reported versus uncertain hostname differences ([local glossary](../GLOSSARY.md)). These are consequential distinctions in the [architecture](architecture.md), not a speculative vocabulary list. One root file still describes a shared reconnaissance domain. A map or rename would add maintenance without resolving a current domain boundary.
 
 The update preserves every term and `_Avoid_` list, adds section navigation, and clarifies that avoided synonyms are specific to each concept. Seven definitions are tightened. Missed-time advancement and wildcard nonce/depth rules move to the architecture guide; cancellation, scheduling, comparison, and interchange definitions focus on their domain meanings. Dispatch reservation remains a useful identity concept. The JSONL framing and SQLite exclusion details already have an architecture home. Code checks of [schedule advancement](../theHarvester/lib/api/schedule_models.py), [dispatch](../theHarvester/lib/api/schedule_service.py), [DNS controls](../theHarvester/lib/dns_consensus.py), and [hostname comparisons](../theHarvester/lib/hostname_comparison.py) support the retained distinctions.
 

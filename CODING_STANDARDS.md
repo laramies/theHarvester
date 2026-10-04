@@ -10,7 +10,7 @@ For target parsing, source selection, DNS, actions, or scheduling changes, trace
 
 Flag a normalization or convenience path that broadens the authorized target, promotes relationship evidence into a discovery seed, or performs an unselected activity. Exact hostname identity matters: `www.example.test` and `example.test` have different scope boundaries. Importing, comparing, or displaying saved evidence must remain read-only with respect to discovery and DNS.
 
-Authority: [authorization and scope](docs/architecture.md#authorization-and-scope), [domain language](CONTEXT.md), and [exact-hostname decision](docs/adr/0007-keep-operator-hostname-as-exact-scope.md).
+Authority: [authorization and scope](docs/architecture.md#authorization-and-scope), [domain language](GLOSSARY.md), and [exact-hostname decision](docs/adr/0007-keep-operator-hostname-as-exact-scope.md).
 
 ## External compatibility
 
@@ -40,7 +40,7 @@ Keep lifecycle status, terminal evidence status, source outcomes, and operator-f
 
 For comparisons, inspect the source outcomes used to infer absence. For storage and interchange, assess round trips against canonical evidence, including partial and failed finalized runs; a successful parse or an equal result count is insufficient.
 
-Authority: [evidence and portability](docs/architecture.md#evidence-and-portability), [results and local data](docs/wiki/Results-and-Local-Data.md), and [hostname comparison terminology](CONTEXT.md#hostname-comparisons).
+Authority: [evidence and portability](docs/architecture.md#evidence-and-portability), [results and local data](docs/wiki/Results-and-Local-Data.md), and [hostname comparison terminology](GLOSSARY.md#hostname-comparisons).
 
 ## Durable run and application ownership
 
