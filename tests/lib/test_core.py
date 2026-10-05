@@ -106,6 +106,7 @@ def test_all_selects_only_passive_catalog_sources() -> None:
         name: spec.activity for name, spec in SOURCE_SPECS.items() if spec.activity is not ActivityClass.PASSIVE
     } == {
         "criminalip": ActivityClass.DIRECT,
+        "otilabs": ActivityClass.DNS,
         "pentesttools": ActivityClass.DNS,
         "shodan": ActivityClass.DNS,
         "shodanInternetDB": ActivityClass.DNS,
@@ -115,7 +116,7 @@ def test_all_selects_only_passive_catalog_sources() -> None:
 
 @pytest.mark.parametrize(
     'source',
-    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99'],
+    ['criminalip', 'otilabs', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99'],
 )
 def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
     assert source not in resolve_sources('all')

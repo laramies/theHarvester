@@ -262,7 +262,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
 | [`netlas`](https://netlas.io/) | subdomains only | P0 | Required |
 | [`onyphe`](https://www.onyphe.io/) | subdomains, ips, asns | P0 | Required |
-| [`otilabs`](https://oti-labs.com/domain-intelligence-api) | subdomains, ips | P0 | Required |
+| [`otilabs`](https://oti-labs.com/domain-intelligence-api) | subdomains, ips | P1 | Required |
 | [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
 | [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
 | [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains only | P0 | Required |

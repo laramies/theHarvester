@@ -159,7 +159,12 @@ _SPECS = (
     _spec('mojeek', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
-    _spec('otilabs', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec(
+        'otilabs',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        activity=ActivityClass.DNS,
+    ),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec(
         'pentesttools',
