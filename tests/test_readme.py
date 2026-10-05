@@ -54,6 +54,7 @@ SOURCE_PROVIDER_LINKS = {
     'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
     'netlas': 'https://netlas.io/',
     'onyphe': 'https://www.onyphe.io/',
+    'otilabs': 'https://oti-labs.com/domain-intelligence-api',
     'otx': 'https://otx.alienvault.com/',
     'pentesttools': 'https://pentest-tools.com/',
     'projectdiscovery': 'https://chaos.projectdiscovery.io/',
@@ -154,7 +155,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 60
+    assert len(declared) == 61
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)

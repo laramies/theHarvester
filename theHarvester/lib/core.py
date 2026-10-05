@@ -222,6 +222,7 @@ class Core:
         'mojeek': ('key',),
         'netlas': ('key',),
         'onyphe': ('key',),
+        'otilabs': ('key',),
         'pentestTools': ('key',),
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
@@ -390,6 +391,10 @@ class Core:
     @staticmethod
     def onyphe_key() -> str:
         return Core._api_key_value('onyphe')
+
+    @staticmethod
+    def otilabs_key() -> str:
+        return Core._api_key_value('otilabs')
 
     @staticmethod
     def pentest_tools_key() -> str:
