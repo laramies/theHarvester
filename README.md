@@ -271,6 +271,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
 | [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
 | [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
+| [`serply`](https://serply.io/) | subdomains, emails | P0 | Required |
 | [`sherlockeye`](https://sherlockeye.io/) | subdomains, emails, ips | P0 | Required |
 | [`shodan`](https://www.shodan.io/) | subdomains only | P1 | Required |
 | [`shodanct`](https://ctl.shodan.io/) | subdomains only | P0 | No |
@@ -311,6 +312,14 @@ uv run theHarvester -d example.com -b jsmon -l 100
 ```
 
 Use `-l 0` to follow all pages reported by JSMON without a local result cap. HTTP 403 (plan quota) or 429 (rate limit) stops collection immediately without retrying; results from earlier pages are retained.
+
+For Serply, set `apikeys.serply.key` in `api-keys.yaml`:
+
+```bash
+uv run theHarvester -d example.com -b serply -l 100
+```
+
+Serply reads Google's index. Each request returns at most ten organic rows and is billed against the account's plan, so `-l` bounds the number of requests as well as the result count; see [Serply pricing](https://serply.io/pricing) for current terms. Pagination uses the provider's `start` offset and stops once a page repeats results already seen for that query.
 
 ## Output and local data
 

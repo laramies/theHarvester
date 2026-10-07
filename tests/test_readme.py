@@ -63,6 +63,7 @@ SOURCE_PROVIDER_LINKS = {
     'rocketreach': 'https://rocketreach.co/',
     'securityscorecard': 'https://securityscorecard.com/',
     'securityTrails': 'https://securitytrails.com/',
+    'serply': 'https://serply.io/',
     'sherlockeye': 'https://sherlockeye.io/',
     'shodan': 'https://www.shodan.io/',
     'shodanInternetDB': 'https://internetdb.shodan.io/',
