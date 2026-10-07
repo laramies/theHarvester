@@ -17,8 +17,6 @@ class SearchOTILabs:
 
     One request to the subdomains endpoint returns the names the API found in certificate
     transparency logs and passive DNS, and the hosts that resolved when it last checked them.
-    To build that list the API also brute-forces common names and resolves what it finds through
-    public DNS resolvers, so the source is P1 (DNS) and runs only when selected explicitly.
     ``wait=1`` asks the API to wait for all of its upstream sources before answering.
     """
 

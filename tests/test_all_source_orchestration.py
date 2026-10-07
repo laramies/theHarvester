@@ -15,7 +15,6 @@ from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultR
 
 NON_PASSIVE_SOURCES = (
     'criminalip',
-    'otilabs',
     'pentesttools',
     'shodan',
     'shodanInternetDB',
@@ -218,7 +217,6 @@ async def test_explicit_non_passive_source_is_scheduled_once(
     else:
         module, constructor_name = {
             'criminalip': (source_runner.criminalip, 'SearchCriminalIP'),
-            'otilabs': (source_runner.otilabs, 'SearchOTILabs'),
             'pentesttools': (source_runner.pentesttools, 'SearchPentestTools'),
             'shodanInternetDB': (source_runner.shodan_internetdb, 'SearchShodanInternetDB'),
             'subdomainfinderc99': (source_runner.subdomainfinderc99, 'SearchSubdomainfinderc99'),

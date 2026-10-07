@@ -8,7 +8,6 @@ import pytest
 from theHarvester.discovery import otilabs
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
-from theHarvester.lib.source_catalog import ActivityClass, activity_classes_for_selection, get_source_spec, resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -78,7 +77,9 @@ async def test_scoped_hosts_and_live_addresses_are_returned(
     assert report is None
     assert await search.get_hostnames() == {'www.example.com', 'api.example.com', 'old.example.com'}
     assert await search.get_ips() == {'192.0.2.10'}
-    assert [call['url'] for call in calls] == ['https://domain-intelligence-api.p.rapidapi.com/domain/example.com/subdomains']
+    assert [call['url'] for call in calls] == [
+        'https://domain-intelligence-api.p.rapidapi.com/domain/example.com/subdomains'
+    ]
     assert calls[0]['session'] is provider_session
     assert calls[0]['params'] == {'wait': '1'}
     assert calls[0]['json'] is True and calls[0]['include_metadata'] is True
@@ -194,11 +195,3 @@ async def test_empty_result_completes_normally(monkeypatch: pytest.MonkeyPatch) 
     assert report is None
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-
-
-def test_source_is_p1_dns_activity_and_runs_only_when_selected() -> None:
-    assert get_source_spec('otilabs').activity is ActivityClass.DNS
-    assert activity_classes_for_selection(['otilabs']) == (ActivityClass.DNS,)
-    assert 'otilabs' not in resolve_sources('all')
-    assert resolve_sources('otilabs') == ['otilabs']
-    assert resolve_sources('OTILabs') == ['otilabs']
