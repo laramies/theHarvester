@@ -312,14 +312,6 @@ uv run theHarvester -d example.com -b jsmon -l 100
 
 Use `-l 0` to follow all pages reported by JSMON without a local result cap. HTTP 403 (plan quota) or 429 (rate limit) stops collection immediately without retrying; results from earlier pages are retained.
 
-For Serply, set `apikeys.serply.key` in `api-keys.yaml`:
-
-```bash
-uv run theHarvester -d example.com -b serply -l 100
-```
-
-Serply reads Google's index. Each request returns at most ten organic rows and is billed against the account's plan, so `-l` bounds the number of requests as well as the result count; see [Serply pricing](https://serply.io/pricing) for current terms. Pagination uses the provider's `start` offset and stops once a page repeats results already seen for that query.
-
 ## Output and local data
 
 Terminal output is intended for interactive use. `-f NAME` also writes `NAME.jsonl`, `NAME.json`, and `NAME.xml`. Screenshots go to the directory passed to `--screenshot`, and completed runs are stored in `~/.local/share/theHarvester/stash.sqlite`.
