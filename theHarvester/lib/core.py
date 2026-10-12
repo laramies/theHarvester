@@ -282,7 +282,20 @@ class Core:
     @staticmethod
     def api_keys() -> dict:
         keys = yaml.safe_load(Core._read_config('api-keys.yaml'))
-        return keys['apikeys']
+        return Core._with_canonical_provider_names(keys['apikeys'])
+
+    @staticmethod
+    def _with_canonical_provider_names(configured: dict) -> dict:
+        # Provider names are matched case-insensitively; an exact canonical name wins over a case variant.
+        if not isinstance(configured, dict):
+            return configured
+        canonical_names = {provider.casefold(): provider for provider in Core._API_KEY_FIELDS}
+        normalized: dict = {}
+        for provider, values in configured.items():
+            canonical = canonical_names.get(provider.casefold(), provider) if isinstance(provider, str) else provider
+            if canonical not in normalized or provider == canonical:
+                normalized[canonical] = values
+        return normalized
 
     @staticmethod
     def api_key_fields() -> dict[str, tuple[str, ...]]:
