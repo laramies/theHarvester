@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from collections import Counter
 from pathlib import Path
 
@@ -422,6 +423,15 @@ def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
     assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
+
+
+def test_installation_verifies_every_packaged_console_command() -> None:
+    scripts = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['scripts']
+    installation = Path('docs/wiki/Installation.md').read_text(encoding='utf-8')
+
+    for command in scripts:
+        assert f'`{command}`' in installation
+        assert f'uv run {command} --help' in installation or f'uv run {command} -h' in installation
 
 
 def test_operator_docs_cover_portable_database_export() -> None:
