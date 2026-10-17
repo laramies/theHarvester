@@ -165,7 +165,7 @@ harvest-report hostname-changes --target example.test
 
 Contribution reports are target-scoped by default. A database with several targets requires `--target`, `--run-id`, or an intentional `--all-targets` aggregate. Hostname comparisons use the latest earlier run with the same canonical target and exact source list.
 
-These reports use finalized runs. If `targets` is empty immediately after upgrading a 4.11 database, check the retained local legacy rows as described [above](#preserve-411-sqlite-history-before-upgrading) before assuming the database has no history.
+These reports use finalized runs. If `targets` is empty immediately after upgrading a 4.11 database, check the retained local legacy rows as described [above](Moving-from-4.11-to-5.0#preserve-411-sqlite-history-before-upgrading) before assuming the database has no history.
 
 The comparison labels describe saved evidence:
 
