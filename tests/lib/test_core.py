@@ -416,6 +416,53 @@ def test_routeviews_key_strips_configuration_whitespace(monkeypatch) -> None:
     assert Core.routeviews_key() == 'routeviews-key'
 
 
+def _write_user_api_keys(contents: str) -> None:
+    config_dir = CONFIG_DIRS[0].expanduser()
+    config_dir.mkdir(mode=0o700, exist_ok=True)
+    (config_dir / 'api-keys.yaml').write_text(contents, encoding='utf-8')
+
+
+@pytest.mark.parametrize(
+    ('configured_provider', 'canonical_provider'),
+    [
+        ('GitHub', 'github'),
+        ('Github', 'github'),
+        ('GITHUB', 'github'),
+        ('securitytrails', 'securityTrails'),
+        ('pentesttools', 'pentestTools'),
+    ],
+)
+def test_api_keys_match_provider_names_case_insensitively(configured_provider: str, canonical_provider: str) -> None:
+    _write_user_api_keys(f'apikeys:\n  {configured_provider}:\n    key: configured-key\n')
+
+    assert Core.api_keys() == {canonical_provider: {'key': 'configured-key'}}
+
+
+@pytest.mark.parametrize(
+    'contents',
+    [
+        'apikeys:\n  github:\n    key: exact-key\n  GitHub:\n    key: variant-key\n',
+        'apikeys:\n  GitHub:\n    key: variant-key\n  github:\n    key: exact-key\n',
+    ],
+)
+def test_api_keys_prefer_the_exact_provider_name_over_a_case_variant(contents: str) -> None:
+    _write_user_api_keys(contents)
+
+    assert Core.api_keys() == {'github': {'key': 'exact-key'}}
+
+
+def test_api_keys_return_an_empty_provider_section_unchanged() -> None:
+    _write_user_api_keys('apikeys:\n')
+
+    assert Core.api_keys() is None
+
+
+def test_api_keys_keep_unknown_provider_names_as_written() -> None:
+    _write_user_api_keys('apikeys:\n  CustomProvider:\n    key: custom-key\n  123:\n    key: numeric-key\n')
+
+    assert Core.api_keys() == {'CustomProvider': {'key': 'custom-key'}, 123: {'key': 'numeric-key'}}
+
+
 @pytest.mark.asyncio
 async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
     async def fail_if_fetch_sleeps(seconds: float) -> None:
