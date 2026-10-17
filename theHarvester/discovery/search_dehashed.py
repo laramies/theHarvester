@@ -41,7 +41,7 @@ class SearchDehashed:
             include_metadata=True,
         )
         if isinstance(response, FetcherResponse) and response.status == 429:
-            retry_after = response.headers.get('retry-after') or response.headers.get('Retry-After')
+            retry_after = response.headers.get('retry-after')
             try:
                 delay = float(retry_after) if retry_after is not None else -1
             except ValueError:

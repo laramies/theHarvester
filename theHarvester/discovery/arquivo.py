@@ -21,6 +21,11 @@ class SearchArquivo:
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
+        headers = {'User-agent': Core.get_user_agent()}
+        async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=60) as session:
+            return await self._search(session)
+
+    async def _search(self, session) -> SourceExecutionReport | None:
         offset = 0
         previous_page = None
         report = None
@@ -39,8 +44,7 @@ class SearchArquivo:
             try:
                 responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
                     [f'https://arquivo.pt/wayback/cdx?{query}'],
-                    headers={'User-agent': Core.get_user_agent()},
-                    proxy=self.proxy,
+                    session=session,
                     include_metadata=True,
                 )
             except asyncio.CancelledError:
@@ -60,7 +64,7 @@ class SearchArquivo:
                 logger.info('Arquivo.pt returned malformed CDX data')
                 return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'invalid-response')
             if response.body == previous_page:
-                return SourceExecutionReport('partial', 'repeated-page')
+                return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'repeated-page')
             previous_page = response.body
 
             lines = response.body.splitlines()

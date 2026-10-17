@@ -323,4 +323,114 @@ async def test_github_code_cancellation_propagates(monkeypatch: pytest.MonkeyPat
         await search.process()
 
 
+@pytest.mark.asyncio
+async def test_github_code_forbidden_fails_immediately_as_access_denied(install_github_responses) -> None:
+    class ForbiddenResponse(FakeResponse):
+        status = 403
+
+    requested_urls = install_github_responses(ForbiddenResponse({}, {}))
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 1
+    assert report == githubcode.SourceExecutionReport('failed', 'access-denied')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('headers', 'expected_wait'),
+    [
+        ({'x-ratelimit-remaining': '0'}, 60),
+        ({'retry-after': '120'}, 120),
+        ({'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1090'}, 90),
+        ({'retry-after': '30', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1150'}, 150),
+    ],
+)
+async def test_github_code_rate_limit_forbidden_waits_for_deadline_then_succeeds(
+    install_github_responses,
+    monkeypatch: pytest.MonkeyPatch,
+    headers: dict[str, str],
+    expected_wait: float,
+) -> None:
+    class RateLimitedResponse(FakeResponse):
+        status = 403
+
+    limited = RateLimitedResponse({}, {})
+    limited.headers = headers
+    requested_urls = install_github_responses(
+        limited,
+        FakeResponse({'items': [{'text_matches': [{'fragment': 'api.example.com'}]}]}, {}),
+    )
+    requested_waits: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        requested_waits.append(delay)
+
+    monkeypatch.setattr(githubcode.asyncio, 'sleep', record_sleep)
+    monkeypatch.setattr(githubcode.time, 'time', lambda: 1000.0)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 2
+    assert requested_waits[0] == expected_wait
+    assert report is None
+    assert search.counter == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'headers',
+    [{'retry-after': '600'}, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1600'}],
+)
+async def test_github_code_rate_limit_beyond_wait_budget_reports_without_retrying(
+    install_github_responses,
+    monkeypatch: pytest.MonkeyPatch,
+    headers: dict[str, str],
+) -> None:
+    class RateLimitedResponse(FakeResponse):
+        status = 403
+
+    limited = RateLimitedResponse({}, {})
+    limited.headers = headers
+    requested_urls = install_github_responses(limited)
+    requested_waits: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        requested_waits.append(delay)
+
+    monkeypatch.setattr(githubcode.asyncio, 'sleep', record_sleep)
+    monkeypatch.setattr(githubcode.time, 'time', lambda: 1000.0)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 1
+    assert requested_waits == []
+    assert report == githubcode.SourceExecutionReport('rate-limited', 'rate-limited')
+
+
+@pytest.mark.asyncio
+async def test_github_code_rate_limited_retries_then_reports(
+    install_github_responses,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class TooManyRequestsResponse(FakeResponse):
+        status = 429
+
+    requested_urls = install_github_responses(*(TooManyRequestsResponse({}, {}) for _ in range(4)))
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(githubcode.asyncio, 'sleep', no_sleep)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert len(requested_urls) == 4
+    assert report == githubcode.SourceExecutionReport('rate-limited', 'rate-limited')
+
+
 pytestmark = pytest.mark.provider_contract('github-code')

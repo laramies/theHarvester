@@ -110,6 +110,16 @@ For example, change `-b chaos` to `-b projectdiscovery`, or `"sources":["chaos"]
 
 Review `-b all` and capability selections before reuse. `all` now selects every P0 source and excludes P1/P2 sources; explicitly select other sources only when their activity is authorized. Capability selectors such as `emails` choose sources and retain all result types those sources return. For a fixed provider set, enumerate its names.
 
+## Update direct Python PTR calls
+
+Python callers using `theHarvester.discovery.dnssearch.reverse_all_ips_in_range` must switch to `reverse_ip_ranges`. Pass the range in a tuple:
+
+```python
+result = await dnssearch.reverse_ip_ranges((iprange,), callback, nameservers)
+```
+
+The callback and optional resolver arguments keep their meaning. The replacement returns a `ReverseDNSResult` with `request_count`, `completed_count`, and `stop_reason`; callers that previously ignored the return value may continue to do so. Request and runtime bounds can stop collection before every address is queried, so inspect `stop_reason` when completeness matters. This remains P1 DNS interaction and requires an explicitly authorized range.
+
 ## Use the right result format
 
 For new automation, use JSONL for one finalized run or SQLite for several runs.

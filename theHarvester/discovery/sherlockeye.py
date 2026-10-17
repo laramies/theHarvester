@@ -32,7 +32,6 @@ class SearchSherlockeye:
         self.totalhosts: set[str] = set()
         self.totalemails: set[str] = set()
         self.totalips: set[str] = set()
-        self.results: list[dict[str, Any]] = []
         self.proxy: bool | str = False
 
     def _headers(self) -> dict[str, str]:
@@ -112,7 +111,6 @@ class SearchSherlockeye:
         if not isinstance(search_results, list):
             return SourceExecutionReport('failed', 'invalid-response')
 
-        self.results = search_results
         malformed = False
         for result in search_results:
             if isinstance(result, dict):
@@ -165,9 +163,6 @@ class SearchSherlockeye:
 
     async def get_ips(self) -> set[str]:
         return self.totalips
-
-    async def get_results(self) -> list[dict[str, Any]]:
-        return self.results
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy

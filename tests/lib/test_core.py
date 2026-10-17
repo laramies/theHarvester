@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import ssl
 import stat
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -416,6 +417,53 @@ def test_routeviews_key_strips_configuration_whitespace(monkeypatch) -> None:
     assert Core.routeviews_key() == 'routeviews-key'
 
 
+def _write_user_api_keys(contents: str) -> None:
+    config_dir = CONFIG_DIRS[0].expanduser()
+    config_dir.mkdir(mode=0o700, exist_ok=True)
+    (config_dir / 'api-keys.yaml').write_text(contents, encoding='utf-8')
+
+
+@pytest.mark.parametrize(
+    ('configured_provider', 'canonical_provider'),
+    [
+        ('GitHub', 'github'),
+        ('Github', 'github'),
+        ('GITHUB', 'github'),
+        ('securitytrails', 'securityTrails'),
+        ('pentesttools', 'pentestTools'),
+    ],
+)
+def test_api_keys_match_provider_names_case_insensitively(configured_provider: str, canonical_provider: str) -> None:
+    _write_user_api_keys(f'apikeys:\n  {configured_provider}:\n    key: configured-key\n')
+
+    assert Core.api_keys() == {canonical_provider: {'key': 'configured-key'}}
+
+
+@pytest.mark.parametrize(
+    'contents',
+    [
+        'apikeys:\n  github:\n    key: exact-key\n  GitHub:\n    key: variant-key\n',
+        'apikeys:\n  GitHub:\n    key: variant-key\n  github:\n    key: exact-key\n',
+    ],
+)
+def test_api_keys_prefer_the_exact_provider_name_over_a_case_variant(contents: str) -> None:
+    _write_user_api_keys(contents)
+
+    assert Core.api_keys() == {'github': {'key': 'exact-key'}}
+
+
+def test_api_keys_return_an_empty_provider_section_unchanged() -> None:
+    _write_user_api_keys('apikeys:\n')
+
+    assert Core.api_keys() is None
+
+
+def test_api_keys_keep_unknown_provider_names_as_written() -> None:
+    _write_user_api_keys('apikeys:\n  CustomProvider:\n    key: custom-key\n  123:\n    key: numeric-key\n')
+
+    assert Core.api_keys() == {'CustomProvider': {'key': 'custom-key'}, 123: {'key': 'numeric-key'}}
+
+
 @pytest.mark.asyncio
 async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
     async def fail_if_fetch_sleeps(seconds: float) -> None:
@@ -451,6 +499,103 @@ async def test_fetch_reused_session_uses_a_stable_explicit_ssl_policy(monkeypatc
     ssl_policies = [request_options['ssl'] for _method, _url, request_options in session.requests]
     assert ssl_policies == [True, True]
     assert ssl_policies[0] is ssl_policies[1]
+
+
+@pytest.mark.asyncio
+async def test_fetch_reused_session_defers_default_ssl_policy_to_the_connector(monkeypatch) -> None:
+    session = DummySession()
+
+    def fail_if_context_built(_verify=True):
+        raise AssertionError('a borrowed session must not rebuild an SSL context per request')
+
+    monkeypatch.setattr(AsyncFetcher, '_ssl_context', staticmethod(fail_if_context_built))
+
+    await AsyncFetcher.fetch(session=session, url='https://example.com/one', verify=None)
+
+    assert session.requests == [('GET', 'https://example.com/one', {})]
+
+
+@pytest.mark.asyncio
+async def test_fetch_reused_session_forwards_caller_headers(monkeypatch) -> None:
+    session = DummySession()
+
+    await AsyncFetcher.fetch(session=session, url='https://example.com/api', headers={'X-Api-Key': 'test-key'})
+
+    _method, _url, request_options = session.requests[0]
+    assert request_options['headers']['X-Api-Key'] == 'test-key'
+
+
+@pytest.mark.asyncio
+async def test_fetch_reused_session_without_headers_keeps_session_headers(monkeypatch) -> None:
+    session = DummySession()
+
+    await AsyncFetcher.fetch(session=session, url='https://example.com/api')
+
+    assert 'headers' not in session.requests[0][2]
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_reused_session_forwards_caller_headers(monkeypatch) -> None:
+    session = DummySession()
+
+    await AsyncFetcher.post_fetch(
+        'https://example.com/api',
+        headers={'X-Api-Key': 'test-key'},
+        session=session,
+        json=True,
+        json_body={'query': 'example.com'},
+    )
+
+    _method, _url, request_options = session.requests[0]
+    assert request_options['headers']['X-Api-Key'] == 'test-key'
+    assert request_options['json'] == {'query': 'example.com'}
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_sends_the_default_empty_body(monkeypatch) -> None:
+    session = DummySession()
+
+    await AsyncFetcher.post_fetch('https://example.com/api', session=session, json=True)
+
+    _method, _url, request_options = session.requests[0]
+    assert request_options['data'] == ''
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_passes_non_json_string_data_through(monkeypatch) -> None:
+    session = DummySession()
+
+    await AsyncFetcher.post_fetch('https://example.com/api', data='field=value', session=session)
+
+    _method, _url, request_options = session.requests[0]
+    assert request_options['data'] == 'field=value'
+
+
+@pytest.mark.asyncio
+async def test_tcp_connector_honors_disabled_verification() -> None:
+    connector = await AsyncFetcher._create_connector(None, None, False)
+    try:
+        assert connector._ssl is False
+    finally:
+        await connector.close()
+
+
+@pytest.mark.asyncio
+async def test_tcp_connector_defaults_to_a_verifying_context() -> None:
+    connector = await AsyncFetcher._create_connector(None, None, None)
+    try:
+        assert isinstance(connector._ssl, ssl.SSLContext)
+    finally:
+        await connector.close()
+
+
+@pytest.mark.asyncio
+async def test_create_session_with_verification_disabled_builds_an_unverified_connector() -> None:
+    session = await AsyncFetcher.create_session(verify=False)
+    try:
+        assert session.connector._ssl is False
+    finally:
+        await session.close()
 
 
 @pytest.mark.asyncio

@@ -491,14 +491,17 @@ async def test_reverse_range_reports_only_unexpected_ptr_errors(monkeypatch: pyt
     results: list[str] = []
     error_types: set[str] = set()
 
-    await dnssearch.reverse_all_ips_in_range(
-        '192.0.2.0/24',
+    result = await dnssearch.reverse_ip_ranges(
+        ('192.0.2.0/24',),
         results.append,
         error_types=error_types,
     )
 
     assert results == ['api.example.com', '', '']
     assert error_types == {'TimeoutError'}
+    assert result.request_count == 3
+    assert result.completed_count == 3
+    assert result.stop_reason is None
 
 
 @pytest.mark.asyncio

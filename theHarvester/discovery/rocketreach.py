@@ -1,7 +1,6 @@
-import asyncio
 import logging
 
-from theHarvester.discovery.constants import MissingKey, get_delay
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
@@ -14,7 +13,7 @@ class SearchRocketReach:
         self.ips: set = set()
         self.word = word
         self.key = Core.rocketreach_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('RocketReach')
         self.hosts: set = set()
         self.proxy = False
@@ -120,7 +119,6 @@ class SearchRocketReach:
                     if found < page_size:
                         break
 
-            await asyncio.sleep(get_delay() + 5)
             return None
 
         except OSError, RuntimeError, ValueError:

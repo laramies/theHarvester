@@ -1,8 +1,11 @@
 import asyncio
 import logging
+from urllib.parse import urlsplit
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -19,48 +22,42 @@ class SearchTomba:
         if not all(self.key):
             raise MissingKey('Tomba Key and/or Secret')
         self.total_results = ''
-        self.counter = start
         self.proxy = False
         self.hostnames: list = []
         self.emails: list = []
 
-    async def _fetch_json(self, url: str, headers: dict[str, str]) -> dict | None:
+    async def _fetch_json(self, url: str, headers: dict[str, str], session) -> dict | SourceExecutionReport:
         response = await AsyncFetcher.fetch_all(
             [url],
             headers=headers,
-            proxy=self.proxy,
+            session=session,
             json=True,
             include_metadata=True,
         )
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
             logger.info('Tomba request failed without a response')
-            return None
-        if not 200 <= metadata.status < 300:
+            return SourceExecutionReport('failed', 'transport-error')
+        if error := provider_http_error(metadata):
             logger.info(f'Tomba request failed with HTTP {metadata.status}')
-            return None
+            return SourceExecutionReport(*error)
         if not isinstance(metadata.body, dict):
             logger.info('Tomba returned malformed data')
-            return None
+            return SourceExecutionReport('failed', 'invalid-response')
         return metadata.body
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         # First determine if a user account is not a free account, this call is free
-        is_free = True
         headers = {
             'User-Agent': Core.get_user_agent(),
             'X-Tomba-Key': self.key[0],
             'X-Tomba-Secret': self.key[1],
         }
         acc_info_url = 'https://api.tomba.io/v1/me'
-        response = await self._fetch_json(acc_info_url, headers)
-        if response is None:
-            return None
-        is_free = (
-            is_free
-            if 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
-            else False
-        )
+        response = await self._fetch_json(acc_info_url, headers, session)
+        if isinstance(response, SourceExecutionReport):
+            return response
+        is_free = 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
         # Extract the total number of requests that are available for an account
 
         total_requests_avail = (
@@ -72,9 +69,9 @@ class SearchTomba:
             total_results = self.limit
         else:
             tomba_counter = f'https://api.tomba.io/v1/email-count?domain={self.word}'
-            response = await self._fetch_json(tomba_counter, headers)
-            if response is None:
-                return None
+            response = await self._fetch_json(tomba_counter, headers, session)
+            if isinstance(response, SourceExecutionReport):
+                return response
             available_results = max(0, response['data']['total'] - self.start)
             total_results = (
                 min(available_results, self.requested_limit) if self.requested_limit is not None else available_results
@@ -93,9 +90,9 @@ class SearchTomba:
         pages_to_fetch = min(total_number_reqs, max(total_requests_avail, 0))
         for page in range(first_page, first_page + pages_to_fetch):
             req_url = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit={page_size}&page={page}'
-            response = await self._fetch_json(req_url, headers)
-            if response is None:
-                return None
+            response = await self._fetch_json(req_url, headers, session)
+            if isinstance(response, SourceExecutionReport):
+                return response
             skip = first_page_skip if page == first_page else 0
             raw_entries = response['data']['emails']
             provider_limit_reached = is_free and isinstance(raw_entries, list) and len(raw_entries) >= page_size
@@ -112,15 +109,27 @@ class SearchTomba:
             return SourceExecutionReport('partial', 'provider-limit')
         return None
 
-    async def parse_resp(self, json_resp):
+    def _scoped_source_website(self, value: object) -> str | None:
+        """Return the scoped hostname for a source website URL or bare domain."""
+        if not isinstance(value, str) or not value.strip():
+            return None
+        candidate = value.strip()
+        try:
+            # A network-path prefix lets urlsplit find the host in scheme-less values.
+            hostname = urlsplit(candidate if '://' in candidate else f'//{candidate}').hostname or ''
+        except ValueError:
+            return None
+        return normalize_scoped_hostname(hostname, self.word)
+
+    async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
         emails = list(sorted({email['email'] for email in json_resp['data']['emails']}))
         domains = list(
             sorted(
                 {
-                    source['website_url']
+                    source_domain
                     for email in json_resp['data']['emails']
                     for source in email['sources']
-                    if self.word in source['website_url']
+                    if (source_domain := self._scoped_source_website(source['website_url'])) is not None
                 }
             )
         )
@@ -129,13 +138,14 @@ class SearchTomba:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            return await self.do_search()  # Only need to do it once.
+            async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
+                return await self.do_search(session)  # Only need to do it once.
         except AttributeError, KeyError, TypeError:
             logger.info('Tomba returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')
 
-    async def get_emails(self):
+    async def get_emails(self) -> list[str]:
         return self.emails
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list[str]:
         return self.hostnames

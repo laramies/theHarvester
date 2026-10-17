@@ -124,7 +124,7 @@ class TakeoverHTTPOutcome:
             raise ValueError('takeover HTTP evidence contains unsupported fields')
         return cls(
             scheme=cast('HttpScheme', _required_text(record.get('scheme'), 'HTTP scheme')),
-            status=record.get('status') if record.get('status') is not None else None,
+            status=record.get('status'),
             location=_optional_text(record.get('location'), 'redirect location', limit=2048),
             error_type=_optional_text(record.get('error_type'), 'HTTP error type'),
             body_truncated=record.get('body_truncated', False),

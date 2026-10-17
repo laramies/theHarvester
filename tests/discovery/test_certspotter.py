@@ -7,7 +7,12 @@ import httpx
 import pytest
 
 from theHarvester.discovery import certspottersearch
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+
+def certspotter_response(payload: object) -> list[FetcherResponse]:
+    return [FetcherResponse(payload, 200, {})]
 
 
 class TestCertspotter:
@@ -29,8 +34,8 @@ class TestCertspotterSearch:
 
     @pytest.mark.asyncio
     async def test_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, list[str]]]]:
-            return [[{'dns_names': ['api.example.com', 'www.example.com']}]]
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return certspotter_response([{'dns_names': ['api.example.com', 'www.example.com']}])
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -49,9 +54,9 @@ class TestCertspotterSearch:
         ]
         requested_urls: list[str] = []
 
-        async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[list[dict[str, Any]]]:
+        async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
             requested_urls.extend(urls)
-            return [pages.pop(0)]
+            return certspotter_response(pages.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -83,12 +88,12 @@ class TestCertspotterSearch:
     ) -> None:
         requests = 0
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
             nonlocal requests
             requests += 1
             if requests > 3:
-                return [[]]
-            return [[{'id': f'cursor-{requests}', 'dns_names': [f'host-{requests}.example.com']}]]
+                return certspotter_response([])
+            return certspotter_response([{'id': f'cursor-{requests}', 'dns_names': [f'host-{requests}.example.com']}])
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -126,8 +131,8 @@ class TestCertspotterSearch:
             [],
         ]
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
-            return [pages.pop(0)]
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return certspotter_response(pages.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(' Example.COM. ')
@@ -147,8 +152,8 @@ class TestCertspotterSearch:
             {'code': 'rate_limited', 'message': 'provider details must not be logged'},
         ]
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
-            return [responses.pop(0)]
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return certspotter_response(responses.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -163,16 +168,17 @@ class TestCertspotterSearch:
         assert 'provider details must not be logged' not in caplog.text
 
     @pytest.mark.asyncio
-    async def test_search_reports_transport_failure_as_incomplete(
+    async def test_search_preserves_results_when_transport_fails(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         responses: list[Any] = [
             [{'id': '1', 'dns_names': ['first.example.com']}],
-            '',
+            None,
         ]
 
         async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
-            return [responses.pop(0)]
+            response = responses.pop(0)
+            return [response] if response is None else certspotter_response(response)
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -181,12 +187,19 @@ class TestCertspotterSearch:
 
         assert await search.get_hostnames() == {'first.example.com'}
         assert report.status == 'partial'
-        assert report.stop_reason == 'invalid-response'
+        assert report.stop_reason == 'transport-error'
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(('response', 'stop_reason'), [([], 'no-response'), ([{}], 'invalid-response')])
-    async def test_search_reports_invalid_response_as_incomplete(
+    @pytest.mark.parametrize(
+        ('response', 'stop_reason'),
+        [
+            ([], 'no-response'),
+            ([FetcherResponse('not a list', 200, {})], 'invalid-response'),
+            ([None], 'transport-error'),
+        ],
+    )
+    async def test_search_reports_first_page_failure_as_failed(
         self,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
@@ -202,9 +215,39 @@ class TestCertspotterSearch:
             report = await search.process()
 
         assert await search.get_hostnames() == set()
-        assert report.status == 'partial'
+        assert report.status == 'failed'
         assert report.stop_reason == stop_reason
         assert 'results may be incomplete' in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('status', 'expected_report'),
+        [
+            (403, SourceExecutionReport('failed', 'access-denied')),
+            (429, SourceExecutionReport('rate-limited', 'http-429')),
+            (500, SourceExecutionReport('failed', 'http-500')),
+        ],
+    )
+    async def test_search_reports_http_failures(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        status: int,
+        expected_report: SourceExecutionReport,
+    ) -> None:
+        async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
+            assert kwargs['include_metadata'] is True
+            return [FetcherResponse('provider detail', status, {})]
+
+        monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
+        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+            report = await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert report == expected_report
+        assert 'results may be incomplete' in caplog.text
+        assert 'provider detail' not in caplog.text
 
     @pytest.mark.asyncio
     async def test_search_reports_malformed_issuance_as_incomplete(
@@ -215,8 +258,8 @@ class TestCertspotterSearch:
             [],
         ]
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
-            return [pages.pop(0)]
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return certspotter_response(pages.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -248,11 +291,11 @@ class TestCertspotterSearch:
             error,
         ]
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse] | Any:
             response = responses.pop(0)
             if isinstance(response, Exception):
                 raise response
-            return [response]
+            return certspotter_response(response)
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -275,10 +318,10 @@ class TestCertspotterSearch:
         ]
         calls = 0
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
             nonlocal calls
             calls += 1
-            return [pages.pop(0)]
+            return certspotter_response(pages.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -297,10 +340,10 @@ class TestCertspotterSearch:
         pages.append([])
         calls = 0
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
             nonlocal calls
             calls += 1
-            return [pages.pop(0)]
+            return certspotter_response(pages.pop(0))
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -326,10 +369,10 @@ class TestCertspotterSearch:
     ) -> None:
         calls = 0
 
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
             nonlocal calls
             calls += 1
-            return [[issuance]]
+            return certspotter_response([issuance])
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())

@@ -222,6 +222,7 @@ class Core:
         'mojeek': ('key',),
         'netlas': ('key',),
         'onyphe': ('key',),
+        'otilabs': ('key',),
         'pentestTools': ('key',),
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
@@ -282,7 +283,20 @@ class Core:
     @staticmethod
     def api_keys() -> dict:
         keys = yaml.safe_load(Core._read_config('api-keys.yaml'))
-        return keys['apikeys']
+        return Core._with_canonical_provider_names(keys['apikeys'])
+
+    @staticmethod
+    def _with_canonical_provider_names(configured: dict) -> dict:
+        # Provider names are matched case-insensitively; an exact canonical name wins over a case variant.
+        if not isinstance(configured, dict):
+            return configured
+        canonical_names = {provider.casefold(): provider for provider in Core._API_KEY_FIELDS}
+        normalized: dict = {}
+        for provider, values in configured.items():
+            canonical = canonical_names.get(provider.casefold(), provider) if isinstance(provider, str) else provider
+            if canonical not in normalized or provider == canonical:
+                normalized[canonical] = values
+        return normalized
 
     @staticmethod
     def api_key_fields() -> dict[str, tuple[str, ...]]:
@@ -391,6 +405,10 @@ class Core:
     @staticmethod
     def onyphe_key() -> str:
         return Core._api_key_value('onyphe')
+
+    @staticmethod
+    def otilabs_key() -> str:
+        return Core._api_key_value('otilabs')
 
     @staticmethod
     def pentest_tools_key() -> str:
@@ -531,7 +549,12 @@ class AsyncFetcher:
 
     @staticmethod
     def _normalize_data(data: str | dict[str, Any]) -> str | dict[str, Any]:
-        return json_loader.loads(data) if isinstance(data, str) else data
+        if isinstance(data, str) and data:
+            try:
+                return json_loader.loads(data)
+            except ValueError:
+                return data
+        return data
 
     @classmethod
     def _resolve_proxy(cls, proxy: str | bool | None) -> tuple[str | None, str | None]:
@@ -548,6 +571,15 @@ class AsyncFetcher:
                 raise ProxyUnavailableError('proxy-unavailable')
             return resolved
         return None, None
+
+    @classmethod
+    def resolve_proxy(cls, proxy: str | bool | None) -> tuple[str | None, str | None]:
+        """Return the proxy URL and type for a proxy selection.
+
+        For adapters that need the resolved proxy for transports the shared
+        fetchers do not own, such as Playwright browser sessions.
+        """
+        return cls._resolve_proxy(proxy)
 
     @classmethod
     @contextlib.contextmanager
@@ -784,7 +816,9 @@ class AsyncFetcher:
             return connector
         else:
             # Use default TCP connector for HTTP proxies or no proxy
-            return aiohttp.TCPConnector(ssl=ssl_context or ssl.create_default_context(cafile=certifi.where()))
+            return aiohttp.TCPConnector(
+                ssl=ssl_context if ssl_context is not None else ssl.create_default_context(cafile=certifi.where())
+            )
 
     @classmethod
     async def post_fetch(
@@ -801,6 +835,7 @@ class AsyncFetcher:
         session: aiohttp.ClientSession | None = None,
         response_byte_limit: int | None = None,
     ) -> Any:
+        caller_headers = headers
         headers = cls._default_headers(headers)
         # By default, timeout is 5 minutes, changed to 12-minutes
         # results are well worth the wait
@@ -822,6 +857,8 @@ class AsyncFetcher:
             }
             if params != '':
                 request_kwargs['params'] = params
+            if caller_headers is not None:
+                request_kwargs['headers'] = headers
             return await cls._request(
                 session,
                 'POST',
@@ -860,7 +897,14 @@ class AsyncFetcher:
         """
         try:
             owns_session = session is None
-            ssl_arg = cls._ssl_context(verify) if owns_session or not isinstance(verify, bool) else verify
+            if owns_session:
+                ssl_arg = cls._ssl_context(verify)
+            elif isinstance(verify, bool):
+                ssl_arg = verify
+            else:
+                # A borrowed session already owns its TLS policy; defer to the
+                # session connector instead of rebuilding a context per request.
+                ssl_arg = None
             proxy_url, proxy_type = cls._resolve_proxy(proxy)
             client_timeout = cls._request_timeout(request_timeout)
             req_headers = cls._default_headers(headers)
@@ -876,9 +920,9 @@ class AsyncFetcher:
             assert session is not None
 
             try:
-                request_kwargs: dict[str, Any] = {
-                    'ssl': ssl_arg,
-                }
+                request_kwargs: dict[str, Any] = {}
+                if ssl_arg is not None:
+                    request_kwargs['ssl'] = ssl_arg
                 # For HTTP proxies, pass the proxy parameter; for SOCKS5, the connector handles it
                 if proxy_url and proxy_type == 'http':
                     request_kwargs['proxy'] = proxy_url
@@ -886,6 +930,8 @@ class AsyncFetcher:
                     request_kwargs['allow_redirects'] = follow_redirects
                 if params != '':
                     request_kwargs['params'] = params
+                if not owns_session and headers is not None:
+                    request_kwargs['headers'] = req_headers
                 return await cls._request(
                     session,
                     method,
@@ -1107,6 +1153,7 @@ class AsyncFetcher:
                             url=url,
                             params=params,
                             json=json,
+                            headers=headers,
                             include_metadata=include_metadata,
                         )
                         for url in urls

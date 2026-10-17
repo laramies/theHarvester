@@ -54,6 +54,7 @@ SOURCE_PROVIDER_LINKS = {
     'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
     'netlas': 'https://netlas.io/',
     'onyphe': 'https://www.onyphe.io/',
+    'otilabs': 'https://oti-labs.com/domain-intelligence-api',
     'otx': 'https://otx.alienvault.com/',
     'pentesttools': 'https://pentest-tools.com/',
     'projectdiscovery': 'https://chaos.projectdiscovery.io/',

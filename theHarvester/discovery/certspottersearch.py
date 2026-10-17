@@ -1,7 +1,8 @@
 import logging
 from urllib.parse import urlencode
 
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ class SearchCertspoter:
     API reference: https://sslmate.com/help/reference/ct_search_api_v1
     """
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.proxy = False
@@ -23,7 +24,7 @@ class SearchCertspoter:
         status: SourceReportStatus = 'rate-limited' if rate_limited else 'partial'
         self._report = SourceExecutionReport(status, reason)
 
-    async def do_search(self) -> None:
+    async def do_search(self, session) -> None:
         base_url = 'https://api.certspotter.com/v1/issuances'
         cursor = None
         seen_cursors: set[str] = set()
@@ -37,15 +38,26 @@ class SearchCertspoter:
                 if cursor is not None:
                     params['after'] = cursor
 
-                responses = await AsyncFetcher.fetch_all([f'{base_url}?{urlencode(params)}'], json=True, proxy=self.proxy)
+                responses = await AsyncFetcher.fetch_all(
+                    [f'{base_url}?{urlencode(params)}'], json=True, session=session, include_metadata=True
+                )
                 if not responses:
                     self._mark_incomplete('no-response')
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
 
                 page = responses[0]
-                if isinstance(page, dict):
-                    code = page.get('code')
+                if not isinstance(page, FetcherResponse):
+                    self._mark_incomplete('transport-error')
+                    logger.warning('Cert Spotter stopped early; results may be incomplete.')
+                    break
+                if error := provider_http_error(page):
+                    self._report = SourceExecutionReport(*error)
+                    logger.warning(f'Cert Spotter stopped early ({error[1]}); results may be incomplete.')
+                    break
+                body = page.body
+                if isinstance(body, dict):
+                    code = body.get('code')
                     if isinstance(code, str):
                         self._mark_incomplete(code, rate_limited=code == 'rate_limited')
                         logger.warning(f'Cert Spotter stopped early ({code}); results may be incomplete.')
@@ -53,15 +65,15 @@ class SearchCertspoter:
                         self._mark_incomplete('invalid-response')
                         logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
-                if not isinstance(page, list):
+                if not isinstance(body, list):
                     self._mark_incomplete('invalid-response')
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
                     break
-                if not page:
+                if not body:
                     break
 
                 malformed_issuance = False
-                for issuance in page:
+                for issuance in body:
                     if not isinstance(issuance, dict):
                         malformed_issuance = True
                         continue
@@ -96,7 +108,7 @@ class SearchCertspoter:
                     self._mark_incomplete('malformed-issuance')
                     logger.warning('Cert Spotter ignored malformed issuance data; results may be incomplete.')
 
-                last_issuance = page[-1]
+                last_issuance = body[-1]
                 next_cursor = last_issuance.get('id') if isinstance(last_issuance, dict) else None
                 if isinstance(next_cursor, str):
                     next_cursor = next_cursor.strip()
@@ -128,6 +140,9 @@ class SearchCertspoter:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         self._report = None
-        await self.do_search()
+        async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
+            await self.do_search(session)
         logger.info('\tSearching results.')
+        if self._report is not None and self._report.status == 'partial' and not self.totalhosts:
+            return SourceExecutionReport('failed', self._report.stop_reason)
         return self._report

@@ -80,7 +80,6 @@ class SearchThc:
         except (aiohttp.ClientError, OSError, ValueError) as e:
             logger.info(f'An exception has occurred in THC: {e}')
             return SourceExecutionReport('failed', 'transport-error')
-        return SourceExecutionReport('failed', 'transport-error')
 
     async def get_hostnames(self) -> set:
         return self.results

@@ -27,14 +27,21 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import URL
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import (
+    DisconnectionError,
+    IntegrityError,
+    InterfaceError,
+    InternalError,
+    OperationalError,
+    SQLAlchemyError,
+)
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from theHarvester.lib.active_evidence import (
     ActionExecution,
     ActionObservation,
-    ActionYield,
     ActiveEvidence,
     ArtifactReference,
 )
@@ -102,6 +109,15 @@ class ResultStoreError(RuntimeError):
 
 class DuplicateRunError(ResultStoreError):
     """A persisted enumeration run already uses the requested run ID."""
+
+
+class ResultStoreUnavailableError(ResultStoreError):
+    """The result store could not be reached; retrying later may succeed."""
+
+
+# Failures of the database itself (locks, I/O, lost connections) rather than of
+# the evidence being stored or loaded.
+_STORAGE_ACCESS_ERRORS = (OperationalError, InterfaceError, InternalError, DisconnectionError, PoolTimeoutError)
 
 
 def _sqlite_has_wal_reset_fix(version: tuple[int, int, int]) -> bool:
@@ -766,7 +782,7 @@ class ResultStore:
         try:
             await _database_for(self.database).initialize()
         except SQLAlchemyError as error:
-            raise ResultStoreError('Could not initialize result store') from error
+            raise ResultStoreUnavailableError('Could not initialize result store') from error
 
     async def save_run(self, result: CompletedResult) -> None:
         run_id = str(result.run_id)
@@ -1208,7 +1224,7 @@ class ResultStore:
         source reported it. Sources that ran without matching results still appear with
         zero counts.
         """
-        contributions = await self._producer_contributions(run_id, 'source', kind=kind)
+        contributions = await self._source_contribution_counts(run_id, kind=kind)
         return [
             SourceContribution(
                 source=name,
@@ -1283,22 +1299,9 @@ class ResultStore:
             addressability=tuple(sorted(addressability.items())),
         )
 
-    async def action_yields(self, run_id: UUID) -> list[ActionYield]:
-        yields = await self._producer_contributions(run_id, 'action')
-        return [
-            ActionYield(
-                action=name,
-                observed_result_count=observed,
-                unique_result_count=unique,
-                shared_result_count=shared,
-            )
-            for name, observed, unique, shared, _resolved, _unique_resolved in yields
-        ]
-
-    async def _producer_contributions(
+    async def _source_contribution_counts(
         self,
         run_id: UUID,
-        producer_kind: str,
         *,
         kind: ResultKind | None = None,
     ) -> list[tuple[str, int, int, int, int, int]]:
@@ -1309,7 +1312,7 @@ class ResultStore:
                 result_query = result_query.where(_ResultRow.kind == kind)
             result_rows = (await session.scalars(result_query)).all()
             origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
-        producer_by_position = {row.position: row.name for row in execution_rows if row.producer_kind == producer_kind}
+        producer_by_position = {row.position: row.name for row in execution_rows if row.producer_kind == 'source'}
         dns_resolution_positions = {
             row.position for row in execution_rows if row.producer_kind == 'action' and row.name == 'dns-resolve'
         }
@@ -1357,6 +1360,8 @@ class ResultStore:
         try:
             async with _database_for(self.database).session() as session:
                 yield session
+        except _STORAGE_ACCESS_ERRORS as error:
+            raise ResultStoreUnavailableError('Could not access result store') from error
         except SQLAlchemyError as error:
             raise ResultStoreError('Could not access result store') from error
 

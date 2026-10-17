@@ -155,19 +155,3 @@ class ActiveEvidence:
     @property
     def artifacts(self) -> tuple[tuple[str, ArtifactReference], ...]:
         return tuple((execution.action, artifact) for execution in self.executions for artifact in execution.artifacts)
-
-
-@dataclass(frozen=True, slots=True)
-class ActionYield:
-    action: str
-    observed_result_count: int
-    unique_result_count: int
-    shared_result_count: int
-
-    def to_dict(self) -> dict[str, str | int]:
-        return {
-            'action': self.action,
-            'observed_result_count': self.observed_result_count,
-            'unique_result_count': self.unique_result_count,
-            'shared_result_count': self.shared_result_count,
-        }

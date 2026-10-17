@@ -127,7 +127,9 @@ async def discover_recursive_dns(
                     stop_reason = 'runtime-limit'
                     return
                 candidate = f'{label}.{parent}'
-                if candidate in seen:
+                if candidate in seen or normalize_scoped_hostname(candidate, normalized_target) is None:
+                    # A label such as _dmarc passes _normalize_label but is not a
+                    # valid scoped hostname; validate_dns_candidates would drop it.
                     continue
                 seen.add(candidate)
                 yield candidate, parent

@@ -17,7 +17,7 @@ class SearchHackerTarget:
     URLs as ``apikey=<key>``.
     """
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word
         self.totalhosts: set[str] = set()
         self.totalips: set[str] = set()

@@ -28,14 +28,10 @@ class SearchShodanInternetDB:
         self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.totalips: set = set()
-        self.ports: set = set()
-        self.vulns: set = set()
-        self.tags: set = set()
-        self.cpes: set = set()
         self.proxy = False
 
     def _has_results(self) -> bool:
-        return bool(self.totalhosts or self.totalips or self.ports or self.vulns or self.tags or self.cpes)
+        return bool(self.totalhosts or self.totalips)
 
     async def do_search(self) -> SourceExecutionReport | None:
         # Resolve the domain to IP addresses first
@@ -95,26 +91,6 @@ class SearchShodanInternetDB:
             for hostname in fields['hostnames']:
                 if normalized := normalize_scoped_hostname(hostname, self.word):
                     self.totalhosts.add(normalized)
-
-            # Collect ports
-            for port in fields['ports']:
-                if isinstance(port, int):
-                    self.ports.add(port)
-
-            # Collect CVEs / vulnerabilities
-            for vuln in fields['vulns']:
-                if isinstance(vuln, str):
-                    self.vulns.add(vuln)
-
-            # Collect tags
-            for tag in fields['tags']:
-                if isinstance(tag, str):
-                    self.tags.add(tag)
-
-            # Collect CPEs
-            for cpe in fields['cpes']:
-                if isinstance(cpe, str):
-                    self.cpes.add(cpe)
         if report is not None and self._has_results():
             return SourceExecutionReport('partial', report.stop_reason)
         return report
@@ -124,18 +100,6 @@ class SearchShodanInternetDB:
 
     async def get_ips(self) -> set:
         return self.totalips
-
-    async def get_ports(self) -> set:
-        return self.ports
-
-    async def get_vulns(self) -> set:
-        return self.vulns
-
-    async def get_tags(self) -> set:
-        return self.tags
-
-    async def get_cpes(self) -> set:
-        return self.cpes
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy

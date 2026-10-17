@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from typing import Any
 
 import pytest
@@ -10,26 +11,37 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 @pytest.mark.asyncio
 async def test_yahoo_uses_exact_pages_and_normalizes_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    import contextlib
+
     requests: list[dict[str, Any]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
 
     async def fake_fetch_all(
         urls: list[str] | set[str],
         headers: dict[str, str] | None = None,
-        proxy: bool = False,
+        session: object | None = None,
         **_kwargs: Any,
     ) -> list[str]:
-        requests.append({'urls': list(urls), 'headers': headers, 'proxy': proxy})
+        requests.append({'urls': list(urls), 'headers': headers, 'session': session})
         return [
             'Contact Admin@Example.COM. at Blog.Example.COM.',
             'Ignore outsider@example.net and api.example.net',
         ]
 
     monkeypatch.setattr(yahoosearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
+    monkeypatch.setattr(yahoosearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(yahoosearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = yahoosearch.SearchYahoo('example.com', 20)
     await search.process(proxy=True)
 
+    assert session_proxy == [True]
     assert requests == [
         {
             'urls': [
@@ -37,7 +49,7 @@ async def test_yahoo_uses_exact_pages_and_normalizes_evidence(monkeypatch: pytes
                 'https://search.yahoo.com/search?p=%40example.com&b=10&pz=10',
             ],
             'headers': {'Host': 'search.yahoo.com', 'User-Agent': 'UA'},
-            'proxy': True,
+            'session': session,
         }
     ]
     assert set(await search.get_emails()) == {'admin@example.com'}

@@ -1,4 +1,5 @@
 import base64
+import logging
 from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlparse
@@ -8,6 +9,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+logger = logging.getLogger(__name__)
 
 
 class SearchFofa:
@@ -124,7 +127,8 @@ class SearchFofa:
                         )
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
-        except Exception:
+        except Exception as error:
+            logger.info('Fofa search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
         return report
 
