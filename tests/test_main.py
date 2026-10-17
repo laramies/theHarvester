@@ -4267,6 +4267,66 @@ async def test_routeviews_cancellation_persists_partial_network_evidence(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_routeviews_session_teardown_cancellation_checkpoints_retained_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved: list[CompletedResult] = []
+    checkpoints: list[CompletedResult] = []
+
+    class Session:
+        closed = False
+
+        async def close(self) -> None:
+            task.cancel()
+            await asyncio.sleep(0)
+            self.closed = True
+
+    session = Session()
+
+    async def create_session(**_kwargs):
+        return session
+
+    async def fetch_json(url: str, **kwargs) -> FetcherResponse:
+        assert kwargs['session'] is session
+        assert url == 'https://api.routeviews.org/guest/prefix/192.0.2.7%2F32'
+        return FetcherResponse(
+            body=[{'prefix': '192.0.2.0/24', 'origin_asn': 64500, 'rpki_state': 'valid', 'reporting_peers': []}],
+            status=200,
+            headers={},
+        )
+
+    async def checkpoint(result: CompletedResult) -> None:
+        checkpoints.append(result)
+
+    monkeypatch.setattr(AsyncFetcher, 'create_session', create_session)
+    monkeypatch.setattr(AsyncFetcher, 'fetch_json', fetch_json)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
+
+    task = asyncio.create_task(
+        theharvester_main.start(
+            EnumerationOptions(domain='192.0.2.7', quiet=True, routeviews=True),
+            completed_result_checkpoint=checkpoint,
+            return_completed_result=True,
+        )
+    )
+    with pytest.raises(RouteViewsCancelled):
+        await task
+
+    assert task.cancelled()
+    assert session.closed
+    assert checkpoints[-1] == saved[-1]
+    completed = saved[-1]
+    assert ('prefix', '192.0.2.0/24') in completed.results
+    assert ('asn', 'AS64500') in completed.results
+    assert len(completed.network_observations) == 2
+    assert isinstance(completed.network_observations[0], PrefixOriginObservation)
+    assert isinstance(completed.network_observations[1], RpkiValidationObservation)
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'routeviews')
+    assert execution.status == 'partial'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+
+
+@pytest.mark.asyncio
 async def test_routeviews_cancellation_persists_when_the_checkpoint_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     saved: list[CompletedResult] = []
 
