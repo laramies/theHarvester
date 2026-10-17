@@ -481,9 +481,6 @@ class _RouteViewsRuntime:
                     )
             except _RouteViewsStopError:
                 return self._result()
-            except asyncio.CancelledError:
-                self._record_error('CancelledError', 'cancelled', override=True)
-                raise RouteViewsCancelled(self._result()) from None
             finally:
                 self.session = None
         return self._result()
@@ -505,6 +502,9 @@ async def enrich_routeviews(
     runtime = _RouteViewsRuntime(api_key, proxy=proxy)
     try:
         return await runtime.run(asns, network_seeds)
+    except asyncio.CancelledError:
+        runtime._record_error('CancelledError', 'cancelled', override=True)
+        raise RouteViewsCancelled(runtime._result()) from None
     except ResponseStreamError as error:
         runtime._record_error(type(error).__name__, error.reason, override=True)
         return runtime._result()
