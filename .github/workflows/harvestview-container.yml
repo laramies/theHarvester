@@ -75,8 +75,8 @@ jobs:
           run_id="$(python3 -c "import json; print(json.load(open('/tmp/imported-run.json', encoding='utf-8'))['run_id'])")"
           curl --fail --silent --show-error \
             --header 'X-API-Key: harvestview-container-smoke-key' \
-            "http://127.0.0.1:8769/api/v1/runs/${run_id}/export" \
-            | python3 -c "import json, sys; rows = [json.loads(line) for line in sys.stdin if line.strip()]; assert rows[0]['type'] == 'summary'; assert any(row.get('type') == 'ip' for row in rows[1:]); assert len(rows) == 3"
+            "http://127.0.0.1:8769/api/v1/runs/${run_id}/export" > /tmp/exported-run.jsonl
+          python3 -c "import json; rows = [json.loads(line) for line in open('/tmp/exported-run.jsonl', encoding='utf-8') if line.strip()]; assert rows[0]['type'] == 'summary'; assert any(row.get('type') == 'ip' for row in rows[1:]); assert len(rows) == 3"
           docker compose -p harvestview-container-smoke exec -T theharvester.svc.local \
             python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); browser = p.chromium.launch(headless=True); browser.close(); p.stop()"
           test "$(sha256sum LICENSE | cut -d ' ' -f 1)" = \

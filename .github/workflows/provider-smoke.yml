@@ -14,13 +14,13 @@ permissions:
 
 jobs:
   python-ci:
-    uses: $/.github/workflows/theHarvester.yml
+    uses: ./.github/workflows/theHarvester.yml
 
   harvestview-e2e:
-    uses: $/.github/workflows/harvestview-e2e.yml
+    uses: ./.github/workflows/harvestview-e2e.yml
 
   container-smoke:
-    uses: $/.github/workflows/harvestview-container.yml
+    uses: ./.github/workflows/harvestview-container.yml
 
   package-smoke:
     needs: python-ci

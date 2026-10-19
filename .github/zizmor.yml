@@ -1,0 +1,5 @@
+rules:
+  # OpenSSF Scorecard does not recognise the `$/` self-repository syntax and
+  # reports it as an unpinned dependency, so keep local `./` workflow refs.
+  self-repository:
+    disable: true
