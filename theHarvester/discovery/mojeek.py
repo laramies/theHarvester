@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchMojeek:
-    REQUEST_DELAY_SECONDS = 1.0
+    REQUEST_DELAY_SECONDS = 2.0
 
     def __init__(self, word: str, limit: int | None) -> None:
         self.word = word
@@ -48,6 +48,9 @@ class SearchMojeek:
             self._stop('failed', 'invalid-response')
             return None
         status = data.get('status')
+        if isinstance(status, str) and 'speed limit reached' in status.casefold():
+            self._stop('rate-limited', 'speed-limit-reached')
+            return None
         if isinstance(status, str) and 'denied' in status.casefold():
             self._stop('failed', 'access-denied')
             return None
@@ -80,6 +83,8 @@ class SearchMojeek:
             seen_pages: set[tuple[str, ...]] = set()
             offset = 1
             while True:
+                if offset > 1:
+                    await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
                 url = f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={offset}'
                 responses = await AsyncFetcher.fetch_all(
                     [url], headers=headers, session=session, json=True, include_metadata=True
@@ -104,6 +109,8 @@ class SearchMojeek:
         seen_finite_pages: set[tuple[str, ...]] = set()
         offset = 1
         while offset <= result_limit:
+            if offset > 1:
+                await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
             url = f'https://{self.api_server}/search?api_key={self.api_key}&q={self.word}&fmt=json&s={offset}'
             responses = await AsyncFetcher.fetch_all([url], headers=headers, session=session, json=True, include_metadata=True)
             if len(responses) != 1 or not isinstance(responses[0], FetcherResponse):
@@ -155,6 +162,9 @@ class SearchMojeek:
                 self._stop('failed', 'invalid-response')
                 return
             normalized_body = response.body.casefold()
+            if 'speed limit reached' in normalized_body and 'results-standard' not in normalized_body:
+                self._stop('rate-limited', 'speed-limit-reached')
+                return
             if any(marker in normalized_body for marker in ('captcha', 'verify you are human', 'prove you are human')):
                 self._stop('failed', 'security-verification')
                 return
