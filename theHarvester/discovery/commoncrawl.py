@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from urllib.parse import urlencode, urlsplit
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class SearchCommoncrawl:
 
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
-    MAX_RECORDS_PER_REQUEST = 50
+    PAGE_RESPONSE_BYTES = 16 * 1024 * 1024
     MAX_CONSECUTIVE_PAGE_ERRORS = 3
     RUNTIME_SECONDS = 120.0
 
@@ -155,27 +155,49 @@ class SearchCommoncrawl:
                         first_page = 0
                         consecutive_page_errors = 0
                         while first_page < page_count:
-                            remaining = (
-                                self.limit - len(self.totalhosts) if self.limit is not None else self.MAX_RECORDS_PER_REQUEST
-                            )
-                            if self.limit is not None and remaining == 0:
-                                return None
-                            page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page, "limit": min(remaining, self.MAX_RECORDS_PER_REQUEST)})}'
+                            # CDX limit truncates captures inside a ZipNum page, so it can
+                            # hide later distinct hosts. Read the bounded page in full.
+                            page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page})}'
                             first_page += 1
-                            responses = await AsyncFetcher.fetch_all([page_url], session=session)
-                            if not isinstance(responses, list) or not responses:
-                                raise ValueError('invalid page response')
                             try:
-                                response = responses[0]
-                                if not response:
+                                try:
+                                    response = await AsyncFetcher.fetch_text(
+                                        page_url,
+                                        session=session,
+                                        request_timeout=60,
+                                        response_byte_limit=self.PAGE_RESPONSE_BYTES,
+                                    )
+                                except ResponseStreamError as error:
+                                    if error.reason == 'response-limit':
+                                        return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'response-limit')
+                                    raise ValueError(error.reason) from error
+                                if response.status == 404:
+                                    try:
+                                        empty_payload = json.loads(response.body)
+                                    except ValueError:
+                                        empty_payload = None
+                                    if (
+                                        isinstance(empty_payload, dict)
+                                        and empty_payload.get('error') == f'No Captures found for: {query}'
+                                    ):
+                                        query_succeeded = True
+                                        break
+                                if not 200 <= response.status < 300:
+                                    raise ValueError(f'http-{response.status}')
+                                payload = response.body
+                                if not payload:
                                     raise ValueError('empty page response')
-                                for record in self._safe_parse_json_lines(response):
+                                for record in self._safe_parse_json_lines(payload):
                                     if isinstance(record, dict):
                                         domain = self._extract_domain_from_url(record.get('url', ''))
                                         if domain.endswith(f'.{self.word}') or domain == self.word:
                                             self.totalhosts.add(domain)
                                             if self.limit is not None and len(self.totalhosts) >= self.limit:
-                                                return None
+                                                return (
+                                                    SourceExecutionReport('partial', 'query-errors')
+                                                    if failed_queries or query_had_errors
+                                                    else None
+                                                )
                             except ValueError as error:
                                 message = str(error)
                             except Exception:
