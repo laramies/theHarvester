@@ -148,6 +148,7 @@ _SPECS = (
         retains_unresolved_hostnames=True,
     ),
     _spec('haveibeenpwned', ResultRoute.BREACHES),
+    _spec('haveibeenransom', ResultRoute.BREACHES),
     _spec('hibpverified', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
