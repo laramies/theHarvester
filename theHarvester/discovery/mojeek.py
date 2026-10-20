@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+from bs4 import BeautifulSoup
+
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
@@ -161,8 +163,15 @@ class SearchMojeek:
             if not isinstance(response.body, str) or not response.body.strip():
                 self._stop('failed', 'invalid-response')
                 return
-            normalized_body = response.body.casefold()
-            if 'speed limit reached' in normalized_body and 'results-standard' not in normalized_body:
+            document = BeautifulSoup(response.body, 'html.parser')
+            for element in document.select('script, style'):
+                element.decompose()
+            result_blocks = document.select('.results-standard')
+            for block in result_blocks:
+                block.extract()
+            # Snippets can discuss errors without being a provider status message.
+            normalized_body = ' '.join(document.get_text(' ', strip=True).split()).casefold()
+            if 'speed limit reached' in normalized_body:
                 self._stop('rate-limited', 'speed-limit-reached')
                 return
             if any(marker in normalized_body for marker in ('captcha', 'verify you are human', 'prove you are human')):
@@ -171,10 +180,12 @@ class SearchMojeek:
             if 'access denied' in normalized_body or 'temporarily blocked' in normalized_body:
                 self._stop('failed', 'access-denied')
                 return
-            if 'no results' in normalized_body or 'no-results' in normalized_body:
+            if 'no results' in normalized_body or document.select_one('.no-results') is not None:
                 return
-            if 'results-standard' not in normalized_body:
+            if not result_blocks:
                 self._stop('failed', 'invalid-response')
+                return
+            if not any(block.get_text(strip=True) or block.find('a', href=True) for block in result_blocks):
                 return
             if response.body in seen_bodies:
                 self._stop('partial', 'repeated-page')

@@ -10,6 +10,67 @@ from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_runner import SourceRequest, run_source
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('snippet', ['No results found', 'CAPTCHA help', 'Access denied', 'Temporarily blocked'])
+async def test_result_snippets_are_not_provider_status_messages(monkeypatch, snippet):
+    install_session(monkeypatch)
+
+    async def fetch(**kwargs):
+        return FetcherResponse(
+            body=f'<ul class="results-standard"><li><a href="https://docs.example.test">{snippet}</a></li></ul>',
+            status=200,
+            headers={},
+        )
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 10, 0, False, True))
+    assert outcome.execution.status == 'completed'
+    assert outcome.execution.stop_reason is None
+    assert [observation.value for observation in outcome.observations] == ['docs.example.test']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'body',
+    [
+        '<style>.results-standard {display: block}</style><h1>Speed limit reached</h1>',
+        '<h1>Speed <b>limit</b>\n reached</h1>',
+        '<ul class="results-standard"></ul><h1>Speed limit reached</h1>',
+    ],
+)
+async def test_speed_limit_page_is_identified_from_visible_message(monkeypatch, body):
+    install_session(monkeypatch)
+
+    async def fetch(**kwargs):
+        return FetcherResponse(body=body, status=200, headers={})
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 10, 0, False, True))
+    assert outcome.execution.status == 'rate-limited'
+    assert outcome.execution.stop_reason == 'speed-limit-reached'
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_empty_results_container_stops_without_requesting_another_page(monkeypatch):
+    install_session(monkeypatch)
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        return FetcherResponse(body='<ul class="results-standard"></ul>', status=200, headers={})
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 500, 0, False, True))
+    assert outcome.execution.status == 'completed'
+    assert outcome.execution.stop_reason == 'no-results'
+    assert outcome.observations == ()
+    assert len(calls) == 1
+
+
 @pytest.fixture(autouse=True)
 def skip_page_delays(monkeypatch):
     async def sleep(delay):
