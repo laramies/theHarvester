@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added keyless ScanMalware passive subdomain discovery from its public scan archive: Certificate Transparency DNS names, hosts a browser contacted while the service rendered pages on the domain, and the hosts of archived scans. The operator limit bounds both the requested certificate names and the paged scans, and degraded or truncated provider coverage is reported as partial.
 - Added Serply search discovery for subdomains and emails with API-key configuration in `api-keys.yaml`, start-offset pagination bounded at ten pages per query, per-query link deduplication that stops a query once a page repeats the previous window, and client-side trimming because the provider treats `num` as an approximate cap.
 - Added JSMON passive subdomain discovery with API-key configuration in `api-keys.yaml`, automatic pagination, unlimited-result mode, and retained partial results when quota or rate limits stop collection.
 - Added target-scoped saved-run reporting through `harvest-report contributions` and `harvest-report targets`, with safe one-target defaults and explicit all-target aggregation.
