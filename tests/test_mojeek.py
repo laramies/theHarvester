@@ -3,9 +3,317 @@ import contextlib
 from typing import Any
 
 import pytest
+from aiohttp import web
 
 from theHarvester.discovery import mojeek
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_runner import SourceRequest, run_source
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('prior_page', [False, True])
+@pytest.mark.parametrize('limit', [30, None])
+@pytest.mark.parametrize(
+    ('message', 'status', 'reason'),
+    [
+        ('Access denied', 'failed', 'access-denied'),
+        ('Please complete the CAPTCHA', 'failed', 'security-verification'),
+        ('Speed limit reached', 'rate-limited', 'speed-limit-reached'),
+        ('No results found', 'completed', 'no-results'),
+    ],
+)
+async def test_status_only_result_container_stops_and_preserves_prior_evidence(
+    monkeypatch, prior_page, limit, message, status, reason
+):
+    install_session(monkeypatch)
+    bodies = []
+    if prior_page:
+        bodies.append('<ul class="results-standard"><li><a href="https://docs.example.test">Docs</a></li></ul>')
+    bodies.append(f'<ul class="results-standard"><li>{message}</li></ul>')
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        assert bodies, 'provider status must stop pagination'
+        return FetcherResponse(body=bodies.pop(0), status=200, headers={})
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', limit, 0, False, True))
+    assert outcome.execution.status == ('partial' if prior_page and status != 'completed' else status)
+    assert outcome.execution.stop_reason == (None if prior_page and status == 'completed' else reason)
+    assert [observation.value for observation in outcome.observations] == (['docs.example.test'] if prior_page else [])
+    assert len(calls) == (2 if prior_page else 1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('href', ['/help', '#help', 'javascript:void(0)', 'https://', 'https://[invalid'])
+async def test_status_help_links_are_not_result_entries(monkeypatch, href):
+    install_session(monkeypatch)
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        return FetcherResponse(
+            body=f'<ul class="results-standard"><li>Access denied <a href="{href}">Help</a></li></ul>',
+            status=200,
+            headers={},
+        )
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 30, 0, False, True))
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.stop_reason == 'access-denied'
+    assert outcome.observations == ()
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('message', 'status', 'reason'),
+    [('Speed limit reached', 'partial', 'speed-limit-reached'), ('No results found', 'completed', None)],
+)
+async def test_linked_result_does_not_hide_sibling_provider_message(monkeypatch, message, status, reason):
+    install_session(monkeypatch)
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        return FetcherResponse(
+            body='<ul class="results-standard"><li><a href="https://docs.example.test">Docs</a></li>'
+            f'<li>{message}</li></ul>',
+            status=200,
+            headers={},
+        )
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 30, 0, False, True))
+    assert outcome.execution.status == status
+    assert outcome.execution.stop_reason == reason
+    assert [observation.value for observation in outcome.observations] == ['docs.example.test']
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('snippet', ['No results found', 'CAPTCHA help', 'Access denied', 'Temporarily blocked'])
+async def test_result_snippets_are_not_provider_status_messages(monkeypatch, snippet):
+    install_session(monkeypatch)
+
+    async def fetch(**kwargs):
+        return FetcherResponse(
+            body=f'<ul class="results-standard"><li><a href="https://docs.example.test">Docs</a><p>{snippet}</p></li></ul>',
+            status=200,
+            headers={},
+        )
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 10, 0, False, True))
+    assert outcome.execution.status == 'completed'
+    assert outcome.execution.stop_reason is None
+    assert [observation.value for observation in outcome.observations] == ['docs.example.test']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'body',
+    [
+        '<style>.results-standard {display: block}</style><h1>Speed limit reached</h1>',
+        '<h1>Speed <b>limit</b>\n reached</h1>',
+        '<ul class="results-standard"></ul><h1>Speed limit reached</h1>',
+    ],
+)
+async def test_speed_limit_page_is_identified_from_visible_message(monkeypatch, body):
+    install_session(monkeypatch)
+
+    async def fetch(**kwargs):
+        return FetcherResponse(body=body, status=200, headers={})
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 10, 0, False, True))
+    assert outcome.execution.status == 'rate-limited'
+    assert outcome.execution.stop_reason == 'speed-limit-reached'
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_empty_results_container_stops_without_requesting_another_page(monkeypatch):
+    install_session(monkeypatch)
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        return FetcherResponse(body='<ul class="results-standard"></ul>', status=200, headers={})
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 500, 0, False, True))
+    assert outcome.execution.status == 'completed'
+    assert outcome.execution.stop_reason == 'no-results'
+    assert outcome.observations == ()
+    assert len(calls) == 1
+
+
+@pytest.fixture(autouse=True)
+def skip_page_delays(monkeypatch):
+    async def sleep(delay):
+        pass
+
+    monkeypatch.setattr(mojeek.asyncio, 'sleep', sleep)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keyed', [False, True])
+@pytest.mark.parametrize('cancel', [False, True])
+async def test_page_conversation_keeps_cookies_and_closes_session(monkeypatch, unused_tcp_port, keyed, cancel):
+    cookies = []
+    sessions = []
+    original_fetch = mojeek.AsyncFetcher.fetch
+
+    async def fetch(**kwargs):
+        session = kwargs['session']
+        sessions.append(session)
+        if cancel and len(sessions) == 2:
+            raise asyncio.CancelledError
+        kwargs['url'] = f'http://localhost:{unused_tcp_port}/search'
+        return await original_fetch(**kwargs)
+
+    async def search(request):
+        cookies.append(request.cookies.get('page-session'))
+        if len(cookies) == 1:
+            body = {'response': {'results': [{'url': 'https://docs.example.test'}]}}
+            response = (
+                web.json_response(body) if keyed else web.Response(text='<ul class="results-standard">docs.example.test</ul>')
+            )
+            response.set_cookie('page-session', 'ready')
+            return response
+        if cookies[-1] != 'ready':
+            return web.Response(status=403)
+        return web.json_response({'response': {'results': []}}) if keyed else web.Response(text='No results found')
+
+    app = web.Application()
+    app.router.add_get('/search', search)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, '127.0.0.1', unused_tcp_port).start()
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key' if keyed else ''))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+        source = mojeek.SearchMojeek('example.test', 500)
+        if cancel:
+            with pytest.raises(asyncio.CancelledError):
+                await source.process()
+        else:
+            assert await source.process() is None
+        assert await source.get_hostnames() == ['docs.example.test']
+        assert cookies == ([None] if cancel else [None, 'ready'])
+        assert len(sessions) == 2
+        assert sessions[0] is sessions[1]
+        assert sessions[0].closed
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_speed_limit_phrase_in_search_result_is_not_a_denial(monkeypatch):
+    install_session(monkeypatch)
+
+    async def fetch(**kwargs):
+        return FetcherResponse(
+            body='<ul class="results-standard"><li><a href="https://docs.example.test">Docs</a>'
+            '<p>Speed limit reached</p></li></ul>',
+            status=200,
+            headers={},
+        )
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    source = mojeek.SearchMojeek('example.test', 10)
+    assert await source.process() is None
+    assert await source.get_hostnames() == ['docs.example.test']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keyed', [False, True])
+@pytest.mark.parametrize('limit', [20, 500, None])
+async def test_pages_wait_two_seconds_before_next_request(monkeypatch, keyed, limit):
+    install_session(monkeypatch)
+    elapsed = 0.0
+    requested_at = []
+
+    async def sleep(delay):
+        nonlocal elapsed
+        elapsed += delay
+
+    def response():
+        requested_at.append(elapsed)
+        if len(requested_at) == 2 and elapsed < 2:
+            body = {'response': {'status': 'ERROR: Speed Limit Reached'}} if keyed else '<h1>Speed limit reached</h1>'
+        elif len(requested_at) > 2:
+            body = {'response': {'results': []}} if keyed else '<html>No results found</html>'
+        else:
+            host = f'page{len(requested_at)}.example.test'
+            body = (
+                {'response': {'results': [{'url': f'https://{host}'}]}} if keyed else f'<ul class="results-standard">{host}</ul>'
+            )
+        return FetcherResponse(body=body, status=200, headers={})
+
+    async def fetch(**kwargs):
+        return response()
+
+    async def fetch_all(urls, **kwargs):
+        assert len(urls) == 1
+        return [response()]
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key' if keyed else ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(mojeek.asyncio, 'sleep', sleep)
+    search = mojeek.SearchMojeek('example.test', limit)
+    report = await search.process()
+    assert await search.get_hostnames() == ['page1.example.test', 'page2.example.test']
+    assert report is None
+    assert requested_at == ([0.0, 2.0] if limit == 20 else [0.0, 2.0, 4.0])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keyed', [False, True])
+@pytest.mark.parametrize('prior_page', [False, True])
+async def test_speed_limit_is_reported_and_prior_evidence_survives(monkeypatch, keyed, prior_page):
+    install_session(monkeypatch)
+    bodies = []
+    if prior_page:
+        bodies.append(
+            {'response': {'results': [{'url': 'https://docs.example.test'}]}}
+            if keyed
+            else '<ul class="results-standard">docs.example.test</ul>'
+        )
+    bodies.append({'response': {'status': 'ERROR: Speed Limit Reached'}} if keyed else '<h1>Speed limit reached</h1>')
+    calls = []
+
+    async def fetch(**kwargs):
+        calls.append(kwargs)
+        return FetcherResponse(body=bodies.pop(0), status=200, headers={})
+
+    async def fetch_all(urls, **kwargs):
+        assert len(urls) == 1
+        return [await fetch(**kwargs)]
+
+    async def sleep(delay):
+        pass
+
+    monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key' if keyed else ''))
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fetch)
+    monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(mojeek.asyncio, 'sleep', sleep)
+    outcome = await run_source(SourceRequest('mojeek', 'example.test', 500, 0, False, True))
+    assert outcome.execution.status == ('partial' if prior_page else 'rate-limited')
+    assert outcome.execution.stop_reason == 'speed-limit-reached'
+    assert [observation.value for observation in outcome.observations] == (['docs.example.test'] if prior_page else [])
+    assert len(calls) == (2 if prior_page else 1)
 
 
 def install_session(monkeypatch: pytest.MonkeyPatch) -> tuple[object, list[object]]:
@@ -185,7 +493,7 @@ class TestMojeekSearch:
         assert all(call['include_metadata'] is True for call in calls)
         assert all(call['headers'] == {'User-Agent': 'UA'} for call in calls)
         assert all(call['follow_redirects'] is False for call in calls)
-        assert delays == [1.0]
+        assert delays == [2.0]
         assert await search.get_hostnames() == ['docs.example.com', 'example.com']
         assert await search.get_emails() == {'admin@example.com'}
         assert report is None
