@@ -1,13 +1,28 @@
 import asyncio
 import logging
+from urllib.parse import urlsplit
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
 logger = logging.getLogger(__name__)
+
+
+def _has_result_link(entry: Tag) -> bool:
+    for link in entry.find_all('a', href=True):
+        href = link.get('href')
+        if not isinstance(href, str):
+            continue
+        try:
+            url = urlsplit(href)
+            if url.scheme in {'http', 'https'} and url.hostname:
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 class SearchMojeek:
@@ -167,25 +182,31 @@ class SearchMojeek:
             for element in document.select('script, style'):
                 element.decompose()
             result_blocks = document.select('.results-standard')
+            has_result_content = any(block.get_text(strip=True) or block.find('a', href=True) for block in result_blocks)
+            result_entries: list[str] = []
             for block in result_blocks:
-                block.extract()
-            # Snippets can discuss errors without being a provider status message.
+                for entry in block.find_all('li'):
+                    if _has_result_link(entry):
+                        result_entries.append(str(entry))
+                        entry.extract()
+            # Exclude linked snippets, not containers that may hold provider messages.
             normalized_body = ' '.join(document.get_text(' ', strip=True).split()).casefold()
+            failure: tuple[SourceReportStatus, str] | None = None
             if 'speed limit reached' in normalized_body:
-                self._stop('rate-limited', 'speed-limit-reached')
-                return
-            if any(marker in normalized_body for marker in ('captcha', 'verify you are human', 'prove you are human')):
-                self._stop('failed', 'security-verification')
-                return
-            if 'access denied' in normalized_body or 'temporarily blocked' in normalized_body:
-                self._stop('failed', 'access-denied')
-                return
-            if 'no results' in normalized_body or document.select_one('.no-results') is not None:
+                failure = ('rate-limited', 'speed-limit-reached')
+            elif any(marker in normalized_body for marker in ('captcha', 'verify you are human', 'prove you are human')):
+                failure = ('failed', 'security-verification')
+            elif 'access denied' in normalized_body or 'temporarily blocked' in normalized_body:
+                failure = ('failed', 'access-denied')
+            if failure or 'no results' in normalized_body or document.select_one('.no-results') is not None:
+                self.total_results += ' '.join(result_entries)
+                if failure:
+                    self._stop(*failure)
                 return
             if not result_blocks:
                 self._stop('failed', 'invalid-response')
                 return
-            if not any(block.get_text(strip=True) or block.find('a', href=True) for block in result_blocks):
+            if not has_result_content:
                 return
             if response.body in seen_bodies:
                 self._stop('partial', 'repeated-page')
