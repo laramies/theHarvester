@@ -49,19 +49,37 @@ class ComparableRunEvidence:
         return tuple(outcome.source for outcome in self.source_outcomes)
 
 
-def _resolution(run: ComparableRunEvidence, hostname: str) -> ResolutionEvidence:
+@dataclass(frozen=True, slots=True)
+class _RunIndexes:
+    hostname_sources: dict[str, tuple[str, ...]]
+    source_outcomes: dict[str, ComparisonSourceOutcome]
+    addressability: dict[str, str]
+
+
+def _run_indexes(run: ComparableRunEvidence) -> _RunIndexes:
+    return _RunIndexes(
+        hostname_sources=dict(run.hostname_sources),
+        source_outcomes={outcome.source: outcome for outcome in run.source_outcomes},
+        addressability=dict(run.addressability),
+    )
+
+
+def _resolution(
+    run: ComparableRunEvidence,
+    hostname: str,
+    hostname_sources: dict[str, tuple[str, ...]],
+) -> ResolutionEvidence:
     if hostname in run.resolved_hostnames:
         return 'positive'
-    if hostname not in dict(run.hostname_sources) or run.dns_action_status != 'completed':
+    if hostname not in hostname_sources or run.dns_action_status != 'completed':
         return 'not-checked'
     return 'not-retained'
 
 
 def _incomplete_outcomes(
-    run: ComparableRunEvidence,
+    outcomes: dict[str, ComparisonSourceOutcome],
     sources: tuple[str, ...],
 ) -> list[ComparisonSourceOutcome]:
-    outcomes = {outcome.source: outcome for outcome in run.source_outcomes}
     return [outcomes[source] for source in sources if outcomes[source].status != 'completed']
 
 
@@ -69,17 +87,19 @@ def _difference_row(
     current: ComparableRunEvidence,
     previous: ComparableRunEvidence,
     hostname: str,
+    previous_indexes: _RunIndexes,
+    current_indexes: _RunIndexes,
 ) -> tuple[HostnameDifferenceType, dict[str, object]]:
-    previous_sources = dict(previous.hostname_sources).get(hostname, ())
-    current_sources = dict(current.hostname_sources).get(hostname, ())
+    previous_sources = previous_indexes.hostname_sources.get(hostname, ())
+    current_sources = current_indexes.hostname_sources.get(hostname, ())
     incomplete_sources: list[ComparisonSourceOutcome] = []
     if not previous_sources:
-        incomplete_sources = _incomplete_outcomes(previous, current_sources)
+        incomplete_sources = _incomplete_outcomes(previous_indexes.source_outcomes, current_sources)
         difference: HostnameDifferenceType = 'uncertain' if incomplete_sources else 'newly_reported'
     elif current_sources:
         difference = 'still_reported'
     else:
-        incomplete_sources = _incomplete_outcomes(current, previous_sources)
+        incomplete_sources = _incomplete_outcomes(current_indexes.source_outcomes, previous_sources)
         difference = 'uncertain' if incomplete_sources else 'no_longer_reported'
     reported_sources = current_sources or previous_sources
     return difference, {
@@ -91,12 +111,12 @@ def _difference_row(
         'sources_in_current_run': list(current_sources),
         'reported_by_one_source': len(reported_sources) == 1,
         'incomplete_source_outcomes': [outcome.to_dict() for outcome in incomplete_sources],
-        'previous_resolution_evidence': _resolution(previous, hostname),
-        'current_resolution_evidence': _resolution(current, hostname),
+        'previous_resolution_evidence': _resolution(previous, hostname, previous_indexes.hostname_sources),
+        'current_resolution_evidence': _resolution(current, hostname, current_indexes.hostname_sources),
         'previous_dns_action_status': previous.dns_action_status,
         'current_dns_action_status': current.dns_action_status,
-        'previous_addressability': dict(previous.addressability).get(hostname),
-        'current_addressability': dict(current.addressability).get(hostname),
+        'previous_addressability': previous_indexes.addressability.get(hostname),
+        'current_addressability': current_indexes.addressability.get(hostname),
     }
 
 
@@ -125,6 +145,7 @@ async def hostname_comparison(
         if normalize_saved_target(summary['target']) == selected_target
     ]
     target_runs.sort(key=lambda run: (run.completed_at, str(run.run_id)))
+    indexes_by_run = {run.run_id: _run_indexes(run) for run in target_runs}
     previous_by_sources: dict[tuple[str, ...], ComparableRunEvidence] = {}
     comparisons: list[dict[str, object]] = []
     rows: list[dict[str, object]] = []
@@ -146,10 +167,12 @@ async def hostname_comparison(
         if previous is None:
             comparison['message'] = 'No earlier finalized run has the same target and source list.'
         else:
-            hostnames = sorted(set(dict(previous.hostname_sources)) | set(dict(current.hostname_sources)))
+            previous_indexes = indexes_by_run[previous.run_id]
+            current_indexes = indexes_by_run[current.run_id]
+            hostnames = sorted(set(previous_indexes.hostname_sources) | set(current_indexes.hostname_sources))
             comparison_rows = []
             for hostname in hostnames:
-                difference, row = _difference_row(current, previous, hostname)
+                difference, row = _difference_row(current, previous, hostname, previous_indexes, current_indexes)
                 counts[difference] += 1
                 if difference != 'still_reported' or include_still_reported:
                     comparison_rows.append(row)
