@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added HaveIBeenRansom breach discovery with API-key configuration in `api-keys.yaml`, returning one breach name per ransomware leak-site post or data breach indexed for the exact domain, with page-number pagination driven by the provider's `has_next`, leak deduplication across pages, and the result limit bounding billed requests.
+- Added DarkEye breach discovery covering Have I Been Ransomed? and Breach House, with one optional key per product under `darkeye` in `api-keys.yaml` (either one is enough), returning one breach name per ransomware leak, data breach, access lead or stealer log indexed for the domain, labelled with the product and category of the record, with Have I Been Ransomed? page-number pagination driven by the provider's `has_next`, deduplication across pages and across the two products, Breach House records kept only when they belong to the domain, and the result limit bounding billed requests.
 - Added Serply search discovery for subdomains and emails with API-key configuration in `api-keys.yaml`, start-offset pagination bounded at ten pages per query, per-query link deduplication that stops a query once a page repeats the previous window, and client-side trimming because the provider treats `num` as an approximate cap.
 - Added JSMON passive subdomain discovery with API-key configuration in `api-keys.yaml`, automatic pagination, unlimited-result mode, and retained partial results when quota or rate limits stop collection.
 - Added target-scoped saved-run reporting through `harvest-report contributions` and `harvest-report targets`, with safe one-target defaults and explicit all-target aggregation.

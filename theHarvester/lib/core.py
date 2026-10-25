@@ -204,6 +204,7 @@ class Core:
         'builtwith': ('key',),
         'censys': ('token',),
         'criminalip': ('key',),
+        'darkeye': ('haveibeenransom_key', 'breachhouse_key'),
         'dehashed': ('key',),
         'dnsdb': ('key',),
         'dnsdumpster': ('key',),
@@ -212,7 +213,6 @@ class Core:
         'fullhunt': ('key',),
         'github': ('key',),
         'hackertarget': ('key',),
-        'haveibeenransom': ('key',),
         'hibpverified': ('key',),
         'hunter': ('key',),
         'hunterhow': ('key',),
@@ -299,9 +299,19 @@ class Core:
                 normalized[canonical] = values
         return normalized
 
+    # Providers whose fields are alternatives: any one configured field is enough to run the source.
+    _ANY_API_KEY_FIELD: ClassVar[frozenset[str]] = frozenset({'darkeye'})
+
     @staticmethod
     def api_key_fields() -> dict[str, tuple[str, ...]]:
         return dict(Core._API_KEY_FIELDS)
+
+    @staticmethod
+    def api_key_ready(provider: str, values: object) -> bool:
+        if not isinstance(values, dict):
+            return False
+        configured = [isinstance(values.get(field), str) and values[field].strip() for field in Core._API_KEY_FIELDS[provider]]
+        return any(configured) if provider in Core._ANY_API_KEY_FIELD else all(configured)
 
     @staticmethod
     def _api_key_value(provider: str) -> Any:
@@ -336,6 +346,12 @@ class Core:
         return Core._api_key_value('criminalip')
 
     @staticmethod
+    def darkeye_keys() -> tuple[object, object]:
+        # Each DarkEye product has its own key, and either one is enough to run the source.
+        credentials = Core.api_keys().get('darkeye', {})
+        return credentials.get('haveibeenransom_key'), credentials.get('breachhouse_key')
+
+    @staticmethod
     def dehashed_key() -> str:
         return Core._api_key_value('dehashed')
 
@@ -366,10 +382,6 @@ class Core:
     @staticmethod
     def hackertarget_key() -> str:
         return Core._api_key_value('hackertarget')
-
-    @staticmethod
-    def haveibeenransom_key() -> str:
-        return Core._api_key_value('haveibeenransom')
 
     @staticmethod
     def hibpverified_key() -> str | None:

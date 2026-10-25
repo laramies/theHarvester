@@ -82,11 +82,11 @@ def test_multiple_capabilities_form_a_union() -> None:
 
 
 def test_breach_capability_includes_every_matching_source() -> None:
-    assert resolve_sources('breaches') == ['haveibeenpwned', 'haveibeenransom', 'hibpverified', 'leaklookup']
+    assert resolve_sources('breaches') == ['darkeye', 'haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_named_source_can_be_combined_with_a_capability() -> None:
-    assert resolve_sources('breaches,hibpverified') == ['haveibeenpwned', 'haveibeenransom', 'hibpverified', 'leaklookup']
+    assert resolve_sources('breaches,hibpverified') == ['darkeye', 'haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_core_supported_engines_compatibility_uses_the_catalog() -> None:

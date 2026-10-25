@@ -240,6 +240,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
 | [`crt-name`](https://crt.name/) | subdomains only | P0 | No |
 | [`crtsh`](https://crt.sh/) | subdomains only | P0 | No |
+| [`darkeye`](https://darkeye.io/) | breaches only | P0 | Required |
 | [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
 | [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains only | P0 | Required |
 | [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
@@ -251,7 +252,6 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`gitlab`](https://gitlab.com/) | subdomains, emails, urls | P0 | No |
 | [`hackertarget`](https://hackertarget.com/) | subdomains, ips | P0 | Optional |
 | [`haveibeenpwned`](https://haveibeenpwned.com/) | breaches only | P0 | No |
-| [`haveibeenransom`](https://haveibeenransom.com/howapi) | breaches only | P0 | Required |
 | [`hibpverified`](https://haveibeenpwned.com/API/v3#BreachedDomain) | emails, breaches | P0 | Required |
 | [`hudsonrock`](https://www.hudsonrock.com/) | subdomains, emails, ips | P0 | No |
 | [`hunter`](https://hunter.io/) | subdomains, emails | P0 | Required |

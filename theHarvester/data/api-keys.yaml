@@ -19,6 +19,10 @@ apikeys:
   criminalip:
     key:
 
+  darkeye:
+    haveibeenransom_key:
+    breachhouse_key:
+
   dehashed:
     key:
 
@@ -42,9 +46,6 @@ apikeys:
     key:
 
   hackertarget:
-    key:
-
-  haveibeenransom:
     key:
 
   hibpverified:
