@@ -148,7 +148,9 @@ class SearchDarkEye:
         website = SearchDarkEye._clean(entry.get('website')).casefold()
         if website:
             return website == domain or website.endswith(f'.{domain}')
-        return domain in title.casefold()
+        # Without a website the title is free text, so the target must stand alone as a hostname:
+        # not inside notexample.test or example.test.other.test, but still as mail.example.test.
+        return re.search(rf'(?<![\w-]){re.escape(domain)}(?![\w-]|\.\w)', title.casefold()) is not None
 
     async def search_breach_house(self, domain: str) -> SourceExecutionReport | None:
         headers = {'Accept': 'application/json', 'Authorization': f'Bearer {self.breach_house_key}'}
@@ -222,9 +224,15 @@ class SearchDarkEye:
             return SourceExecutionReport('failed', 'invalid-target')
 
         reports: list[SourceExecutionReport] = []
+        queried = False
         for key, search in ((self.hibr_key, self.search_hibr), (self.breach_house_key, self.search_breach_house)):
             if not key:
                 continue
+            # A product that filled the shared limit on its last page leaves no capacity for another query.
+            if queried and self._limit_reached():
+                reports.append(SourceExecutionReport('completed', 'result-limit'))
+                break
+            queried = True
             report = await self._run(search, domain)
             if report is not None:
                 reports.append(report)

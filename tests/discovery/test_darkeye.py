@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from aiohttp import ClientSession, web
 
 from theHarvester.discovery import darkeye
 from theHarvester.discovery.constants import MissingKey
@@ -19,6 +21,7 @@ BASE_URL = 'https://haveibeenransom.com/api/metadata/domain/example.com'
 BREACH_HOUSE_URL = 'https://breach.house/api/v1/search?q=example.com&limit=200'
 HIBR = 'DarkEye | Have I Been Ransomed?'
 BREACH_HOUSE = 'DarkEye | Breach House'
+REAL_OPEN_SESSION = darkeye.AsyncFetcher.__dict__['open_session']
 
 
 class ProviderSession:
@@ -311,6 +314,69 @@ async def test_breach_house_is_skipped_once_the_result_limit_is_reached(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_breach_house_is_skipped_when_the_last_hibr_page_fills_the_result_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_session: ProviderSession,
+) -> None:
+    use_keys(monkeypatch, 'hibr-key', 'bh-key')
+    calls = respond(monkeypatch, page([leak('1', 'Example A', 'akira')]), search_result())
+    search = darkeye.SearchDarkEye('example.com', limit=1)
+
+    assert await search.process() == SourceExecutionReport('completed', 'result-limit')
+    assert await search.get_breach_names() == {f'Example A (akira) [{HIBR} | ransomware leak]'}
+    assert [call['url'] for call in calls] == [BASE_URL]
+    assert [kwargs['headers']['Authorization'] for kwargs in provider_session.kwargs] == ['Bearer hibr-key']
+    assert provider_session.lifecycle == ['open', 'close']
+
+
+@pytest.mark.asyncio
+async def test_breach_house_is_still_queried_while_the_result_limit_has_room(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_keys(monkeypatch, 'hibr-key', 'bh-key')
+    calls = respond(
+        monkeypatch,
+        page([leak('1', 'Example A', 'akira')]),
+        search_result(ransomware=[record(1, 'Example B', 'play', website='example.com')]),
+    )
+    search = darkeye.SearchDarkEye('example.com', limit=2)
+
+    assert await search.process() is None
+    assert len(await search.get_breach_names()) == 2
+    assert [call['url'] for call in calls] == [BASE_URL, 'https://breach.house/api/v1/search?q=example.com&limit=2']
+
+
+@pytest.mark.parametrize(
+    ('title', 'mentioned'),
+    [
+        ('example.com dump', True),
+        ('Example.COM leak', True),
+        ('mail.example.com', True),
+        ('Dump of a.b.example.com, 2024', True),
+        ('Leak from example.com.', True),
+        ('(example.com)', True),
+        ('notexample.com dump', False),
+        ('my-example.com dump', False),
+        ('example.com.other.com dump', False),
+        ('example.com-backup dump', False),
+        ('example.community dump', False),
+        ('example.co dump', False),
+        ('Unrelated dump', False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_breach_house_records_without_a_website_need_a_hostname_match(
+    monkeypatch: pytest.MonkeyPatch,
+    title: str,
+    mentioned: bool,
+) -> None:
+    use_keys(monkeypatch, None, 'bh-key')
+    respond(monkeypatch, search_result(breaches=[record(1, title, 'channel')]))
+    search = darkeye.SearchDarkEye('example.com')
+
+    assert await search.process() is None
+    assert await search.get_breach_names() == ({f'{title} (channel) [{BREACH_HOUSE} | data breach]'} if mentioned else set())
+
+
+@pytest.mark.asyncio
 async def test_breach_house_truncation_reports_incomplete_coverage(monkeypatch: pytest.MonkeyPatch) -> None:
     use_keys(monkeypatch, None, 'bh-key')
     body = search_result(ransomware=[record(1, 'Example A', 'akira', website='example.com')]).body
@@ -569,3 +635,113 @@ async def test_page_guard_reports_incomplete_coverage(monkeypatch: pytest.Monkey
         f'Example B (play) [{HIBR} | ransomware leak]',
     }
     assert len(calls) == 2
+
+
+class LocalProvider:
+    """A local HTTP service standing in for both DarkEye APIs, reached through the real session and fetch code."""
+
+    def __init__(self) -> None:
+        self.requests: list[tuple[str, str | None, str | None]] = []
+        self.sessions: list[ClientSession] = []
+        self.second_page_requested = asyncio.Event()
+        self.release_second_page = asyncio.Event()
+        self.hold_second_page = False
+
+    async def hibr(self, request: web.Request) -> web.Response:
+        self.requests.append((request.path, request.cookies.get('provider-session'), request.headers.get('Authorization')))
+        if request.match_info.get('page') is None:
+            response = web.json_response({'sources': [leak('1', 'Example A', 'akira')], 'has_next': True})
+            response.set_cookie('provider-session', 'ready')
+            return response
+        self.second_page_requested.set()
+        if self.hold_second_page:
+            await self.release_second_page.wait()
+        # The second page is only served to the session that received the cookie with the first.
+        if request.cookies.get('provider-session') != 'ready':
+            return web.json_response({'error': 'missing provider session'}, status=403)
+        return web.json_response({'sources': [leak('2', 'Example B', 'play')], 'has_next': False})
+
+    async def breach_house(self, request: web.Request) -> web.Response:
+        self.requests.append((request.path, request.cookies.get('provider-session'), request.headers.get('Authorization')))
+        body = search_result(breaches=[record(3, 'example.com dump', 'channel')]).body
+        return web.json_response(body)
+
+
+@pytest.fixture
+async def local_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    unused_tcp_port: int,
+) -> AsyncIterator[LocalProvider]:
+    provider = LocalProvider()
+    original_build_session = darkeye.AsyncFetcher._build_session
+
+    async def tracked_build_session(*args: Any, **kwargs: Any) -> ClientSession:
+        session = await original_build_session(*args, **kwargs)
+        provider.sessions.append(session)
+        return session
+
+    app = web.Application()
+    app.router.add_get('/hibr/example.com', provider.hibr)
+    app.router.add_get('/hibr/example.com/{page}', provider.hibr)
+    app.router.add_get('/breach-house/search', provider.breach_house)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, '127.0.0.1', unused_tcp_port).start()
+    # The shared fixture replaces session construction; these tests use the real one.
+    monkeypatch.setattr(darkeye.AsyncFetcher, 'open_session', REAL_OPEN_SESSION)
+    monkeypatch.setattr(darkeye.AsyncFetcher, '_build_session', tracked_build_session)
+    monkeypatch.setattr(darkeye.SearchDarkEye, 'HIBR_URL', f'http://localhost:{unused_tcp_port}/hibr')
+    monkeypatch.setattr(darkeye.SearchDarkEye, 'BREACH_HOUSE_URL', f'http://localhost:{unused_tcp_port}/breach-house/search')
+    try:
+        yield provider
+    finally:
+        provider.release_second_page.set()
+        await runner.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_pagination_carries_provider_state_through_the_real_transport(
+    monkeypatch: pytest.MonkeyPatch,
+    local_provider: LocalProvider,
+) -> None:
+    use_keys(monkeypatch, 'hibr-key', 'bh-key')
+    search = darkeye.SearchDarkEye('example.com')
+
+    assert await search.process() is None
+    assert await search.get_breach_names() == {
+        f'Example A (akira) [{HIBR} | ransomware leak]',
+        f'Example B (play) [{HIBR} | ransomware leak]',
+        f'example.com dump (channel) [{BREACH_HOUSE} | data breach]',
+    }
+    # The second page needs the cookie from the first; Breach House must not receive it.
+    assert local_provider.requests == [
+        ('/hibr/example.com', None, 'Bearer hibr-key'),
+        ('/hibr/example.com/2', 'ready', 'Bearer hibr-key'),
+        ('/breach-house/search', None, 'Bearer bh-key'),
+    ]
+    assert len(local_provider.sessions) == 2
+    assert all(session.closed for session in local_provider.sessions)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_the_session_through_the_real_transport(
+    monkeypatch: pytest.MonkeyPatch,
+    local_provider: LocalProvider,
+) -> None:
+    use_keys(monkeypatch, 'hibr-key', 'bh-key')
+    local_provider.hold_second_page = True
+    search = darkeye.SearchDarkEye('example.com')
+    task = asyncio.create_task(search.process())
+
+    await asyncio.wait_for(local_provider.second_page_requested.wait(), timeout=10)
+    assert [session.closed for session in local_provider.sessions] == [False]
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert len(local_provider.sessions) == 1
+    assert local_provider.sessions[0].closed
+    # The first page is kept, and Breach House is never started after the interruption.
+    assert await search.get_breach_names() == {f'Example A (akira) [{HIBR} | ransomware leak]'}
+    assert [path for path, _cookie, _auth in local_provider.requests] == ['/hibr/example.com', '/hibr/example.com/2']
+    assert not [t for t in asyncio.all_tasks() if t.get_name() == 'provider-http-session-close']
