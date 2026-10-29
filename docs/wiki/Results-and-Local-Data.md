@@ -144,7 +144,13 @@ Every discovered URL is stored as the `url` result kind. Its source or action or
 
 Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
 
-Two operational tables support the API: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Runless rows are stored in `legacy_observations`. SQLite upgrades supported schemas during normal initialization.
+Two operational tables support the API: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. SQLite upgrades supported schemas during normal initialization.
+
+### Legacy 4.11 observations
+
+When a released 4.11 database contains the five-column `results` table (`domain`, `resource`, `type`, `find_date`, `source`), normal initialization retains its rows locally in `legacy_observations`. The retained columns are `domain`, `resource`, `kind`, `discovered_on`, and `source`; some old type names become canonical kinds. These runless observations do not become finalized evidence records or targets. They lack the run ID, time window, producer outcomes, and complete source/action provenance needed to reconstruct a finalized run. `harvest-report targets`, contributions, and hostname comparisons read finalized runs, so an upgraded database with only legacy observations has no report targets even though the rows remain in the local database.
+
+For access to this history, keep a backup of the original local database and inspect `legacy_observations` with a read-only SQLite client. Treat any query output as sensitive. There is no built-in conversion from these rows to finalized runs or JSONL. A portable SQLite export copies finalized evidence records and excludes `legacy_observations`; JSONL export also requires a finalized run. Neither export replaces a backup of the original local database. See [Moving from 4.11 to 5.0](Moving-from-4.11-to-5.0#preserve-411-sqlite-history-before-upgrading) for the backup step at upgrade time.
 
 ## Screenshots
 
