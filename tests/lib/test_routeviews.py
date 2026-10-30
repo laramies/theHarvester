@@ -534,6 +534,67 @@ async def test_routeviews_cancellation_carries_completed_prefix_evidence(monkeyp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('cancel_at', ['opening', 'request', 'closing', 'request-and-closing'])
+async def test_routeviews_session_cancellation_retains_evidence_and_finishes_cleanup(monkeypatch, cancel_at: str) -> None:
+    class Session:
+        closed = False
+
+        async def close(self) -> None:
+            if 'closing' in cancel_at:
+                task.cancel()
+                await asyncio.sleep(0)
+            self.closed = True
+
+    session = Session()
+
+    async def create_session(**kwargs: Any):
+        assert kwargs['proxy'] is True
+        assert kwargs['request_timeout'] == 30
+        if cancel_at == 'opening':
+            task.cancel()
+            await asyncio.sleep(0)
+        return session
+
+    async def fetch_json(url: str, **kwargs: Any) -> FetcherResponse:
+        assert kwargs['session'] is session
+        if url.endswith('/asn/64500'):
+            return response(['192.0.2.0/24'])
+        if 'request' in cancel_at:
+            task.cancel()
+            await asyncio.sleep(0)
+        return response({'64500': None})
+
+    monkeypatch.setattr(routeviews_module.AsyncFetcher, 'create_session', create_session)
+    monkeypatch.setattr(routeviews_module, '_fetch_json', fetch_json)
+    monkeypatch.setattr(routeviews_module, 'ROUTEVIEWS_GUEST_INTERVAL_SECONDS', 0)
+
+    task = asyncio.create_task(enrich_routeviews(['AS64500'], [], proxy=True))
+    with pytest.raises(RouteViewsCancelled) as raised:
+        await task
+
+    result = raised.value.result
+    assert task.cancelled()
+    assert task.cancelling() == (2 if cancel_at == 'request-and-closing' else 1)
+    assert result.error_count == 1
+    assert result.error_type == 'CancelledError'
+    assert result.stop_reason == 'cancelled'
+    if cancel_at == 'opening':
+        assert result.status == 'failed'
+        assert result.request_count == 0
+        assert result.prefixes == result.origin_asns == result.observations == ()
+    else:
+        assert session.closed
+        assert result.status == 'partial'
+        assert result.request_count == 2
+        assert result.prefixes == ('192.0.2.0/24',)
+        assert result.origin_asns == ('AS64500',)
+        assert len(result.observations) == 1
+        assert isinstance(result.observations[0], PrefixOriginObservation)
+        assert result.observations[0].prefix == '192.0.2.0/24'
+        assert result.observations[0].origin_asn == 'AS64500'
+
+
+@pytest.mark.asyncio
 async def test_routeviews_cancellation_overrides_an_earlier_recoverable_error(monkeypatch) -> None:
     install_runtime(monkeypatch, [response(None, status=503), asyncio.CancelledError()])
 

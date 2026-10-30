@@ -132,6 +132,7 @@ _SPECS = (
     ),
     _spec('crt-name', ResultRoute.SUBDOMAINS),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
+    _spec('darkeye', ResultRoute.BREACHES),
     _spec('dehashed', ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),
     _spec('dnsdumpster', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
