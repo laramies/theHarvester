@@ -178,6 +178,7 @@ _SPECS = (
     ),
     _spec('robtex', ResultRoute.IPS),
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.URLS),
+    _spec('scanmalware', ResultRoute.SUBDOMAINS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('securityscorecard', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('serply', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),

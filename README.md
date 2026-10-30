@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 63 discovery sources</strong></summary>
+<summary><strong>View all 64 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -270,6 +270,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
 | [`robtex`](https://www.robtex.com/) | ips only | P0 | No |
 | [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
+| [`scanmalware`](https://scanmalware.com/) | subdomains only | P0 | No |
 | [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
 | [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
 | [`serply`](https://serply.io/) | subdomains, emails | P0 | Required |
