@@ -33,6 +33,7 @@ SOURCE_PROVIDER_LINKS = {
     'criminalip': 'https://www.criminalip.io/',
     'crt-name': 'https://crt.name/',
     'crtsh': 'https://crt.sh/',
+    'darkeye': 'https://darkeye.io/',
     'dehashed': 'https://dehashed.com/',
     'dnsdb': 'https://docs.domaintools.com/api/dnsdb/',
     'dnsdumpster': 'https://dnsdumpster.com/',
@@ -157,7 +158,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 62
+    assert len(declared) == 63
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)

@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 62 discovery sources</strong></summary>
+<summary><strong>View all 63 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -240,6 +240,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
 | [`crt-name`](https://crt.name/) | subdomains only | P0 | No |
 | [`crtsh`](https://crt.sh/) | subdomains only | P0 | No |
+| [`darkeye`](https://darkeye.io/) | breaches only | P0 | Required |
 | [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
 | [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains only | P0 | Required |
 | [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
