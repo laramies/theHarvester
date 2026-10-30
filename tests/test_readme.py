@@ -159,7 +159,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 63
+    assert len(declared) == 64
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)
