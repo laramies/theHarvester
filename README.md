@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 64 discovery sources</strong></summary>
+<summary><strong>View all 65 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -266,6 +266,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`otilabs`](https://oti-labs.com/domain-intelligence-api) | subdomains, ips | P0 | Required |
 | [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
 | [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
+| [`profundis`](https://docs.profundis.io/api/subdomain-enumeration/) | subdomains only | P0 | Required |
 | [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains only | P0 | Required |
 | [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
 | [`robtex`](https://www.robtex.com/) | ips only | P0 | No |
