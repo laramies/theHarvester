@@ -224,6 +224,7 @@ class Core:
         'netlas': ('key',),
         'onyphe': ('key',),
         'otilabs': ('key',),
+        'outcrawl': ('key',),
         'pentestTools': ('key',),
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
@@ -426,6 +427,10 @@ class Core:
     @staticmethod
     def otilabs_key() -> str:
         return Core._api_key_value('otilabs')
+
+    @staticmethod
+    def outcrawl_key() -> str:
+        return Core._api_key_value('outcrawl')
 
     @staticmethod
     def pentest_tools_key() -> str:
