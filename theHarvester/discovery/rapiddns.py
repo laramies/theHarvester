@@ -6,6 +6,7 @@ from bs4.element import Tag
 
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.result_values import is_ip_address
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,8 @@ class SearchRapidDns:
     async def do_search(self) -> SourceExecutionReport | None:
         try:
             headers = {'User-Agent': Core.get_browser_user_agent()}
-            # TODO see if it's worth adding sameip searches
-            # f'{self.hostname}/sameip/{self.word}?full=1#result'
-            urls = [f'https://rapiddns.io/subdomain/{self.word}?full=1#result']
+            endpoint = 'sameip' if is_ip_address(self.word) else 'subdomain'
+            urls = [f'https://rapiddns.io/{endpoint}/{self.word}?full=1#result']
             responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
                 urls,
                 headers=headers,
