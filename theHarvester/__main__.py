@@ -45,7 +45,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_SOURCE_WORKERS,
     EnumerationOptions,
 )
-from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
+from theHarvester.lib.hostnames import host_ip_sort_key, normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_people, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
@@ -1178,7 +1178,6 @@ async def start(
             temp = set()
             for host in full:
                 if ':' in host:
-                    # TODO parse addresses and sort them as they are IPs
                     subdomain, addr = host.split(':', 1)
                     if subdomain.endswith(word):
                         temp.add(subdomain + ':' + addr)
@@ -1186,7 +1185,7 @@ async def start(
                 if host.endswith(word):
                     temp.add(host)
             full = sorted_unique(temp)
-            full.sort(key=lambda el: el.split(':')[0])
+            full.sort(key=host_ip_sort_key)
             output_logger.info('\n[*] Hosts found: ' + str(len(full)))
             output_logger.info('---------------------')
             for host in full:
@@ -1238,7 +1237,6 @@ async def start(
         temp = set()
         for host in resolved_pair:
             if ':' in host:
-                # TODO parse addresses and sort them as they are IPs
                 subdomain, addr = host.split(':', 1)
                 if subdomain.endswith(word):
                     # Append to full, so it's within JSON/XML at the end if output file is requested
@@ -1255,7 +1253,7 @@ async def start(
                 if host not in all_hosts:
                     all_hosts.append(host)
         output_logger.info('\n[*] Hosts found after DNS brute force:')
-        for sub in temp:
+        for sub in sorted(temp, key=host_ip_sort_key):
             output_logger.info(sub)
         dns_brute_error_count = getattr(dns_force, 'query_error_count', 0)
         dns_brute_error_types: set[str] = set(getattr(dns_force, 'query_error_types', set()))

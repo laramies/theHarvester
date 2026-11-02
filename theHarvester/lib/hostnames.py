@@ -40,3 +40,20 @@ def normalize_scoped_hostname(value: object, target: str) -> str | None:
     if hostname == normalized_target or hostname.endswith(f'.{normalized_target}'):
         return hostname
     return None
+
+
+def host_ip_sort_key(value: str) -> tuple[str, int, int, str]:
+    """Return a sort key for hostname or hostname:ip strings.
+
+    Sorts by hostname first, then numerically by IP address (IPv4, then IPv6),
+    and finally by any non-IP address string.
+    """
+    if ':' in value:
+        subdomain, addr = value.split(':', 1)
+        addr_clean = addr.strip()
+        try:
+            ip = ipaddress.ip_address(addr_clean)
+            return (subdomain, int(ip.version), int(ip), '')
+        except ValueError:
+            return (subdomain, 99, 0, addr_clean)
+    return (value, 0, 0, '')
