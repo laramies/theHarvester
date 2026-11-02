@@ -1885,7 +1885,27 @@ async def start(
                             await file.write(f'<host>{sanitize_for_xml(host)}</host>')
                     for host in confirmed_virtual_hostnames():
                         await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
-                # TODO add Shodan output into XML report
+                for shodan_host in sorted(shodan_hosts.values(), key=lambda h: h.sort_key()):
+                    await file.write('<shodan>')
+                    await file.write(f'<host>{sanitize_for_xml(shodan_host.ip)}</host>')
+                    if shodan_host.asn:
+                        await file.write(f'<asn>{sanitize_for_xml(shodan_host.asn)}</asn>')
+                    if shodan_host.organization:
+                        await file.write(f'<organization>{sanitize_for_xml(shodan_host.organization)}</organization>')
+                    if shodan_host.isp:
+                        await file.write(f'<isp>{sanitize_for_xml(shodan_host.isp)}</isp>')
+                    for hostname in shodan_host.hostnames:
+                        await file.write(f'<hostname>{sanitize_for_xml(hostname)}</hostname>')
+                    for service in shodan_host.services:
+                        await file.write(
+                            f'<service><port>{service.port}</port><transport>{sanitize_for_xml(service.transport)}</transport>'
+                        )
+                        if service.product:
+                            await file.write(f'<product>{sanitize_for_xml(service.product)}</product>')
+                        if service.version:
+                            await file.write(f'<version>{sanitize_for_xml(service.version)}</version>')
+                        await file.write('</service>')
+                    await file.write('</shodan>')
                 await file.write('</theHarvester>')
                 output_logger.info('[*] XML File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
