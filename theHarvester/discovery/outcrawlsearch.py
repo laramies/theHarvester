@@ -23,7 +23,8 @@ class SearchOutcrawl:
     """
 
     # Outcrawl returns at most twenty ranked hits per request and has no offset
-    # parameter, so each query is a single request.
+    # parameter, so each query is a single request. A full window therefore
+    # means the provider maximum may have hidden further hits.
     PAGE_SIZE = 20
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -61,16 +62,22 @@ class SearchOutcrawl:
         # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
-        # Both queries often return the same pages, so links are deduplicated
-        # across the whole run before they count against the limit.
-        seen_links: set[str] = set()
+        # Both queries often return the same pages. Each link counts once
+        # against the limit, but every hit's text is kept for parsing, because
+        # the same URL can carry a different snippet with new evidence.
+        texts_by_link: dict[str, set[str]] = {}
+        capped = False
         for index, query in enumerate(queries):
             remaining = self.limit - len(self.results) if self.limit is not None else self.PAGE_SIZE
             if self.limit is not None and remaining <= 0:
                 break
             if index:
                 await asyncio.sleep(get_delay())
-            payload = {'query': query, 'limit': min(self.PAGE_SIZE, remaining)}
+            # Ask for room for every link already seen, since the window can
+            # repeat them; the unique limit is enforced locally below. Search
+            # is billed on the rows returned, so repeated rows are billed too.
+            requested = min(self.PAGE_SIZE, remaining + len(texts_by_link))
+            payload = {'query': query, 'limit': requested}
             try:
                 response = await AsyncFetcher.post_fetch(
                     self.server,
@@ -96,25 +103,40 @@ class SearchOutcrawl:
             if any(not isinstance(hit, dict) for hit in hits):
                 return SourceExecutionReport('failed', 'invalid-response')
 
-            fresh = []
+            rows = []
             for hit in hits:
                 title = hit.get('title') or ''
                 snippet = hit.get('snippet') or ''
                 url = hit.get('url') or ''
                 if not all(isinstance(value, str) for value in (title, snippet, url)):
                     return SourceExecutionReport('failed', 'invalid-response')
-                if not url or url in seen_links:
-                    continue
-                seen_links.add(url)
-                fresh.append({'title': title, 'snippet': snippet, 'url': url})
+                if url:
+                    rows.append({'title': title, 'snippet': snippet, 'url': url})
 
-            # The limit is sent with the request, but rows are trimmed here as
-            # well so a longer response never exceeds it.
-            for result in fresh[:remaining]:
-                self.totalresults += f'{result["title"]} {result["snippet"]} {result["url"]}\n'
-                self.results.append(result)
+            for row in rows:
+                text = f'{row["title"]} {row["snippet"]} {row["url"]}\n'
+                known = texts_by_link.get(row['url'])
+                if known is not None:
+                    # Counted already; keep only text not seen for this link.
+                    if text not in known:
+                        known.add(text)
+                        self.totalresults += text
+                    continue
+                # The limit is sent with the request, but rows are trimmed here
+                # as well so a longer response never exceeds it.
+                if self.limit is not None and len(self.results) >= self.limit:
+                    continue
+                texts_by_link[row['url']] = {text}
+                self.totalresults += text
+                self.results.append(row)
             if self.limit is not None and len(self.results) >= self.limit:
                 return SourceExecutionReport('completed', 'result-limit')
+            # A window filled to the requested size may have more hits behind
+            # it; a shorter one means the query was exhausted.
+            if len(hits) >= requested:
+                capped = True
+        if capped:
+            return SourceExecutionReport('partial', 'provider-limit')
         return None
 
     async def get_emails(self):

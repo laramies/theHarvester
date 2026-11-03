@@ -313,7 +313,7 @@ async def test_outcrawl_sends_one_request_per_query_with_the_result_limit(
     monkeypatch: pytest.MonkeyPatch,
     outcrawl_credentials: InMemoryCredentialAdapter,
 ) -> None:
-    """Outcrawl has no offset parameter, so each query is one request sized by the limit."""
+    """Outcrawl has no offset parameter, so each query is one request; the second leaves room for repeats."""
 
     responses = iter(
         [
@@ -335,17 +335,18 @@ async def test_outcrawl_sends_one_request_per_query_with_the_result_limit(
 
     assert requests == [
         ('https://api.outcrawl.ai/v1/search', {'query': '"example.com"', 'limit': 20}),
-        ('https://api.outcrawl.ai/v1/search', {'query': 'site:example.com', 'limit': 18}),
+        ('https://api.outcrawl.ai/v1/search', {'query': 'site:example.com', 'limit': 20}),
     ]
     assert len(search.results) == 20
     assert report is None
 
 
 @pytest.mark.asyncio
-async def test_outcrawl_requests_full_pages_when_unlimited(
+async def test_outcrawl_reports_capped_full_windows_as_partial(
     monkeypatch: pytest.MonkeyPatch,
     outcrawl_credentials: InMemoryCredentialAdapter,
 ) -> None:
+    """Two full twenty-hit windows may hide further hits, so coverage is partial, not complete."""
     requests: list[dict[str, Any]] = []
 
     async def fake_post_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
@@ -362,7 +363,7 @@ async def test_outcrawl_requests_full_pages_when_unlimited(
         {'query': 'site:example.com', 'limit': 20},
     ]
     assert len(search.results) == 40
-    assert report is None
+    assert report == SourceExecutionReport('partial', 'provider-limit')
 
 
 @pytest.mark.asyncio
@@ -407,6 +408,91 @@ async def test_outcrawl_trims_surplus_rows_and_stops_at_the_limit(
     assert requests == [{'query': '"example.com"', 'limit': 3}]
     assert len(search.results) == 3
     assert report == SourceExecutionReport('completed', 'result-limit')
+
+
+
+@pytest.mark.asyncio
+async def test_outcrawl_fills_the_limit_after_an_overlapping_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+    outcrawl_credentials: InMemoryCredentialAdapter,
+) -> None:
+    """17 links, then a window that repeats all 17 before new ones, still reaches a limit of 20."""
+
+    requests: list[dict[str, Any]] = []
+    responses = iter(
+        [
+            _response([_hit(index) for index in range(17)]),
+            _response([_hit(index) for index in range(17)] + [_hit(index) for index in range(17, 20)]),
+        ]
+    )
+
+    async def fake_post_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        requests.append(kwargs['json_body'])
+        return next(responses)
+
+    monkeypatch.setattr(outcrawlsearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = outcrawlsearch.SearchOutcrawl('example.com', 20, credential_adapter=outcrawl_credentials)
+    report = await search.process()
+
+    assert requests == [
+        {'query': '"example.com"', 'limit': 20},
+        {'query': 'site:example.com', 'limit': 20},
+    ]
+    assert [result['url'] for result in search.results] == [_hit(index)['url'] for index in range(20)]
+    assert report == SourceExecutionReport('completed', 'result-limit')
+
+
+@pytest.mark.asyncio
+async def test_outcrawl_short_windows_complete_without_a_stop_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    outcrawl_credentials: InMemoryCredentialAdapter,
+) -> None:
+    """Windows shorter than requested mean both queries were exhausted, unlike capped or limited runs."""
+
+    responses = iter([_response([_hit(index) for index in range(19)]), _response([_hit(30)])])
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return next(responses)
+
+    monkeypatch.setattr(outcrawlsearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = outcrawlsearch.SearchOutcrawl('example.com', None, credential_adapter=outcrawl_credentials)
+
+    assert await search.process() is None
+    assert len(search.results) == 20
+
+
+@pytest.mark.asyncio
+async def test_outcrawl_parses_new_evidence_from_a_repeated_link(
+    monkeypatch: pytest.MonkeyPatch,
+    outcrawl_credentials: InMemoryCredentialAdapter,
+) -> None:
+    """The same URL with a different snippet counts once but its new hostnames and emails are kept."""
+
+    page = 'https://www.example.com/team'
+    responses = iter(
+        [
+            _response([{'title': 'Team', 'snippet': 'mail.example.com', 'url': page}]),
+            _response(
+                [
+                    {'title': 'Team', 'snippet': 'mail.example.com', 'url': page},
+                    {'title': 'Team', 'snippet': 'Write to ops@example.com via vpn.example.com', 'url': page},
+                ]
+            ),
+        ]
+    )
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return next(responses)
+
+    monkeypatch.setattr(outcrawlsearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = outcrawlsearch.SearchOutcrawl('example.com', 10, credential_adapter=outcrawl_credentials)
+    report = await search.process()
+
+    assert search.results == [{'title': 'Team', 'snippet': 'mail.example.com', 'url': page}]
+    assert search.totalresults.count('\n') == 2
+    assert 'ops@example.com' in await search.get_emails()
+    assert {'mail.example.com', 'vpn.example.com'} <= set(await search.get_hostnames())
+    assert report is None
 
 
 pytestmark = pytest.mark.provider_contract('outcrawl')
