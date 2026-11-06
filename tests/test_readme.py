@@ -60,6 +60,7 @@ SOURCE_PROVIDER_LINKS = {
     'otx': 'https://otx.alienvault.com/',
     'outcrawl': 'https://outcrawl.ai/',
     'pentesttools': 'https://pentest-tools.com/',
+    'profundis': 'https://docs.profundis.io/api/subdomain-enumeration/',
     'projectdiscovery': 'https://chaos.projectdiscovery.io/',
     'rapiddns': 'https://rapiddns.io/',
     'robtex': 'https://www.robtex.com/',
@@ -160,7 +161,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 65
+    assert len(declared) == 66
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)

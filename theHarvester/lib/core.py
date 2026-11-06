@@ -226,6 +226,7 @@ class Core:
         'otilabs': ('key',),
         'outcrawl': ('key',),
         'pentestTools': ('key',),
+        'profundis': ('key',),
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
         'routeviews': ('key',),
@@ -435,6 +436,14 @@ class Core:
     @staticmethod
     def pentest_tools_key() -> str:
         return Core._api_key_value('pentestTools')
+
+    @staticmethod
+    def profundis_key() -> str:
+        return Core._api_key_value('profundis')
+
+    @staticmethod
+    def profundis_max_credits() -> Any:
+        return Core.api_keys()['profundis'].get('max_credits', 10)
 
     @staticmethod
     def projectdiscovery_key() -> str:
@@ -972,11 +981,13 @@ class AsyncFetcher:
 
     @classmethod
     @contextlib.asynccontextmanager
-    async def _open_get_response(
+    async def _open_response(
         cls,
         url: str,
         *,
         session: aiohttp.ClientSession | None = None,
+        method: Literal['GET', 'POST'] = 'GET',
+        json_body: dict[str, Any] | None = None,
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
@@ -1008,11 +1019,13 @@ class AsyncFetcher:
                 request_kwargs['headers'] = cls._default_headers(headers)
             if proxy_url and proxy_type == 'http':
                 request_kwargs['proxy'] = proxy_url
+            if json_body is not None:
+                request_kwargs['json'] = json_body
             if params != '':
                 request_kwargs['params'] = params
             async with contextlib.AsyncExitStack() as stack:
                 try:
-                    response = await stack.enter_async_context(session.request('GET', url, **request_kwargs))
+                    response = await stack.enter_async_context(session.request(method, url, **request_kwargs))
                 except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
                     _mark_proxy_transport_failed()
                     raise ResponseStreamError('transport-error') from error
@@ -1033,7 +1046,7 @@ class AsyncFetcher:
         request_timeout: int | None = 60,
     ) -> FetcherResponse:
         """Fetch one bounded JSON response without following redirects."""
-        async with cls._open_get_response(
+        async with cls._open_response(
             url,
             session=session,
             params=params,
@@ -1087,7 +1100,7 @@ class AsyncFetcher:
         """Fetch one bounded text response while preserving status and headers."""
         if isinstance(response_byte_limit, bool) or not isinstance(response_byte_limit, int) or response_byte_limit <= 0:
             raise ValueError('response byte limit must be greater than zero')
-        async with cls._open_get_response(
+        async with cls._open_response(
             url,
             session=session,
             proxy=proxy,
@@ -1123,6 +1136,8 @@ class AsyncFetcher:
         url: str,
         *,
         framing: StreamFraming,
+        method: Literal['GET', 'POST'] = 'GET',
+        json_body: dict[str, Any] | None = None,
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
@@ -1137,8 +1152,10 @@ class AsyncFetcher:
         """
         if framing not in {'ndjson', 'sse'}:
             raise ValueError(f'unsupported stream framing: {framing}')
-        async with cls._open_get_response(
+        async with cls._open_response(
             url,
+            method=method,
+            json_body=json_body,
             params=params,
             proxy=proxy,
             headers=headers,

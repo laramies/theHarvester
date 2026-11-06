@@ -170,6 +170,7 @@ _SPECS = (
         activity=ActivityClass.DNS,
         retains_unresolved_hostnames=True,
     ),
+    _spec('profundis', ResultRoute.SUBDOMAINS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec(
         'rapiddns',
