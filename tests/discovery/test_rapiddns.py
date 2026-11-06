@@ -378,4 +378,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert 'forced completed-result failure' in capsys.readouterr().out
 
 
+async def test_rapiddns_uses_sameip_endpoint_for_ip_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    queried_urls: list[str] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        queried_urls.extend(urls)
+        return [FetcherResponse(body=RAPID_DNS_HTML, status=200, headers={})]
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = rapiddns.SearchRapidDns('192.0.2.1')
+    await search.process()
+
+    assert queried_urls == ['https://rapiddns.io/sameip/192.0.2.1?full=1#result']
+
+
 pytestmark = pytest.mark.provider_contract('rapiddns')
