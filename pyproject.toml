@@ -18,7 +18,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "aiodns==4.0.4",
-    "aiohttp==3.14.3",
+    "aiohttp==3.14.4",
     "aiohttp-socks==0.11.0",
     "aiosqlite==0.22.1",
     "beautifulsoup4==4.15.0",
