@@ -4965,3 +4965,110 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
     assert recursive_execution.status == 'failed'
     assert recursive_execution.error_type == error_type.__name__
     assert recursive_execution.stop_reason == ('cancelled' if issubclass(error_type, asyncio.CancelledError) else None)
+
+
+@pytest.mark.asyncio
+async def test_xml_report_includes_shodan_hosts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation, ShodanServiceObservation
+
+    output_path = tmp_path / 'shodan_report'
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeSource:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool = False) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'}
+
+        async def get_emails(self) -> list[str]:
+            return []
+
+    class FakeChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
+
+    class FakeShodan:
+        error_type = None
+
+        def __init__(self) -> None:
+            self.hosts = [
+                ShodanHostObservation(
+                    ip='192.0.2.10',
+                    asn='AS64496',
+                    organization='Example Transit',
+                    isp='Example ISP',
+                    hostnames=('shodan.example.com',),
+                    services=(
+                        ShodanServiceObservation(
+                            port=443,
+                            transport='tcp',
+                            product='nginx',
+                            version='1.24.0',
+                        ),
+                    ),
+                )
+            ]
+
+        async def search_ip(self, _ip: str, *, session: object = None) -> dict[str, object]:
+            return {'192.0.2.10': {'asn': 'AS64496'}}
+
+        async def get_shodan_hosts(self) -> list[ShodanHostObservation]:
+            return self.hosts
+
+    async def no_sleep(_duration: float) -> None:
+        return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', FakeSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
+    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
+
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '-b',
+            'crtsh',
+            '-r',
+            '192.0.2.53',
+            '-s',
+            '-f',
+            str(output_path),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    xml_root = ElementTree.parse(output_path.with_suffix('.xml')).getroot()
+    shodan_elements = xml_root.findall('shodan')
+    assert len(shodan_elements) == 1
+    assert shodan_elements[0].findtext('host') == '192.0.2.10'
+    assert shodan_elements[0].findtext('asn') == 'AS64496'
+    assert shodan_elements[0].findtext('organization') == 'Example Transit'
+    assert shodan_elements[0].findtext('isp') == 'Example ISP'
+    assert shodan_elements[0].findtext('hostname') == 'shodan.example.com'
+    service_el = shodan_elements[0].find('service')
+    assert service_el is not None
+    assert service_el.findtext('port') == '443'
+    assert service_el.findtext('transport') == 'tcp'
+    assert service_el.findtext('product') == 'nginx'
+    assert service_el.findtext('version') == '1.24.0'
