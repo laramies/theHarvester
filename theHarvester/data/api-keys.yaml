@@ -81,8 +81,15 @@ apikeys:
   otilabs:
     key:
 
+  outcrawl:
+    key:
+
   pentestTools:
     key:
+
+  profundis:
+    key:
+    max_credits: 10
 
   projectDiscovery:
     key:
