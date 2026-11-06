@@ -114,7 +114,7 @@ def _is_loopback_host(host: object) -> bool:
 
 
 def _is_loopback_address(family: int, address: object) -> bool:
-    if family == socket.AF_UNIX:
+    if hasattr(socket, 'AF_UNIX') and family == socket.AF_UNIX:
         return True
     return isinstance(address, tuple) and bool(address) and _is_loopback_host(address[0])
 

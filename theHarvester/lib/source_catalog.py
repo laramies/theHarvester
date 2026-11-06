@@ -162,6 +162,7 @@ _SPECS = (
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
     _spec('otilabs', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('outcrawl', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
         'pentesttools',
         ResultRoute.SUBDOMAINS,

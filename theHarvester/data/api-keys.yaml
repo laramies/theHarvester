@@ -81,6 +81,9 @@ apikeys:
   otilabs:
     key:
 
+  outcrawl:
+    key:
+
   pentestTools:
     key:
 
