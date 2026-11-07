@@ -39,16 +39,16 @@ from theHarvester.lib.core import DATA_DIR, AsyncFetcher, Core, ProxyUnavailable
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.enumeration import (
-    DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_LIMIT,
     DEFAULT_RESULT_START,
     DEFAULT_SOURCE_WORKERS,
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
-from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_people, print_section, sorted_unique
+from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
+    DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS,
     RecursiveDNSLimits,
     discover_recursive_dns,
 )
@@ -285,7 +285,7 @@ async def start(
     parser.add_argument(
         '--dns-recursive-runtime-seconds',
         help='Hard runtime cap in seconds for recursive DNS discovery.',
-        default=DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
+        default=DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS,
         type=float,
     )
     parser.add_argument(
@@ -434,7 +434,7 @@ async def start(
         raise ValueError('screenshot capture supports direct transport only; do not use --proxies')
     if args.proxies and not any(AsyncFetcher().proxy_list.values()):
         raise ProxyUnavailableError('proxy-unavailable')
-    Core.quiet = getattr(args, 'quiet', False)
+    Core.quiet = args.quiet
     try:
         db = ResultStore() if result_database is None else ResultStore(result_database)
         await db.initialize()
@@ -483,7 +483,7 @@ async def start(
     elif dnsresolve is None and not final_dns_resolver_list:
         final_dns_resolver_list = list(DEFAULT_DNS_RESOLVERS)
 
-    recursive_depth = getattr(args, 'dns_recursive_depth', 0)
+    recursive_depth = args.dns_recursive_depth
     recursive_limits = None
     if recursive_depth < 0:
         raise ValueError('--dns-recursive-depth cannot be negative')
@@ -492,8 +492,8 @@ async def start(
             raise ValueError('--dns-recursive-depth requires exactly three resolver addresses')
         recursive_limits = RecursiveDNSLimits(
             depth=recursive_depth,
-            query_limit=getattr(args, 'dns_recursive_query_limit', DEFAULT_RECURSIVE_DNS_QUERY_LIMIT),
-            runtime_seconds=getattr(args, 'dns_recursive_runtime_seconds', DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS),
+            query_limit=args.dns_recursive_query_limit,
+            runtime_seconds=args.dns_recursive_runtime_seconds,
         )
 
     engines: list = []
@@ -519,8 +519,6 @@ async def start(
             pass
     takeover_status = args.take_over
     use_proxy = args.proxies
-    linkedin_people_list_tracker: list = []
-    twitter_people_list_tracker: list = []
     total_asns: list = []
     all_breaches: list[str] = []
     all_frameworks: list[str] = []
@@ -612,11 +610,9 @@ async def start(
             ),
             'ip': _normalize_ip_addresses(all_ip) | screenshot_ip_addresses,
             'language': map(str, all_languages),
-            'linkedin-person': map(str, linkedin_people_list_tracker),
             'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
             'prefix': network_prefixes,
             'server': map(str, all_servers),
-            'twitter-person': map(str, twitter_people_list_tracker),
             'url': map(str, all_urls),
         }
         if committed_sources_only:
@@ -1091,9 +1087,10 @@ async def start(
             await persist_result(finish_completed_result())
         result = (
             total_asns,
+            # Retired result slots stay empty so positional callers keep their indexes.
             list[str](),
-            twitter_people_list_tracker,
-            linkedin_people_list_tracker,
+            list[str](),
+            list[str](),
             list[str](),
             all_urls,
             all_ip,
@@ -1107,26 +1104,8 @@ async def start(
         total_asns = sorted_unique(total_asns)
     display_new_asn_attributions()
 
-    if len(twitter_people_list_tracker) == 0 and 'twitter' in engines:
-        output_logger.info('\n[*] No Twitter users found.\n\n')
-    elif len(twitter_people_list_tracker) >= 1:
-        print_section(
-            '\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)),
-            twitter_people_list_tracker,
-            '---------------------',
-        )
-        twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
-
-    print_linkedin_people(linkedin_people_list_tracker)
-    linkedin_people_list_tracker = sorted_unique(linkedin_people_list_tracker)
-
-    length_urls = len(all_urls)
-    if length_urls == 0:
-        if len(engines) >= 1 and 'trello' in engines:
-            output_logger.info('\n[*] No Trello URLs found.')
-    else:
-        total = length_urls
-        print_section('\n[*] URLs found: ' + str(total), all_urls, '--------------------')
+    if all_urls:
+        print_section(f'\n[*] URLs found: {len(all_urls)}', all_urls, '--------------------')
         all_urls = sorted_unique(all_urls)
 
     if len(all_ip) == 0:
@@ -1891,7 +1870,7 @@ async def start(
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
 
     # Enhanced code block for API Endpoint scanning feature
-    if args.api_scan or 'api_endpoints' in engines:
+    if args.api_scan:
         api_scan_started = time.perf_counter()
         api_scanner = None
         api_proxy_transport_failed = False
@@ -2137,12 +2116,6 @@ async def start(
             if network_prefixes:
                 json_dict['prefixes'] = sorted(network_prefixes)
 
-            if len(twitter_people_list_tracker) > 0:
-                json_dict['twitter_people'] = twitter_people_list_tracker
-
-            if len(linkedin_people_list_tracker) > 0:
-                json_dict['linkedin_people'] = linkedin_people_list_tracker
-
             if len(all_people) > 0:
                 json_dict['people'] = all_people
 
@@ -2175,9 +2148,10 @@ async def start(
         all_hosts = sorted_unique((*all_hosts, *_normalize_hosts_for_storage(dnsrev, word)))
         result = (
             total_asns,
+            # Retired result slots stay empty so positional callers keep their indexes.
             list[str](),
-            twitter_people_list_tracker,
-            linkedin_people_list_tracker,
+            list[str](),
+            list[str](),
             list[str](),
             all_urls,
             all_ip,
