@@ -11,6 +11,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import gitlabsearch
 from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
+from tests.result_store_helpers import recording_result_store
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -291,16 +292,6 @@ async def test_gitlab_urls_reach_completed_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeGitlab:
         def __init__(self, domain: str, limit: int | None) -> None:
             assert (domain, limit) == ('example.test', 500)
@@ -318,7 +309,7 @@ async def test_gitlab_urls_reach_completed_jsonl(
             return {'https://gitlab.com/group/project'}
 
     report = tmp_path / 'gitlab-report'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(gitlabsearch, 'SearchGitlab', FakeGitlab)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'gitlab', '-f', str(report)])
 

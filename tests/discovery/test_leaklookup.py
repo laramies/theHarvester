@@ -11,6 +11,7 @@ from theHarvester.discovery import leaklookup
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
+from tests.result_store_helpers import recording_result_store
 
 
 @pytest.mark.parametrize('key', [None, '', ' '])
@@ -150,16 +151,6 @@ async def test_leaklookup_empty_success_returns_no_results(monkeypatch) -> None:
 async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(monkeypatch, tmp_path: Path) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeLeakLookup:
         def __init__(self, domain: str) -> None:
             assert domain == 'example.com'
@@ -174,7 +165,7 @@ async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(m
             return {'Example Breach'}
 
     report = tmp_path / 'leaklookup-report'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(leaklookup, 'SearchLeakLookup', FakeLeakLookup)
     monkeypatch.setattr(
         sys,
