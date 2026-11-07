@@ -45,6 +45,8 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
+from theHarvester.lib.legacy_reports import json_report, xml_report
+from theHarvester.lib.legacy_reports import sanitize_for_xml as sanitize_for_xml  # re-exported for existing importers
 from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
@@ -109,16 +111,6 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
     return addresses
 
 
-def sanitize_for_xml(text: str) -> str:
-    """Sanitize text for safe inclusion in XML documents."""
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    text = text.replace("'", '&apos;')
-    return text
-
-
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
@@ -133,18 +125,8 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-async def start(
-    rest_args: argparse.Namespace | EnumerationOptions | None = None,
-    *,
-    completed_result_checkpoint: Callable[[CompletedResult], Awaitable[None]] | None = None,
-    persist_completed_result: bool = False,
-    include_breaches: bool = False,
-    return_completed_result: bool = False,
-    return_dns_brute_result: bool = False,
-    result_database: str | Path | None = None,
-    completed_run_id: UUID | None = None,
-):
-    """Run one CLI or transport-neutral enumeration request."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the theHarvester command-line parser."""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
     )
@@ -378,7 +360,21 @@ async def start(
             f'{", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
         ),
     )
+    return parser
 
+
+async def start(
+    rest_args: argparse.Namespace | EnumerationOptions | None = None,
+    *,
+    completed_result_checkpoint: Callable[[CompletedResult], Awaitable[None]] | None = None,
+    persist_completed_result: bool = False,
+    include_breaches: bool = False,
+    return_completed_result: bool = False,
+    return_dns_brute_result: bool = False,
+    result_database: str | Path | None = None,
+    completed_run_id: UUID | None = None,
+):
+    """Run one CLI or transport-neutral enumeration request."""
     dnsbrute: tuple[bool, bool]
     # indicates this from the rest API
     if rest_args:
@@ -388,7 +384,7 @@ async def start(
         filename = args.filename
         dnsbrute = (args.dns_brute, return_dns_brute_result) if args.dns_brute else (args.dns_brute, False)
     else:
-        args = EnumerationOptions.from_namespace(parser.parse_args())
+        args = EnumerationOptions.from_namespace(build_parser().parse_args())
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
         configure_logging(verbose=args.verbose)
@@ -1108,13 +1104,13 @@ async def start(
         print_section(f'\n[*] URLs found: {len(all_urls)}', all_urls, '--------------------')
         all_urls = sorted_unique(all_urls)
 
+    ip_list: list[str] = []
     if len(all_ip) == 0:
         output_logger.info('\n[*] No IPs found.')
     else:
         output_logger.info('\n[*] IPs found: ' + str(len(all_ip)))
         output_logger.info('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = []
         for ip in set(all_ip):
             try:
                 ip = ip.strip()
@@ -1838,33 +1834,16 @@ async def start(
         output_logger.info('\n[*] Reporting started.')
         try:
             filename = os.path.splitext(filename)[0] + '.xml'
-            # XML REPORT SECTION
             async with await anyio.open_file(filename, 'w+') as file:
-                await file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
-                sanitized_args = [sanitize_for_xml(f'"{arg}"' if ' ' in arg else arg) for arg in sys.argv[1:]]
-                await file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
-                for email in all_emails:
-                    await file.write('<email>' + sanitize_for_xml(email) + '</email>')
-                if collect_hosts:
-                    paired_hosts = {host for host, _ip in reported_host_ip_pairs}
-                    for host, ip in sorted(reported_host_ip_pairs):
-                        await file.write(
-                            f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
-                        )
-                    for x in full:
-                        host, ip = x.split(':', 1) if ':' in x else (x, '')
-                        if ip and len(ip) > 3:
-                            if (host, ip) in reported_host_ip_pairs:
-                                continue
-                            await file.write(
-                                f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
-                            )
-                        elif host not in paired_hosts:
-                            await file.write(f'<host>{sanitize_for_xml(host)}</host>')
-                    for host in confirmed_virtual_hostnames():
-                        await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
-                # TODO add Shodan output into XML report
-                await file.write('</theHarvester>')
+                await file.write(
+                    xml_report(
+                        command_args=sys.argv[1:],
+                        emails=all_emails,
+                        host_ip_pairs=reported_host_ip_pairs if collect_hosts else None,
+                        hosts=full,
+                        virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else (),
+                    )
+                )
                 output_logger.info('[*] XML File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
@@ -2081,51 +2060,23 @@ async def start(
 
     if filename != '':
         try:
-            # JSON REPORT SECTION
             filename = os.path.splitext(filename)[0] + '.json'
-            # create dict with values for JSON output
-            json_dict: dict = dict()
-            # start by adding the command line arguments
-            json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
-            # to determine if a variable exists
-            # it should but just a validation check
-            if 'ip_list' in locals():
-                if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
-                    json_dict['ips'] = ip_list
-
-            if len(all_emails) > 0:
-                json_dict['emails'] = all_emails
-
-            if collect_hosts:
-                if dnsresolve != '' and len(full) > 0:
-                    json_dict['hosts'] = full
-                elif len(all_hosts) > 0:
-                    json_dict['hosts'] = all_hosts
-                else:
-                    json_dict['hosts'] = []
-
-                if virtual_hostnames := confirmed_virtual_hostnames():
-                    json_dict['vhosts'] = virtual_hostnames
-
-            if len(all_urls) > 0:
-                json_dict['urls'] = all_urls
-
-            if len(total_asns) > 0:
-                json_dict['asns'] = total_asns
-
-            if network_prefixes:
-                json_dict['prefixes'] = sorted(network_prefixes)
-
-            if len(all_people) > 0:
-                json_dict['people'] = all_people
-
-            if takeover_status and len(takeover_results) > 0:
-                json_dict['takeover_results'] = takeover_results
-
-            json_dict['shodan'] = shodanres
             async with await anyio.open_file(filename, 'w+') as fp:
-                dumped_json = json.dumps(json_dict, separators=(',', ':'), sort_keys=True)
-                await fp.write(dumped_json)
+                await fp.write(
+                    json_report(
+                        command_args=sys.argv[1:],
+                        ips=ip_list if all_ip else [],
+                        emails=all_emails,
+                        hosts=(full if dnsresolve != '' and full else all_hosts) if collect_hosts else None,
+                        virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else [],
+                        urls=all_urls,
+                        asns=total_asns,
+                        prefixes=network_prefixes,
+                        people=all_people,
+                        takeover_results=takeover_results if takeover_status else {},
+                        shodan=shodanres,
+                    )
+                )
             output_logger.info('[*] JSON File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:
             output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
