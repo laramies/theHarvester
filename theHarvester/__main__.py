@@ -383,7 +383,7 @@ async def start(
     # indicates this from the rest API
     if rest_args:
         if rest_args.source and rest_args.source == 'getsources':
-            return list(sorted(SOURCE_SPECS))
+            return sorted(SOURCE_SPECS)
         args = EnumerationOptions.from_namespace(rest_args)
         filename = args.filename
         dnsbrute = (args.dns_brute, return_dns_brute_result) if args.dns_brute else (args.dns_brute, False)
@@ -1086,7 +1086,6 @@ async def start(
         # Indicates user is using REST api but not wanting output to be saved to a file
         # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
-        # return list(set(all_emails)), return_ips, full, '', ''
         all_hosts = sorted_unique(all_hosts)
         if persist_completed_result:
             await persist_result(finish_completed_result())
@@ -1148,7 +1147,7 @@ async def start(
             except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
                 output_logger.info(f'An exception has occurred while adding: {ip} to ip_list: {e}')
                 continue
-        ip_list = list(sorted(ip_list))
+        ip_list = sorted(ip_list)
         output_logger.info('\n'.join(map(str, ip_list)))
         # Populate host_ip from ip_list for DNS lookup, virtual hosts search, and Shodan search
         host_ip = ip_list
@@ -1158,7 +1157,7 @@ async def start(
     else:
         output_logger.info('\n[*] Emails found: ' + str(len(all_emails)))
         output_logger.info('----------------------')
-        all_emails = sorted(list(set(all_emails)))
+        all_emails = sorted(set(all_emails))
         output_logger.info('\n'.join(all_emails))
 
     if len(all_people) == 0:

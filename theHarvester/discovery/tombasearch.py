@@ -122,16 +122,14 @@ class SearchTomba:
         return normalize_scoped_hostname(hostname, self.word)
 
     async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
-        emails = list(sorted({email['email'] for email in json_resp['data']['emails']}))
-        domains = list(
-            sorted(
-                {
-                    source_domain
-                    for email in json_resp['data']['emails']
-                    for source in email['sources']
-                    if (source_domain := self._scoped_source_website(source['website_url'])) is not None
-                }
-            )
+        emails = sorted({email['email'] for email in json_resp['data']['emails']})
+        domains = sorted(
+            {
+                source_domain
+                for email in json_resp['data']['emails']
+                for source in email['sources']
+                if (source_domain := self._scoped_source_website(source['website_url'])) is not None
+            }
         )
         return emails, domains
 

@@ -446,9 +446,9 @@ class SearchHudsonRock:
             'total_emails': len(self.emails),
             'total_stealers': len(self.infostealers),
             'compromised_stats': self.compromised_data,
-            'hosts': sorted(list(self.totalhosts)),
-            'ips': sorted(list(self.totalips)),
-            'emails': sorted(list(self.emails)),
+            'hosts': sorted(self.totalhosts),
+            'ips': sorted(self.totalips),
+            'emails': sorted(self.emails),
         }
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:

@@ -135,7 +135,7 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
+# Use single quotes for strings.
 quote-style = "single"
 indent-style = "space"
 

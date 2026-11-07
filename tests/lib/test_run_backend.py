@@ -15,38 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.runtime_helpers import runtime_with_process_factory, static_runtime
-
-
-class _FakeScreenshotBatch:
-    async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
-        reachable: list[tuple[str, str]] = []
-        for subject in targets:
-            final_url, status = await self.visit(subject)
-            if status:
-                reachable.append((subject, final_url))
-        return reachable
-
-    async def capture_targets(self, targets, record) -> None:
-        async def capture(subject: str, final_url: str) -> tuple[str, str, Path]:
-            output_path = self.screenshot_path(subject)
-            return subject, await self.take_screenshot(final_url, output_path=output_path), output_path
-
-        tasks = [asyncio.create_task(capture(*target)) for target in targets]
-        try:
-            for task in asyncio.as_completed(tasks):
-                await record(*await task)
-        except asyncio.CancelledError:
-            for task in tasks:
-                task.cancel()
-            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
-            for outcome in outcomes:
-                if isinstance(outcome, tuple):
-                    await record(*outcome)
-            raise
-        finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+from tests.screenshot_helpers import FakeScreenshotBatch
 
 
 def test_run_paths_use_one_expanded_database_and_artifact_root(tmp_path, monkeypatch) -> None:
@@ -336,7 +305,7 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.run_worker import _child_execute
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -391,7 +360,7 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
 
     first_captured = asyncio.Event()
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:

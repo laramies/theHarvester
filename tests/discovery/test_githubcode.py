@@ -30,8 +30,6 @@ def test_github_code_reads_a_key_configured_under_a_case_variant_provider_name(
 
 class TestSearchGithubCode:
     class OkResponse:
-        response = Response(status_code=200)
-
         # Mocking the json method properly
         def __init__(self):
             self.response = Response(status_code=200)
@@ -47,16 +45,6 @@ class TestSearchGithubCode:
                     }
                 ),
             )
-
-    class FailureResponse:
-        def __init__(self):
-            self.response = Response(status_code=401)
-            object.__setattr__(self.response, "json", MagicMock(return_value={}))
-
-    class RetryResponse:
-        def __init__(self):
-            self.response = Response(status_code=403)
-            object.__setattr__(self.response, "json", MagicMock(return_value={}))
 
     class MalformedResponse:
         def __init__(self):
@@ -98,58 +86,6 @@ class TestSearchGithubCode:
             self.MalformedResponse().response.json()
         )
         assert test_result == []
-
-    @pytest.mark.asyncio
-    async def test_infinite_loop_fix_page_zero(self):
-        """Stop pagination when the next page is zero."""
-        Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-
-        # Test the fixed condition: page != 0
-        page = 0
-        counter = 0
-        limit = 10
-
-        # The condition should be False when page is 0, preventing infinite loop
-        condition_result = counter <= limit and page != 0
-        assert condition_result is False, "Loop should exit when page is 0"
-
-    @pytest.mark.asyncio
-    async def test_infinite_loop_fix_page_nonzero(self):
-        """Continue pagination while the next page is nonzero."""
-        Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-
-        # Test with non-zero page values
-        for page in [1, 2, 3, 10]:
-            counter = 0
-            limit = 10
-
-            # The condition should be True when page is non-zero
-            condition_result = counter <= limit and page != 0
-            assert condition_result is True, f"Loop should continue when page is {page}"
-
-    @pytest.mark.asyncio
-    async def test_infinite_loop_fix_old_vs_new_condition(self):
-        """Treat zero as the end of pagination, not as another page."""
-        Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-
-        page = 0
-        counter = 0
-        limit = 10
-
-        # Old problematic condition (would cause infinite loop)
-        old_condition = counter <= limit and page is not None
-
-        # New fixed condition (properly exits)
-        new_condition = counter <= limit and page != 0
-
-        # Old condition would be True (causing infinite loop)
-        assert old_condition is True, "Old condition would cause infinite loop when page=0"
-
-        # New condition is False (properly exits)
-        assert new_condition is False, "New condition properly exits when page=0"
 
 
 if __name__ == "__main__":

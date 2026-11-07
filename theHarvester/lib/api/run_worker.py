@@ -331,18 +331,18 @@ class RunWorker:
                     return
             log = await output_task
             current = await store.get(run_id)
+            cancelling = current is not None and current['status'] == 'cancelling'
             evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
             if evidence_error:
                 await store.fail(
                     run_id,
                     evidence_error,
                     log,
-                    cancelled=current is not None and current['status'] == 'cancelling',
+                    cancelled=cancelling,
                 )
                 return
-            if current is not None and current['status'] == 'cancelling':
-                await store.finish(run_id, evidence, log)
-            elif process.returncode == 0 and evidence is not None:
+            # A cancelled run keeps whatever evidence it checkpointed; otherwise only a clean exit with evidence finishes.
+            if cancelling or (process.returncode == 0 and evidence is not None):
                 await store.finish(run_id, evidence, log)
             else:
                 await store.fail(

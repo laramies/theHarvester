@@ -31,6 +31,7 @@ from theHarvester.lib.virtual_host import (
     VirtualHostDiscoveryCancelled,
     VirtualHostObservation,
 )
+from tests.screenshot_helpers import FakeScreenshotBatch
 
 
 @pytest.mark.asyncio
@@ -2432,38 +2433,6 @@ async def test_dns_brute_resolver_configuration_does_not_enable_dns_resolution(
     assert 'dns-resolve' not in actions
 
 
-class _FakeScreenshotBatch:
-    async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
-        reachable: list[tuple[str, str]] = []
-        for subject in targets:
-            final_url, status = await self.visit(subject)
-            if status:
-                reachable.append((subject, final_url))
-        return reachable
-
-    async def capture_targets(self, targets, record) -> None:
-        async def capture(subject: str, final_url: str) -> tuple[str, str, Path]:
-            output_path = self.screenshot_path(subject)
-            return subject, await self.take_screenshot(final_url, output_path=output_path), output_path
-
-        tasks = [asyncio.create_task(capture(*target)) for target in targets]
-        try:
-            for task in asyncio.as_completed(tasks):
-                await record(*await task)
-        except asyncio.CancelledError:
-            for task in tasks:
-                task.cancel()
-            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
-            for outcome in outcomes:
-                if isinstance(outcome, tuple):
-                    await record(*outcome)
-            raise
-        finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-
 @pytest.mark.asyncio
 async def test_dns_proven_cname_hosts_reach_screenshot_filter(
     monkeypatch: pytest.MonkeyPatch,
@@ -2502,7 +2471,7 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
                 ['192.0.2.1'],
             )
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2810,7 +2779,7 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
         async def save_run(self, result: CompletedResult) -> None:
             saved.append(result)
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2862,7 +2831,7 @@ async def test_screenshot_reports_no_reachable_target_as_failed(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2892,7 +2861,7 @@ async def test_screenshot_redirect_stays_attached_to_the_authorized_host(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2931,7 +2900,7 @@ async def test_target_only_ip_screenshot_keeps_ip_result_and_artifact_subject(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2972,7 +2941,7 @@ async def test_screenshot_redirects_to_one_login_keep_distinct_subject_artifacts
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -3037,7 +3006,7 @@ async def test_screenshot_cancellation_persists_failed_execution_and_propagates(
         async def save_run(self, result: CompletedResult) -> None:
             saved.append(result)
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -3103,7 +3072,7 @@ async def test_screenshot_capture_failure_cancels_sibling_tasks(
 ) -> None:
     sibling_cancelled = asyncio.Event()
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
+    class FakeScreenShotter(FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:

@@ -11,8 +11,6 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 @pytest.mark.asyncio
 async def test_yahoo_uses_exact_pages_and_normalizes_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
-    import contextlib
-
     requests: list[dict[str, Any]] = []
     session_proxy: list[object] = []
     session = object()

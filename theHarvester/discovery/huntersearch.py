@@ -112,16 +112,14 @@ class SearchHunter:
         return None
 
     async def parse_resp(self, json_resp: dict) -> tuple[list[str], list[str]]:
-        emails = list(sorted({email['value'] for email in json_resp['data']['emails']}))
-        domains = list(
-            sorted(
-                {
-                    source_domain
-                    for email in json_resp['data']['emails']
-                    for source in email['sources']
-                    if (source_domain := normalize_scoped_hostname(source['domain'], self.word)) is not None
-                }
-            )
+        emails = sorted({email['value'] for email in json_resp['data']['emails']})
+        domains = sorted(
+            {
+                source_domain
+                for email in json_resp['data']['emails']
+                for source in email['sources']
+                if (source_domain := normalize_scoped_hostname(source['domain'], self.word)) is not None
+            }
         )
         return emails, domains
 

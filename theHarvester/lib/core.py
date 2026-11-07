@@ -430,10 +430,6 @@ class Core:
         return Core._api_key_value('otilabs')
 
     @staticmethod
-    def outcrawl_key() -> str:
-        return Core._api_key_value('outcrawl')
-
-    @staticmethod
     def pentest_tools_key() -> str:
         return Core._api_key_value('pentestTools')
 
@@ -465,10 +461,6 @@ class Core:
     @staticmethod
     def security_trails_key() -> str:
         return Core._api_key_value('securityTrails')
-
-    @staticmethod
-    def serply_key() -> str:
-        return Core._api_key_value('serply')
 
     @staticmethod
     def sherlockeye_key() -> str:
