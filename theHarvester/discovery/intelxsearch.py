@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import http_status_error
 from theHarvester.lib.core import MAX_PROVIDER_JSON_BYTES, AsyncFetcher, Core, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -67,12 +68,8 @@ class SearchIntelx:
                     )
                     if search_response is None:
                         return SourceExecutionReport('failed', 'transport-error')
-                    if search_response.status in {401, 403}:
-                        return SourceExecutionReport('failed', 'access-denied')
-                    if search_response.status == 429:
-                        return SourceExecutionReport('rate-limited', 'http-429')
-                    if not 200 <= search_response.status < 300:
-                        return SourceExecutionReport('failed', f'http-{search_response.status}')
+                    if error := http_status_error(search_response.status):
+                        return SourceExecutionReport(*error)
                     search_data = search_response.body
                     if (
                         not isinstance(search_data, dict)
@@ -90,12 +87,8 @@ class SearchIntelx:
                             headers=headers,
                             params={'id': phonebook_id, 'limit': page_size},
                         )
-                        if page_response.status in {401, 403}:
-                            return SourceExecutionReport('failed', 'access-denied')
-                        if page_response.status == 429:
-                            return SourceExecutionReport('rate-limited', 'http-429')
-                        if not 200 <= page_response.status < 300:
-                            return SourceExecutionReport('failed', f'http-{page_response.status}')
+                        if error := http_status_error(page_response.status):
+                            return SourceExecutionReport(*error)
                         page = page_response.body
                         if (
                             not isinstance(page, dict)

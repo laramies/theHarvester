@@ -12,7 +12,7 @@ import tempfile
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, Unpack
 
 import aiohttp
 import certifi
@@ -76,6 +76,16 @@ class ResponseStreamError(Exception):
         self.status = status
         self.headers = headers or {}
         super().__init__(reason)
+
+
+class FetchOneOptions(TypedDict, total=False):
+    """Keyword options ``AsyncFetcher.fetch_one`` forwards to ``fetch_all``."""
+
+    headers: dict[str, str] | None
+    params: Sized
+    json: bool
+    proxy: str | bool | None
+    session: aiohttp.ClientSession | None
 
 
 @dataclass(frozen=True)
@@ -1160,6 +1170,17 @@ class AsyncFetcher:
                 _content=response.content,
                 _framing=framing,
             )
+
+    @classmethod
+    async def fetch_one(cls, url: str, **options: Unpack[FetchOneOptions]) -> FetcherResponse | None:
+        """Fetch one URL with response metadata, or ``None`` when no response arrived.
+
+        Only the options a caller passes are forwarded, so ``fetch_all`` keeps
+        its own defaults, session timeout, and proxy handling.
+        """
+        responses = await cls.fetch_all([url], include_metadata=True, **options)
+        response = responses[0] if responses else None
+        return response if isinstance(response, FetcherResponse) else None
 
     @classmethod
     async def fetch_all(

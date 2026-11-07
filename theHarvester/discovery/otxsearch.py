@@ -3,7 +3,7 @@ import logging
 from ipaddress import ip_address
 from typing import Any
 
-from theHarvester.lib.core import AsyncFetcher, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -22,13 +22,11 @@ class SearchOtx:
     async def do_search(self) -> SourceExecutionReport | None:
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
         try:
-            response_list = await AsyncFetcher.fetch_all(
-                [url],
+            response = await AsyncFetcher.fetch_one(
+                url,
                 json=True,
                 proxy=self.proxy,
-                include_metadata=True,
             )
-            response = response_list[0] if response_list and isinstance(response_list[0], FetcherResponse) else None
             if response is not None and response.status == 429:
                 retry_after = response.headers.get('retry-after')
                 try:
@@ -38,13 +36,11 @@ class SearchOtx:
                 if 0 <= retry_delay <= self.MAX_RETRY_DELAY_SECONDS:
                     logger.info(f'OTX rate limited; retrying once in {retry_delay} seconds')
                     await asyncio.sleep(retry_delay)
-                    response_list = await AsyncFetcher.fetch_all(
-                        [url],
+                    response = await AsyncFetcher.fetch_one(
+                        url,
                         json=True,
                         proxy=self.proxy,
-                        include_metadata=True,
                     )
-                    response = response_list[0] if response_list and isinstance(response_list[0], FetcherResponse) else None
         except OSError, RuntimeError, ValueError:
             self.totalhosts = set()
             self.totalips = set()

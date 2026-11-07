@@ -1,5 +1,6 @@
 import asyncio
 
+from theHarvester.discovery.provider_response import http_status_error
 from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -52,12 +53,8 @@ class SearchCrtName:
             follow_redirects=False,
             request_timeout=self.RUNTIME_SECONDS,
         ) as response:
-            if response.status == 429:
-                return SourceExecutionReport('rate-limited', 'http-429')
-            if response.status in {401, 403}:
-                return SourceExecutionReport('failed', 'access-denied')
-            if not 200 <= response.status < 300:
-                return SourceExecutionReport('failed', f'http-{response.status}')
+            if error := http_status_error(response.status):
+                return SourceExecutionReport(*error)
 
             malformed = False
             async for record in response:

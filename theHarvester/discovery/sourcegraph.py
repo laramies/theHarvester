@@ -4,6 +4,7 @@ import json
 import re
 from typing import Any
 
+from theHarvester.discovery.provider_response import http_status_error
 from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
@@ -180,14 +181,9 @@ class SearchSourcegraph:
                 follow_redirects=False,
                 request_timeout=60,
             ) as response:
-                if response.status == 429:
-                    self._stop('http-429', 'rate-limited')
-                    return
-                if response.status in {401, 403}:
-                    self._stop('access-denied')
-                    return
-                if not 200 <= response.status < 300:
-                    self._stop(f'http-{response.status}')
+                if error := http_status_error(response.status):
+                    status, reason = error
+                    self._stop(reason, status)
                     return
 
                 async for record in response:

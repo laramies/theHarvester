@@ -5,6 +5,7 @@ from email.headerregistry import Address
 from ipaddress import ip_address
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from theHarvester.discovery.provider_response import http_status_error
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
@@ -251,14 +252,8 @@ class SearchApisGuru:
             return
         if directory_response.status == 404:
             return
-        if directory_response.status == 429:
-            self._stop('rate-limited', 'http-429')
-            return
-        if directory_response.status in {401, 403}:
-            self._stop('failed', 'access-denied')
-            return
-        if not 200 <= directory_response.status < 300:
-            self._stop('failed', f'http-{directory_response.status}')
+        if error := http_status_error(directory_response.status):
+            self._stop(*error)
             return
         if not isinstance(directory_response.body, dict):
             self._stop('failed', 'invalid-response')
@@ -315,20 +310,11 @@ class SearchApisGuru:
                     spec_failure = spec_failure or self._report.stop_reason
                     continue
                 return
-            if spec_response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if spec_response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
             if spec_response.status in {404, 410}:
                 spec_failure = spec_failure or f'http-{spec_response.status}'
                 continue
-            if 400 <= spec_response.status < 500:
-                self._stop('failed', f'http-{spec_response.status}')
-                return
-            if not 200 <= spec_response.status < 300:
-                self._stop('failed', f'http-{spec_response.status}')
+            if error := http_status_error(spec_response.status):
+                self._stop(*error)
                 return
             if not isinstance(spec_response.body, dict):
                 malformed = True
