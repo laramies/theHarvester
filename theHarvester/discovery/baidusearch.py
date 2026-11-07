@@ -81,7 +81,7 @@ class SearchBaidu:
             return SourceExecutionReport('partial' if self.total_results else 'failed', 'transport-error')
         return None
 
-    def __init__(self, word, limit: int | None) -> None:
+    def __init__(self, word: str, limit: int | None) -> None:
         self.word = word
         self.total_results = ''
         self.server = 'www.baidu.com'
@@ -112,7 +112,7 @@ class SearchBaidu:
         if playwright_api is None:
             return await self._http_search(page_urls, self.proxy)
 
-        proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
+        proxy_url, _proxy_type = AsyncFetcher.resolve_proxy(self.proxy)
         manager = playwright_api.async_playwright()
         manager_entered = False
         browser = context = page = None

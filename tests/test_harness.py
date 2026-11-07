@@ -51,3 +51,11 @@ def test_live_test_domain_defaults_to_mozilla(monkeypatch: pytest.MonkeyPatch, r
     monkeypatch.delenv('SMOKE_TEST_DOMAIN', raising=False)
 
     assert request.getfixturevalue('live_test_domain') == 'mozilla.org'
+
+
+def test_is_loopback_address_without_af_unix(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.conftest import _is_loopback_address
+
+    monkeypatch.delattr(socket, 'AF_UNIX', raising=False)
+    assert _is_loopback_address(socket.AF_INET, ('127.0.0.1', 80)) is True
+    assert _is_loopback_address(socket.AF_INET, ('192.0.2.1', 80)) is False

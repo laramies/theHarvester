@@ -1,10 +1,26 @@
 import asyncio
+import json
 import logging
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from aiohttp import web
 
 from theHarvester.discovery import commoncrawl
+from theHarvester.lib.core import FetcherResponse, ResponseStreamError
+
+
+def install_fetcher(monkeypatch, fetch_all):
+    """Serve catalog/count and bounded page requests from one protocol fixture."""
+
+    async def fetch_text(url, **kwargs):
+        assert kwargs['response_byte_limit'] == commoncrawl.SearchCommoncrawl.PAGE_RESPONSE_BYTES
+        assert kwargs['request_timeout'] == 60
+        payloads = await fetch_all([url], session=kwargs['session'])
+        return FetcherResponse(body=payloads[0], status=200, headers={})
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_text', fetch_text)
 
 
 @pytest.mark.asyncio
@@ -37,7 +53,7 @@ async def test_process_exhausts_current_catalog_index_pages(monkeypatch: pytest.
                 responses.append('{"url":"https://www.example.com/about"}')
         return responses
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     report = await search.process()
@@ -87,7 +103,7 @@ async def test_process_uses_unique_indexes_from_latest_catalog_year_window_and_s
                 responses.append('{"url":"https://example.com.attacker.net/"}\n{"url":"https://notexample.com/"}')
         return responses
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('Example.COM.')
     report = await search.process()
@@ -143,7 +159,7 @@ async def test_process_rejects_untrusted_catalog_endpoints(
         requested_urls.extend(urls)
         return ['{"pages": 0, "pageSize": 5, "blocks": 0}']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
         await commoncrawl.SearchCommoncrawl('example.com').process()
@@ -173,7 +189,7 @@ async def test_process_requests_provider_pages_sequentially(monkeypatch: pytest.
         page_batches.append(len(urls))
         return [f'{{"url":"https://host-{parse_qs(urlsplit(url).query)["page"][0]}.example.com/"}}' for url in urls]
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     await commoncrawl.SearchCommoncrawl('example.com').process()
 
     assert page_batches == [1, 1, 1, 1, 1, 1]
@@ -200,7 +216,7 @@ async def test_unlimited_process_exhausts_provider_reported_page_count(monkeypat
         requested_pages.append(page)
         return [f'{{"url":"https://host-{page}.example.com/"}}']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com', limit=None)
     report = await search.process()
 
@@ -218,7 +234,7 @@ async def test_process_respects_the_result_limit_across_page_requests(monkeypatc
             'to': '2026-07-12T00:00:00',
         }
     ]
-    requested_limits: list[int] = []
+    requested_pages: list[int] = []
 
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
         if urls == ['https://index.commoncrawl.org/collinfo.json']:
@@ -231,18 +247,19 @@ async def test_process_respects_the_result_limit_across_page_requests(monkeypatc
         for url in urls:
             page_query = parse_qs(urlsplit(url).query)
             page = int(page_query['page'][0])
-            page_limit = int(page_query['limit'][0])
-            requested_limits.append(page_limit)
+            assert 'limit' not in page_query
+            page_limit = 50
+            requested_pages.append(page)
             responses.append('\n'.join(f'{{"url":"https://host-{page}-{result}.example.com/"}}' for result in range(page_limit)))
         return responses
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com', limit=51)
     report = await search.process()
 
     assert report is None
-    assert requested_limits == [50, 1]
+    assert requested_pages == [0, 1]
     assert len(await search.get_hostnames()) == 51
 
 
@@ -282,7 +299,7 @@ async def test_process_counts_only_unique_in_scope_hosts_toward_the_result_limit
                 responses.append(f'{{"url":"https://host-{page}.example.com/"}}')
         return responses
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com', limit=3)
     report = await search.process()
@@ -325,7 +342,7 @@ async def test_process_reports_failed_or_malformed_index_without_discarding_othe
                 responses.append('{"url":"https://survivor.example.com/"}')
         return responses
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
@@ -358,7 +375,7 @@ async def test_process_reports_non_json_upstream_response(
             return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
         return ['<html><h1>504 Gateway Time-out</h1></html>']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
@@ -393,7 +410,7 @@ async def test_process_stops_a_query_after_three_entirely_unusable_pages(
         page_batches += 1
         return [''] * len(urls)
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.INFO, logger=commoncrawl.__name__):
@@ -429,7 +446,7 @@ async def test_process_retains_partial_results_at_the_runtime_limit(monkeypatch:
             return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
         return ['{"url":"https://api.example.com/"}']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
@@ -446,7 +463,7 @@ async def test_process_reports_a_runtime_limit_before_collecting_results(monkeyp
     async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[object]:
         await asyncio.Event().wait()
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
@@ -465,7 +482,7 @@ async def test_process_propagates_external_cancellation(monkeypatch: pytest.Monk
         started.set()
         await asyncio.Event().wait()
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
     task = asyncio.create_task(search.process())
     await started.wait()
@@ -503,7 +520,7 @@ async def test_process_keeps_later_valid_page_after_malformed_page(
             ]
         return ['<html><h1>504 Gateway Time-out</h1></html>']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
@@ -535,7 +552,7 @@ async def test_process_isolates_malformed_urls_within_a_page(monkeypatch: pytest
             '{"url":"http://[bad"}\n{"url":123}\n{"url":"https://api.example.com/v1"}\n{"url":"https://mail.example.com/inbox"}'
         ]
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     report = await search.process()
@@ -564,7 +581,7 @@ async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytes
             return ['{"url":"https://api.example.com/v1"}']
         return ['<html><h1>504 Gateway Time-out</h1></html>']
 
-    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    install_fetcher(monkeypatch, fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
     report = await search.process()
@@ -576,3 +593,244 @@ async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytes
 
 
 pytestmark = pytest.mark.provider_contract('commoncrawl')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('limit', 'duplicate_count'), [(2, 2), (None, 50)])
+async def test_complete_zipnum_page_is_not_truncated_before_hostname_dedup(monkeypatch, limit, duplicate_count):
+    records = [{'url': 'https://a.example.test/path'}] * duplicate_count + [{'url': 'https://z.example.test/'}]
+
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query['url'] == ['example.test/*']:
+            return ['{"pages": 0}']
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        # CDX limit truncates captures within the ZipNum page; it does not resize that page.
+        page = records[: int(query['limit'][0])] if 'limit' in query else records
+        return ['\n'.join(json.dumps(row) for row in page)]
+
+    install_fetcher(monkeypatch, fetch_all)
+    source = commoncrawl.SearchCommoncrawl('example.test', limit=limit)
+    report = await source.do_search(object())
+    assert await source.get_hostnames() == {'a.example.test', 'z.example.test'}
+    assert report is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('current_query', [False, True])
+async def test_earlier_query_error_is_preserved_when_later_query_reaches_limit(monkeypatch, current_query):
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if not current_query and query['url'] == ['*.example.test']:
+            return ['not-json']
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 2}']
+        if current_query and query['page'] == ['0']:
+            return ['not-json']
+        return ['{"url": "https://example.test/"}']
+
+    install_fetcher(monkeypatch, fetch_all)
+    source = commoncrawl.SearchCommoncrawl('example.test', limit=1)
+    report = await source.do_search(object())
+    assert await source.get_hostnames() == {'example.test'}
+    assert report is not None
+    assert report.status == 'partial'
+    assert report.stop_reason == 'query-errors'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('prior_page', [False, True])
+async def test_page_response_bound_stops_and_preserves_prior_hosts(monkeypatch, prior_page):
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        return ['{"pages": 2}']
+
+    calls = []
+
+    async def fetch_text(url, **kwargs):
+        assert kwargs['response_byte_limit'] == commoncrawl.SearchCommoncrawl.PAGE_RESPONSE_BYTES
+        calls.append(url)
+        if prior_page and len(calls) == 1:
+            return FetcherResponse(body='{"url":"https://a.example.test/"}', status=200, headers={})
+        raise ResponseStreamError('response-limit', status=200)
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_text', fetch_text)
+    source = commoncrawl.SearchCommoncrawl('example.test', limit=None)
+    report = await source.process()
+    assert await source.get_hostnames() == ({'a.example.test'} if prior_page else set())
+    assert report.status == ('partial' if prior_page else 'failed')
+    assert report.stop_reason == 'response-limit'
+    assert len(calls) == (2 if prior_page else 1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('no_captures', [True, False])
+async def test_page_http_404_distinguishes_no_captures_from_provider_failure(monkeypatch, no_captures):
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        return ['{"pages": 1}']
+
+    async def fetch_text(url, **kwargs):
+        query = parse_qs(urlsplit(url).query)['url'][0]
+        body = json.dumps({'error': f'No Captures found for: {query}'}) if no_captures else '<html>Not found</html>'
+        return FetcherResponse(body=body, status=404, headers={})
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_text', fetch_text)
+    source = commoncrawl.SearchCommoncrawl('example.test')
+    report = await source.process()
+    assert await source.get_hostnames() == set()
+    if no_captures:
+        assert report is None
+    else:
+        assert report.status == 'failed'
+        assert report.stop_reason == 'all-queries-failed'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('stop', ['complete', 'cancel', 'response-limit'])
+async def test_page_conversation_preserves_cookies_and_closes_session(monkeypatch, unused_tcp_port, stop):
+    cookies = []
+    sessions = []
+    original_fetch_text = commoncrawl.AsyncFetcher.fetch_text
+
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        query = parse_qs(urlsplit(urls[0]).query)
+        return ['{"pages": 2}'] if query['url'] == ['*.example.test'] else ['{"pages": 0}']
+
+    async def fetch_text(url, **kwargs):
+        sessions.append(kwargs['session'])
+        if stop == 'cancel' and len(sessions) == 2:
+            raise asyncio.CancelledError
+        return await original_fetch_text(f'http://localhost:{unused_tcp_port}/page', **kwargs)
+
+    async def page(request):
+        cookies.append(request.cookies.get('page-session'))
+        if len(cookies) > 1 and cookies[-1] != 'ready':
+            return web.Response(status=403)
+        host = f'page{len(cookies)}.example.test'
+        body = json.dumps({'url': f'https://{host}/'})
+        if stop == 'response-limit' and len(cookies) == 2:
+            body += ' ' * 1000
+        response = web.Response(text=body)
+        response.set_cookie('page-session', 'ready')
+        return response
+
+    app = web.Application()
+    app.router.add_get('/page', page)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, '127.0.0.1', unused_tcp_port).start()
+        monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fetch_all)
+        monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_text', fetch_text)
+        monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'PAGE_RESPONSE_BYTES', 100)
+        source = commoncrawl.SearchCommoncrawl('example.test')
+        if stop == 'cancel':
+            with pytest.raises(asyncio.CancelledError):
+                await source.process()
+        else:
+            report = await source.process()
+            if stop == 'response-limit':
+                assert report.status == 'partial'
+                assert report.stop_reason == 'response-limit'
+            else:
+                assert report is None
+        assert await source.get_hostnames() == (
+            {'page1.example.test', 'page2.example.test'} if stop == 'complete' else {'page1.example.test'}
+        )
+        assert cookies == ([None] if stop == 'cancel' else [None, 'ready'])
+        assert len(sessions) == 2
+        assert sessions[0] is sessions[1]
+        assert sessions[0].closed
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('failure', ['http-503', 'transport-error'])
+@pytest.mark.parametrize('failed_pages', [1, 3])
+async def test_page_failures_preserve_later_coverage_until_consecutive_error_bound(monkeypatch, failure, failed_pages):
+    requested_pages = []
+
+    async def fetch_all(urls, **kwargs):
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [
+                [
+                    {
+                        'id': 'CC-MAIN-2026-30',
+                        'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+                        'to': '2026-07-12T00:00:00',
+                    }
+                ]
+            ]
+        query = parse_qs(urlsplit(urls[0]).query)
+        return [json.dumps({'pages': failed_pages + 1 if query['url'] == ['*.example.test'] else 0})]
+
+    async def fetch_text(url, **kwargs):
+        page = int(parse_qs(urlsplit(url).query)['page'][0])
+        requested_pages.append(page)
+        if page < failed_pages:
+            if failure == 'transport-error':
+                raise ResponseStreamError('transport-error')
+            return FetcherResponse(body='Unavailable', status=503, headers={})
+        return FetcherResponse(body='{"url":"https://later.example.test/"}', status=200, headers={})
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fetch_all)
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_text', fetch_text)
+    source = commoncrawl.SearchCommoncrawl('example.test')
+    report = await source.process()
+    assert requested_pages == ([0, 1] if failed_pages == 1 else [0, 1, 2])
+    assert await source.get_hostnames() == ({'later.example.test'} if failed_pages == 1 else set())
+    assert report.status == 'partial'
+    assert report.stop_reason == 'query-errors'

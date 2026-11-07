@@ -26,6 +26,8 @@ async def test_process_returns_normalized_in_scope_hostnames(
                     'outside.test',
                     'not valid.example.com',
                     '-bad.example.com',
+                    'bad-.example.com',
+                    'under_score.example.com',
                     None,
                 ],
                 status=200,

@@ -32,7 +32,12 @@ from theHarvester.lib.takeover_rules import (
 
 DEFAULT_TAKEOVER_CONCURRENCY = 20
 MAX_TAKEOVER_RESPONSE_BYTES = 1024 * 1024
+# Generous per-request bound: a stalled or black-holing endpoint must never hang
+# the whole takeover scan, but slow origins still get a realistic window.
+TAKEOVER_REQUEST_TIMEOUT_SECONDS = 30
 MAX_CNAME_HOPS = 32
+# Matches the redirect location bound enforced by TakeoverHTTPOutcome.
+MAX_TAKEOVER_LOCATION_CHARS = 2048
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -137,10 +142,13 @@ def _candidate_hostname(value: object, target: str) -> str | None:
     if not isinstance(value, str):
         return None
     candidate = value.strip()
-    if candidate.count(':') == 1:
-        hostname, address = candidate.split(':', 1)
+    # Resolved hosts arrive as host:address[,address...]; hostnames never
+    # contain ':', so everything after the first one is the address list.
+    hostname, separator, addresses = candidate.partition(':')
+    if separator:
         try:
-            ipaddress.ip_address(address)
+            for address in addresses.split(','):
+                ipaddress.ip_address(address)
         except ValueError:
             pass
         else:
@@ -152,6 +160,25 @@ def _candidate_hostname(value: object, target: str) -> str | None:
         return normalize_hostname(scoped)
     except ValueError:
         return None
+
+
+def _evidence_status(value: object) -> int | None:
+    """Return an HTTP status the evidence record can hold, or ``None``."""
+    if isinstance(value, int) and not isinstance(value, bool) and 100 <= value <= 599:
+        return value
+    return None
+
+
+def _evidence_location(value: object) -> str | None:
+    """Return a redirect location the evidence record can hold, or ``None``."""
+    if not isinstance(value, str):
+        return None
+    # aiohttp decodes header bytes with surrogateescape; restore the bytes and
+    # decode them leniently so the location can be persisted as UTF-8.
+    text = value.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace').strip()
+    if not text or len(text) > MAX_TAKEOVER_LOCATION_CHARS:
+        return None
+    return text
 
 
 def _rule_matches_dns(rule: TakeoverRule, outcome: TakeoverDNSOutcome) -> bool:
@@ -320,7 +347,6 @@ class TakeoverScanner:
                 f'{scheme}://{hostname}',
                 session=session,
                 follow_redirects=False,
-                request_timeout=None,
                 response_byte_limit=MAX_TAKEOVER_RESPONSE_BYTES,
             )
         except asyncio.CancelledError:
@@ -332,21 +358,33 @@ class TakeoverScanner:
             return (
                 TakeoverHTTPOutcome(
                     scheme=scheme,
-                    status=error.status,
-                    location=error.headers.get('location'),
+                    status=_evidence_status(error.status),
+                    location=_evidence_location(error.headers.get('location')),
                     error_type=error_type,
                     body_truncated=error.reason == 'response-limit',
                 ),
                 None,
             )
+        except LookupError, ValueError:
+            # An undecodable response (for example an unknown charset) belongs
+            # to this host only and must not abort the other candidates.
+            return self._invalid_http_response(scheme)
+        status = _evidence_status(response.status)
+        if status is None:
+            return self._invalid_http_response(scheme)
         return (
             TakeoverHTTPOutcome(
                 scheme=scheme,
-                status=response.status,
-                location=response.headers.get('location'),
+                status=status,
+                location=_evidence_location(response.headers.get('location')),
             ),
             response,
         )
+
+    def _invalid_http_response(self, scheme: HttpScheme) -> tuple[TakeoverHTTPOutcome, None]:
+        self.request_error_count += 1
+        self.request_error_types.add('InvalidResponseError')
+        return TakeoverHTTPOutcome(scheme=scheme, error_type='InvalidResponseError'), None
 
     async def _scan_candidate(
         self,
@@ -555,7 +593,7 @@ class TakeoverScanner:
                 headers={'User-Agent': Core.get_browser_user_agent()},
                 proxy=proxy,
                 cookie_jar=aiohttp.DummyCookieJar(),
-                unlimited_timeout=True,
+                request_timeout=TAKEOVER_REQUEST_TIMEOUT_SECONDS,
             )
             resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
             async with asyncio.TaskGroup() as group:

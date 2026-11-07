@@ -19,6 +19,10 @@ apikeys:
   criminalip:
     key:
 
+  darkeye:
+    haveibeenransom_key:
+    breachhouse_key:
+
   dehashed:
     key:
 
@@ -74,8 +78,18 @@ apikeys:
   onyphe:
     key:
 
+  otilabs:
+    key:
+
+  outcrawl:
+    key:
+
   pentestTools:
     key:
+
+  profundis:
+    key:
+    max_credits: 10
 
   projectDiscovery:
     key:
@@ -90,6 +104,9 @@ apikeys:
     key:
 
   securityTrails:
+    key:
+
+  serply:
     key:
 
   sherlockeye:

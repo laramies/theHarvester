@@ -5,11 +5,10 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from ipaddress import ip_address
 from typing import TYPE_CHECKING, Literal, cast
 
 from theHarvester.lib.evidence_types import format_utc
-from theHarvester.lib.result_values import normalize_asn, normalize_prefix
+from theHarvester.lib.result_values import normalize_asn, normalize_ip, normalize_prefix
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -23,12 +22,7 @@ MAX_NETWORK_DETAILS_BYTES = 8 * 1024 * 1024
 def _normalize_ip(value: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError('peer address must be a non-empty string')
-    if '%' in value:
-        raise ValueError('peer address must not contain an IPv6 scope identifier')
-    try:
-        return str(ip_address(value.strip()))
-    except ValueError as error:
-        raise ValueError('peer address must be a valid IPv4 or IPv6 address') from error
+    return normalize_ip(value, label='peer address')
 
 
 def _normalize_name(value: str, label: str) -> str:

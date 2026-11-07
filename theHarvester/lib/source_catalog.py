@@ -132,6 +132,7 @@ _SPECS = (
     ),
     _spec('crt-name', ResultRoute.SUBDOMAINS),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
+    _spec('darkeye', ResultRoute.BREACHES),
     _spec('dehashed', ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),
     _spec('dnsdumpster', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
@@ -159,7 +160,9 @@ _SPECS = (
     _spec('mojeek', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
+    _spec('otilabs', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('outcrawl', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
         'pentesttools',
         ResultRoute.SUBDOMAINS,
@@ -167,6 +170,7 @@ _SPECS = (
         activity=ActivityClass.DNS,
         retains_unresolved_hostnames=True,
     ),
+    _spec('profundis', ResultRoute.SUBDOMAINS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec(
         'rapiddns',
@@ -176,8 +180,10 @@ _SPECS = (
     ),
     _spec('robtex', ResultRoute.IPS),
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.URLS),
+    _spec('scanmalware', ResultRoute.SUBDOMAINS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('securityscorecard', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('serply', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('sherlockeye', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
     _spec(

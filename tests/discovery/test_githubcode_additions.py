@@ -24,7 +24,7 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(
             inst,
             "do_search",
-            AsyncMock(return_value=("", {}, 403, {})),
+            AsyncMock(return_value=("", {}, 403, {}, {})),
         )
 
         inst.max_retries = 2
@@ -44,12 +44,12 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(
             inst,
             "handle_response",
-            AsyncMock(return_value=githubcode.ErrorResult(500, "err")),
+            AsyncMock(return_value=githubcode.ErrorResult(500)),
         )
         monkeypatch.setattr(
             inst,
             "do_search",
-            AsyncMock(return_value=("", {}, 500, {})),
+            AsyncMock(return_value=("", {}, 500, {}, {})),
         )
 
         await inst.process()
@@ -72,7 +72,7 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(
             inst,
             "do_search",
-            AsyncMock(return_value=("", {"items": []}, 200, {})),
+            AsyncMock(return_value=("", {"items": []}, 200, {}, {})),
         )
 
         await inst.process()

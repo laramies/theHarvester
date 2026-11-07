@@ -29,7 +29,7 @@ class SearchWindvane:
     The provider grants full endpoint access and pagination with an API key.
     Unauthenticated requests have limited access.
 
-    Set the key with ``WINDVANE_API_KEY`` or ``search.set_api_key("your-key")``.
+    Set the key in ``api-keys.yaml`` under the ``windvane`` entry.
     """
 
     def __init__(self, word: str, limit: int | None = None) -> None:
@@ -98,6 +98,7 @@ class SearchWindvane:
     async def _paginate(
         self,
         headers: dict[str, str],
+        session,
         endpoint: str,
         query: dict[str, str],
         page_size: int,
@@ -114,8 +115,8 @@ class SearchWindvane:
             response = await AsyncFetcher.post_fetch(
                 url,
                 headers=headers,
-                data=json.dumps(request_data, separators=(',', ':')),
-                proxy=self.proxy,
+                json_body=request_data,
+                session=session,
             )
             if not response:
                 return SourceExecutionReport('failed', 'transport-error')
@@ -154,7 +155,7 @@ class SearchWindvane:
             page = next_page
         return None
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         """Query the Windvane endpoints used by this source."""
         try:
             headers = {'User-agent': Core.get_user_agent(), 'Content-Type': 'application/json', 'Accept': 'application/json'}
@@ -165,14 +166,14 @@ class SearchWindvane:
 
                 # With API key, use full API endpoints
                 reports = [
-                    await self._search_subdomains(headers),
-                    await self._search_dns_history(headers),
-                    await self._search_emails(headers),
+                    await self._search_subdomains(headers, session),
+                    await self._search_dns_history(headers, session),
+                    await self._search_emails(headers, session),
                 ]
             else:
                 # Without API key, use the provider's limited endpoint only.
                 logger.info('[*] Windvane API key not found. Using limited unauthenticated access.')
-                reports = [await self._search_subdomains_limited(headers)]
+                reports = [await self._search_subdomains_limited(headers, session)]
 
             retained = [report for report in reports if report is not None]
             return next((report for report in retained if report.status != 'completed'), retained[0] if retained else None)
@@ -181,17 +182,18 @@ class SearchWindvane:
             logger.info(f'Windvane API error: {e}')
             return SourceExecutionReport('failed', 'transport-error')
 
-    async def _search_subdomains(self, headers: dict[str, str]) -> SourceExecutionReport | None:
+    async def _search_subdomains(self, headers: dict[str, str], session) -> SourceExecutionReport | None:
         """Search for subdomains with ``/ListSubDomain``."""
         return await self._paginate(
             headers,
+            session,
             'ListSubDomain',
             {'domain': self.word},
             30,
             lambda item: self._add_host(item.get('domain')) if isinstance(item, dict) else None,
         )
 
-    async def _search_dns_history(self, headers: dict[str, str]) -> SourceExecutionReport | None:
+    async def _search_dns_history(self, headers: dict[str, str], session) -> SourceExecutionReport | None:
         """Collect subdomains and IP addresses from ``/ListDNS`` history."""
 
         def consume(record: object) -> None:
@@ -206,9 +208,9 @@ class SearchWindvane:
             ):
                 self.totalips.add(answer)
 
-        return await self._paginate(headers, 'ListDNS', {'domain': self.word}, 30, consume)
+        return await self._paginate(headers, session, 'ListDNS', {'domain': self.word}, 30, consume)
 
-    async def _search_emails(self, headers: dict[str, str]) -> SourceExecutionReport | None:
+    async def _search_emails(self, headers: dict[str, str], session) -> SourceExecutionReport | None:
         """Search for email addresses with ``/ListEmail``."""
 
         def consume(item: object) -> None:
@@ -216,12 +218,13 @@ class SearchWindvane:
                 self._add_email(item.get('email'))
                 self._add_host(item.get('domain'))
 
-        return await self._paginate(headers, 'ListEmail', {'email': self.word}, 50, consume)
+        return await self._paginate(headers, session, 'ListEmail', {'email': self.word}, 50, consume)
 
-    async def _search_subdomains_limited(self, headers: dict[str, str]) -> SourceExecutionReport | None:
+    async def _search_subdomains_limited(self, headers: dict[str, str], session) -> SourceExecutionReport | None:
         """Search the unauthenticated subdomain endpoints."""
         report = await self._paginate(
             headers,
+            session,
             'ListSubDomain',
             {'domain': self.word},
             10,
@@ -229,15 +232,6 @@ class SearchWindvane:
         )
         logger.info(f'[*] Found {len(self.totalhosts)} subdomains with limited access')
         return report
-
-    def set_api_key(self, api_key: str) -> None:
-        """Set the API key for authenticated requests.
-
-        Args:
-            api_key: Windvane API key.
-
-        """
-        self.api_key = api_key
 
     def _is_valid_ip(self, ip: str) -> bool:
         """Return whether a string is a valid IP address."""
@@ -266,5 +260,5 @@ class SearchWindvane:
         self.proxy = proxy
 
         # API key is already set via _get_api_key() method
-
-        return await self.do_search()
+        async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+            return await self.do_search(session)

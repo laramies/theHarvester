@@ -42,9 +42,9 @@ async def test_authenticated_results_are_normalized_and_scoped(monkeypatch) -> N
         },
     }
 
-    async def fake_post_fetch(url, headers=None, data=None, proxy=False):
+    async def fake_post_fetch(url, headers=None, json_body=None, session=None):
         endpoint = url.rsplit('/', 1)[-1]
-        page = json.loads(data)['page_request']['page']
+        page = json_body['page_request']['page']
         assert headers['X-Api-Key'] == 'test-key'
         return json.dumps(responses[(endpoint, page)])
 
@@ -87,9 +87,9 @@ async def test_authenticated_unlimited_search_follows_all_endpoint_pagination(mo
     monkeypatch.setattr(windvane.Core, 'windvane_key', lambda: 'test-key')
     requests: list[tuple[str, int, int]] = []
 
-    async def fake_post_fetch(url, headers=None, data=None, proxy=False):
+    async def fake_post_fetch(url, headers=None, json_body=None, session=None):
         endpoint = url.rsplit('/', 1)[-1]
-        page_request = json.loads(data)['page_request']
+        page_request = json_body['page_request']
         page = page_request['page']
         requests.append((endpoint, page, page_request['count']))
         last_pages = {'ListSubDomain': 4, 'ListDNS': 3, 'ListEmail': 2}
@@ -172,9 +172,9 @@ async def test_finite_limit_stops_each_windvane_endpoint(monkeypatch) -> None:
     monkeypatch.setattr(windvane.Core, 'windvane_key', lambda: 'test-key')
     requests: list[tuple[str, int, int]] = []
 
-    async def fake_post_fetch(url, headers=None, data=None, proxy=False):
+    async def fake_post_fetch(url, headers=None, json_body=None, session=None):
         endpoint = url.rsplit('/', 1)[-1]
-        page_request = json.loads(data)['page_request']
+        page_request = json_body['page_request']
         requests.append((endpoint, page_request['page'], page_request['count']))
         return json.dumps({'code': 0, 'data': {'list': [{}], 'has_more': True}})
 

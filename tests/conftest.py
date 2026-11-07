@@ -45,6 +45,19 @@ def provider_contract_sources(request: pytest.FixtureRequest) -> tuple[str, ...]
     return request.config.stash.get(PROVIDER_CONTRACT_SOURCES, ())
 
 
+@pytest.fixture(autouse=True)
+def _restore_core_quiet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Undo the process-wide quiet flag that an in-process enumeration run sets.
+
+    Production runs each enumeration in its own process, so ``Core.quiet`` never
+    outlives the run that set it. Tests that call the entry point in-process must
+    not leak it into later tests.
+    """
+    from theHarvester.lib.core import Core
+
+    monkeypatch.setattr(Core, 'quiet', Core.quiet)
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     guard = pytest.MonkeyPatch()
     guard.setattr(socket, 'getaddrinfo', _guarded_getaddrinfo)
@@ -114,7 +127,7 @@ def _is_loopback_host(host: object) -> bool:
 
 
 def _is_loopback_address(family: int, address: object) -> bool:
-    if family == socket.AF_UNIX:
+    if hasattr(socket, 'AF_UNIX') and family == socket.AF_UNIX:
         return True
     return isinstance(address, tuple) and bool(address) and _is_loopback_host(address[0])
 

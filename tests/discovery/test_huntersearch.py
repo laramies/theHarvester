@@ -17,9 +17,16 @@ def test_hunter_rejects_missing_or_blank_key(monkeypatch, key) -> None:
         huntersearch.SearchHunter('example.test', 10, 0)
 
 
-@pytest.mark.parametrize('status', [401, 403, 429])
+@pytest.mark.parametrize(
+    ('status', 'expected_report'),
+    [
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (403, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+    ],
+)
 @pytest.mark.asyncio
-async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, status: int) -> None:
+async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, status: int, expected_report) -> None:
     async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
         assert kwargs['include_metadata'] is True
         return [FetcherResponse(body={'error': 'provider detail'}, status=status, headers={})]
@@ -30,8 +37,9 @@ async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, statu
     search = huntersearch.SearchHunter('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
 
@@ -40,15 +48,26 @@ async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, statu
 
 
 @pytest.mark.parametrize(
-    ('response', 'message'),
+    ('response', 'message', 'expected_report'),
     [
-        ([], 'Hunter request failed without a response'),
-        ([FetcherResponse(body='not json', status=200, headers={})], 'Hunter returned malformed data'),
-        ([FetcherResponse(body={}, status=200, headers={})], 'Hunter returned malformed data'),
+        ([], 'Hunter request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        ([None], 'Hunter request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        (
+            [FetcherResponse(body='not json', status=200, headers={})],
+            'Hunter returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            [FetcherResponse(body={}, status=200, headers={})],
+            'Hunter returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_hunter_empty_or_malformed_response_returns_no_results(monkeypatch, caplog, response, message) -> None:
+async def test_hunter_empty_or_malformed_response_returns_no_results(
+    monkeypatch, caplog, response, message, expected_report
+) -> None:
     async def fake_fetch_all(*_args: Any, **_kwargs: Any):
         return response
 
@@ -58,8 +77,9 @@ async def test_hunter_empty_or_malformed_response_returns_no_results(monkeypatch
     search = huntersearch.SearchHunter('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
     assert message in caplog.text
@@ -67,7 +87,17 @@ async def test_hunter_empty_or_malformed_response_returns_no_results(monkeypatch
 
 @pytest.mark.asyncio
 async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
-    requests: list[tuple[str, bool]] = []
+    import contextlib
+
+    requests: list[tuple[str, object]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
+
     responses = iter(
         [
             {'data': {'plan_name': 'Growth', 'requests': {'searches': {'available': 10, 'used': 0}}}},
@@ -89,8 +119,8 @@ async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
         ]
     )
 
-    async def fake_fetch_all(urls, *, proxy=False, **_kwargs):
-        requests.append((urls[0], proxy))
+    async def fake_fetch_all(urls, *, session=None, **_kwargs):
+        requests.append((urls[0], session))
         return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     async def no_sleep(_seconds: float) -> None:
@@ -98,23 +128,20 @@ async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
 
     monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
     monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(huntersearch.asyncio, 'sleep', no_sleep)
 
     search = huntersearch.SearchHunter('example.test', 150, 25)
     await search.process(proxy=True)
 
-    assert requests == [
-        ('https://api.hunter.io/v2/account?api_key=test-key', True),
-        ('https://api.hunter.io/v2/email-count?domain=example.test', True),
-        (
-            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=100&offset=25',
-            True,
-        ),
-        (
-            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=50&offset=125',
-            True,
-        ),
+    assert session_proxy == [True]
+    assert all(entry[1] is session for entry in requests)
+    assert [entry[0] for entry in requests] == [
+        'https://api.hunter.io/v2/account?api_key=test-key',
+        'https://api.hunter.io/v2/email-count?domain=example.test',
+        'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=100&offset=25',
+        'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=50&offset=125',
     ]
     assert await search.get_emails() == ['alice@example.test', 'bob@example.test']
     assert await search.get_hostnames() == ['api.example.test', 'www.example.test']
@@ -160,8 +187,9 @@ async def test_paid_hunter_search_preserves_first_page_after_rate_limit(monkeypa
     search = huntersearch.SearchHunter('example.test', 150, 0)
 
     with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == SourceExecutionReport('rate-limited', 'http-429')
     assert await search.get_emails() == ['alice@example.test']
     assert await search.get_hostnames() == ['api.example.test']
     assert requests[-1].endswith('limit=50&offset=100')
@@ -223,6 +251,42 @@ async def test_free_hunter_unlimited_reports_saturated_provider_boundary(monkeyp
 
     assert await search.process() == SourceExecutionReport('partial', 'provider-limit')
     assert len(await search.get_hostnames()) == 10
+
+
+@pytest.mark.asyncio
+async def test_free_hunter_search_rejects_out_of_scope_source_domains(monkeypatch) -> None:
+    responses = iter(
+        [
+            {'data': {'plan_name': 'Free', 'requests': {'searches': {'available': 10, 'used': 0}}}},
+            {
+                'data': {
+                    'emails': [
+                        {
+                            'value': 'alice@example.test',
+                            'sources': [
+                                {'domain': 'api.example.test'},
+                                {'domain': 'notexample.test'},
+                                {'domain': 'example.test.evil.net'},
+                            ],
+                        },
+                    ]
+                }
+            },
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = huntersearch.SearchHunter('example.test', 10, 0)
+    await search.process()
+
+    assert await search.get_emails() == ['alice@example.test']
+    assert await search.get_hostnames() == ['api.example.test']
 
 
 @pytest.mark.asyncio

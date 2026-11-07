@@ -5,8 +5,6 @@ import json
 import logging
 import os
 import re
-import secrets
-import string
 import sys
 import time
 from contextlib import AsyncExitStack
@@ -381,22 +379,14 @@ async def start(
         ),
     )
 
-    # determines if the filename is coming from rest api or user
-    rest_filename = ''
     dnsbrute: tuple[bool, bool]
     # indicates this from the rest API
     if rest_args:
         if rest_args.source and rest_args.source == 'getsources':
-            return list(sorted(SOURCE_SPECS))
+            return sorted(SOURCE_SPECS)
         args = EnumerationOptions.from_namespace(rest_args)
         filename = args.filename
-        if args.dns_brute:
-            dnsbrute = (args.dns_brute, return_dns_brute_result)
-        else:
-            dnsbrute = (args.dns_brute, False)
-            # We need to make sure the filename is random as to not overwrite other files
-            alphabet = string.ascii_letters + string.digits
-            rest_filename += f'{"".join(secrets.choice(alphabet) for _ in range(32))}_{filename}' if len(filename) != 0 else ''
+        dnsbrute = (args.dns_brute, return_dns_brute_result) if args.dns_brute else (args.dns_brute, False)
     else:
         args = EnumerationOptions.from_namespace(parser.parse_args())
         filename = args.filename
@@ -1087,7 +1077,6 @@ async def start(
     return_ips: list = []
     if (
         rest_args is not None
-        and len(rest_filename) == 0
         and rest_args.dns_brute is False
         and not dnslookup
         and not return_completed_result
@@ -1097,7 +1086,6 @@ async def start(
         # Indicates user is using REST api but not wanting output to be saved to a file
         # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
-        # return list(set(all_emails)), return_ips, full, '', ''
         all_hosts = sorted_unique(all_hosts)
         if persist_completed_result:
             await persist_result(finish_completed_result())
@@ -1113,18 +1101,6 @@ async def start(
             all_hosts,
         )
         return (*result, sorted_unique(all_breaches)) if include_breaches else result
-    # Check to see if all_emails and all_hosts are defined.
-    try:
-        all_emails
-    except NameError:
-        output_logger.info('\n\n[!] No emails found because all_emails is not defined.\n\n ')
-        sys.exit(1)
-    try:
-        all_hosts
-    except NameError:
-        output_logger.info('\n\n[!] No hosts found because all_hosts is not defined.\n\n ')
-        sys.exit(1)
-
     # Results
     if len(total_asns) > 0:
         print_section(f'\n[*] ASNS found: {len(total_asns)}', total_asns, '--------------------')
@@ -1141,7 +1117,7 @@ async def start(
         )
         twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
 
-    print_linkedin_people(engines, linkedin_people_list_tracker)
+    print_linkedin_people(linkedin_people_list_tracker)
     linkedin_people_list_tracker = sorted_unique(linkedin_people_list_tracker)
 
     length_urls = len(all_urls)
@@ -1171,7 +1147,7 @@ async def start(
             except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
                 output_logger.info(f'An exception has occurred while adding: {ip} to ip_list: {e}')
                 continue
-        ip_list = list(sorted(ip_list))
+        ip_list = sorted(ip_list)
         output_logger.info('\n'.join(map(str, ip_list)))
         # Populate host_ip from ip_list for DNS lookup, virtual hosts search, and Shodan search
         host_ip = ip_list
@@ -1181,7 +1157,7 @@ async def start(
     else:
         output_logger.info('\n[*] Emails found: ' + str(len(all_emails)))
         output_logger.info('----------------------')
-        all_emails = sorted(list(set(all_emails)))
+        all_emails = sorted(set(all_emails))
         output_logger.info('\n'.join(all_emails))
 
     if len(all_people) == 0:
@@ -1778,7 +1754,7 @@ async def start(
             total = int(end - screenshot_started)
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
-            total_time = f'{mon:02d}:{sec:02d}'
+            total_time = f'{hr:02d}:{mon:02d}:{sec:02d}' if hr else f'{mon:02d}:{sec:02d}'
             output_logger.info(f'Finished taking screenshots in {total_time} seconds')
 
     # Shodan
@@ -1878,16 +1854,11 @@ async def start(
         )
         display_new_asn_attributions()
         await checkpoint_action_result(extra_hostnames=dnsrev)
-    else:
-        pass
 
     if filename != '':
         output_logger.info('\n[*] Reporting started.')
         try:
-            if len(rest_filename) == 0:
-                filename = os.path.splitext(filename)[0] + '.xml'
-            else:
-                filename = 'theHarvester/app/static/' + os.path.splitext(rest_filename)[0] + '.xml'
+            filename = os.path.splitext(filename)[0] + '.xml'
             # XML REPORT SECTION
             async with await anyio.open_file(filename, 'w+') as file:
                 await file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')

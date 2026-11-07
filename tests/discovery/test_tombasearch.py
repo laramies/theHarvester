@@ -39,9 +39,16 @@ def test_tomba_rejects_missing_or_blank_credentials(monkeypatch, credentials) ->
         tombasearch.SearchTomba('example.test', 10, 0)
 
 
-@pytest.mark.parametrize('status', [401, 403, 429])
+@pytest.mark.parametrize(
+    ('status', 'expected_report'),
+    [
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (403, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+    ],
+)
 @pytest.mark.asyncio
-async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status: int) -> None:
+async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status: int, expected_report) -> None:
     async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
         assert kwargs['include_metadata'] is True
         return [FetcherResponse(body={'error': 'provider detail'}, status=status, headers={})]
@@ -52,8 +59,9 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
     search = tombasearch.SearchTomba('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
 
@@ -62,15 +70,26 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
 
 
 @pytest.mark.parametrize(
-    ('response', 'message'),
+    ('response', 'message', 'expected_report'),
     [
-        ([], 'Tomba request failed without a response'),
-        ([FetcherResponse(body='not json', status=200, headers={})], 'Tomba returned malformed data'),
-        ([FetcherResponse(body={}, status=200, headers={})], 'Tomba returned malformed data'),
+        ([], 'Tomba request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        ([None], 'Tomba request failed without a response', SourceExecutionReport('failed', 'transport-error')),
+        (
+            [FetcherResponse(body='not json', status=200, headers={})],
+            'Tomba returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            [FetcherResponse(body={}, status=200, headers={})],
+            'Tomba returned malformed data',
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_tomba_empty_or_malformed_response_returns_no_results(monkeypatch, caplog, response, message) -> None:
+async def test_tomba_empty_or_malformed_response_returns_no_results(
+    monkeypatch, caplog, response, message, expected_report
+) -> None:
     async def fake_fetch_all(*_args: Any, **_kwargs: Any):
         return response
 
@@ -80,8 +99,9 @@ async def test_tomba_empty_or_malformed_response_returns_no_results(monkeypatch,
     search = tombasearch.SearchTomba('example.test', 10, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == expected_report
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
     assert message in caplog.text
@@ -89,7 +109,17 @@ async def test_tomba_empty_or_malformed_response_returns_no_results(monkeypatch,
 
 @pytest.mark.asyncio
 async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch) -> None:
-    requests: list[tuple[str, bool]] = []
+    import contextlib
+
+    requests: list[tuple[str, object]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
+
     responses = iter(
         [
             {
@@ -105,8 +135,8 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
         ]
     )
 
-    async def fake_fetch_all(urls, *, proxy=False, **_kwargs):
-        requests.append((urls[0], proxy))
+    async def fake_fetch_all(urls, *, session=None, **_kwargs):
+        requests.append((urls[0], session))
         return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     async def no_sleep(_seconds: float) -> None:
@@ -114,18 +144,21 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
 
     monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
     monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(tombasearch.asyncio, 'sleep', no_sleep)
 
     search = tombasearch.SearchTomba('example.test', 120, 0)
     await search.process(proxy=True)
 
-    assert requests == [
-        ('https://api.tomba.io/v1/me', True),
-        ('https://api.tomba.io/v1/email-count?domain=example.test', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=1', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2', True),
-        ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=3', True),
+    assert session_proxy == [True]
+    assert all(entry[1] is session for entry in requests)
+    assert [entry[0] for entry in requests] == [
+        'https://api.tomba.io/v1/me',
+        'https://api.tomba.io/v1/email-count?domain=example.test',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=1',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=3',
     ]
     emails = await search.get_emails()
     hostnames = await search.get_hostnames()
@@ -216,8 +249,9 @@ async def test_paid_tomba_search_preserves_first_page_after_rate_limit(monkeypat
     search = tombasearch.SearchTomba('example.test', 120, 0)
 
     with caplog.at_level(logging.INFO, logger=tombasearch.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report == SourceExecutionReport('rate-limited', 'http-429')
     assert len(await search.get_emails()) == 50
     assert len(await search.get_hostnames()) == 50
     assert requests[-1] == 'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2'
@@ -289,6 +323,49 @@ async def test_free_tomba_unlimited_reports_saturated_provider_boundary(monkeypa
 
     assert await search.process() == SourceExecutionReport('partial', 'provider-limit')
     assert len(await search.get_hostnames()) == 10
+
+
+@pytest.mark.asyncio
+async def test_free_tomba_search_rejects_out_of_scope_source_websites(monkeypatch) -> None:
+    responses = iter(
+        [
+            {
+                'data': {
+                    'pricing': {'name': 'Free'},
+                    'requests': {'domains': {'available': 10, 'used': 0}},
+                }
+            },
+            {
+                'data': {
+                    'emails': [
+                        {
+                            'email': 'alice@example.test',
+                            'sources': [
+                                {'website_url': 'api.example.test'},
+                                {'website_url': 'https://portal.example.test'},
+                                {'website_url': 'Docs.Example.Test/contact'},
+                                {'website_url': 'notexample.test'},
+                                {'website_url': 'example.test.evil.net'},
+                            ],
+                        },
+                    ]
+                }
+            },
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
+    monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = tombasearch.SearchTomba('example.test', 10, 0)
+    await search.process()
+
+    assert await search.get_emails() == ['alice@example.test']
+    assert set(await search.get_hostnames()) == {'api.example.test', 'portal.example.test', 'docs.example.test'}
 
 
 @pytest.mark.asyncio

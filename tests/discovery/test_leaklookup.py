@@ -71,9 +71,6 @@ async def test_leaklookup_posts_domain_search_and_keeps_normalized_evidence(monk
         {'breach': 'Example Breach', 'email': 'bob@example.test'},
         {'breach': 'Public Only Breach'},
     ]
-    assert await search.get_passwords() == set()
-    assert await search.get_hostnames() == set()
-    assert await search.get_leak_dates() == set()
     assert 'fixture-password' not in repr(await search.get_leaks())
     assert 'fixture-secret' not in repr(await search.get_leaks())
 

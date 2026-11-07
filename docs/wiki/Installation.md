@@ -12,7 +12,14 @@ sudo apt install theharvester
 theHarvester -h
 ```
 
-If the installed command or available sources differ from the repository, update Kali first and check the packaged version. Distribution packages can lag behind the current stable release or `dev` branch.
+For a package version with the current three entry points, verify the other two without starting a service or reading saved runs:
+
+```bash
+harvestview --help
+harvest-report --help
+```
+
+If an installed command or available source differs from the repository, update Kali first and check the packaged version. Distribution packages can lag behind the current stable release or `dev` branch.
 
 ## Source checkout
 
@@ -23,6 +30,8 @@ git clone https://github.com/laramies/theHarvester.git
 cd theHarvester
 uv sync
 uv run theHarvester -h
+uv run harvestview --help
+uv run harvest-report --help
 ```
 
 Contributors should install the development groups instead:
@@ -32,7 +41,7 @@ uv sync --all-groups
 uv run pytest
 ```
 
-The supported console commands are `theHarvester` and `harvestview`. There is no root `theHarvester.py` launcher.
+The supported console commands are `theHarvester`, `harvestview`, and `harvest-report`. Each help command above checks the installed entry point without starting a scan or service. There is no root `theHarvester.py` launcher.
 
 ### Self-host Tabulator
 

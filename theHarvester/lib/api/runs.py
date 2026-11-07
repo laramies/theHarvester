@@ -112,8 +112,7 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> Source
         provider = provider_name(source)
         if provider is None:
             return True
-        values = configured_keys.get(provider, {})
-        return all(isinstance(values.get(field), str) and values[field].strip() for field in api_key_fields[provider])
+        return Core.api_key_ready(provider, configured_keys.get(provider, {}))
 
     return SourceCatalogResponse(
         sources=[

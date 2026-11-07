@@ -5,6 +5,12 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from theHarvester.discovery import waybackarchive
+from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+
+def cdx_response(payload: object) -> list[FetcherResponse]:
+    return [FetcherResponse(payload, 200, {})]
 
 
 @pytest.mark.asyncio
@@ -15,13 +21,13 @@ async def test_process_collects_more_than_one_cdx_page(monkeypatch: pytest.Monke
     requests: list[dict[str, list[str]]] = []
     requested_urls: list[str] = []
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         requested_urls.extend(urls)
         query = parse_qs(urlparse(urls[0]).query)
         requests.append(query)
         if query['url'] == ['*.example.com']:
-            return [f'{first_page}\n\n{resume_key}'] if 'resumeKey' not in query else [second_page]
-        return ['']
+            return cdx_response(f'{first_page}\n\n{resume_key}') if 'resumeKey' not in query else cdx_response(second_page)
+        return cdx_response('')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -42,12 +48,12 @@ async def test_process_collects_more_than_one_cdx_page(monkeypatch: pytest.Monke
 async def test_process_stops_when_a_resume_key_repeats(monkeypatch: pytest.MonkeyPatch) -> None:
     requests: list[dict[str, list[str]]] = []
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         query = parse_qs(urlparse(urls[0]).query)
         requests.append(query)
         if query['url'] == ['*.example.com']:
-            return ['https://api.example.com/path\n\nrepeated-key']
-        return ['']
+            return cdx_response('https://api.example.com/path\n\nrepeated-key')
+        return cdx_response('')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -74,9 +80,9 @@ async def test_process_normalizes_and_scope_checks_each_page(monkeypatch: pytest
         )
     )
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         query = parse_qs(urlparse(urls[0]).query)
-        return [payload] if query['url'] == ['*.example.com'] else ['']
+        return cdx_response(payload) if query['url'] == ['*.example.com'] else cdx_response('')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -91,10 +97,10 @@ async def test_process_normalizes_and_scope_checks_each_page(monkeypatch: pytest
 async def test_process_normalizes_the_requested_domain(monkeypatch: pytest.MonkeyPatch) -> None:
     requests: list[dict[str, list[str]]] = []
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         query = parse_qs(urlparse(urls[0]).query)
         requests.append(query)
-        return ['https://api.example.com/path'] if query['url'] == ['*.example.com'] else ['']
+        return cdx_response('https://api.example.com/path') if query['url'] == ['*.example.com'] else cdx_response('')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -111,13 +117,13 @@ async def test_process_keeps_partial_results_when_a_later_page_times_out(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         query = parse_qs(urlparse(urls[0]).query)
         if query['url'] == ['*.example.com']:
             if 'resumeKey' in query:
                 raise TimeoutError
-            return ['https://api.example.com/path\n\nnext-page']
-        return ['https://example.com/path']
+            return cdx_response('https://api.example.com/path\n\nnext-page')
+        return cdx_response('https://example.com/path')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -148,8 +154,8 @@ async def test_process_ignores_empty_html_and_non_text_responses(
     expected_status: str | None,
     expected_stop_reason: str | None,
 ) -> None:
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
-        return [payload]
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        return cdx_response(payload)
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
@@ -174,13 +180,13 @@ async def test_process_continues_until_provider_exhaustion_without_a_page_bound(
 ) -> None:
     wildcard_requests = 0
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         nonlocal wildcard_requests
         query = parse_qs(urlparse(urls[0]).query)
         if query['url'] == ['*.example.com'] and wildcard_requests < 3:
             wildcard_requests += 1
-            return [f'https://host-{wildcard_requests}.example.com/path\n\npage-{wildcard_requests}']
-        return ['']
+            return cdx_response(f'https://host-{wildcard_requests}.example.com/path\n\npage-{wildcard_requests}')
+        return cdx_response('')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = waybackarchive.SearchWaybackarchive('example.com')
@@ -204,11 +210,11 @@ async def test_process_retains_partial_results_at_the_runtime_limit(
 ) -> None:
     requests = 0
 
-    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         nonlocal requests
         requests += 1
         if requests == 1:
-            return ['https://api.example.com/path\n\nnext-page']
+            return cdx_response('https://api.example.com/path\n\nnext-page')
         await asyncio.Event().wait()
         raise AssertionError('unreachable')
 
@@ -228,7 +234,7 @@ async def test_process_retains_partial_results_at_the_runtime_limit(
 
 @pytest.mark.asyncio
 async def test_process_reports_a_runtime_limit_before_collecting_results(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[FetcherResponse] | None:
         await asyncio.Event().wait()
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -246,9 +252,9 @@ async def test_process_reports_a_runtime_limit_before_collecting_results(monkeyp
 async def test_process_stops_at_the_requested_result_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     requested_urls: list[str] = []
 
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         requested_urls.extend(urls)
-        return ['https://one.example.com/path\nhttps://two.example.com/path\nhttps://three.example.com/path\n\nnext-page']
+        return cdx_response('https://one.example.com/path\nhttps://two.example.com/path\nhttps://three.example.com/path\n\nnext-page')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = waybackarchive.SearchWaybackarchive('example.com', limit=2)
@@ -266,11 +272,11 @@ async def test_process_stops_at_the_requested_result_limit(monkeypatch: pytest.M
 async def test_process_keeps_an_earlier_failure_when_a_later_pattern_reaches_the_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
         query = parse_qs(urlparse(urls[0]).query)
         if query['url'] == ['*.example.com']:
-            return ['<html>provider error</html>']
-        return ['https://example.com/path']
+            return cdx_response('<html>provider error</html>')
+        return cdx_response('https://example.com/path')
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = waybackarchive.SearchWaybackarchive('example.com', limit=1)
@@ -280,6 +286,68 @@ async def test_process_keeps_an_earlier_failure_when_a_later_pattern_reaches_the
     assert await search.get_hostnames() == {'example.com'}
     assert report.status == 'failed'
     assert report.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('status', 'expected_status', 'expected_stop_reason'),
+    [
+        (403, 'failed', 'access-denied'),
+        (429, 'rate-limited', 'http-429'),
+        (500, 'failed', 'http-500'),
+    ],
+)
+async def test_process_reports_http_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    expected_status: str,
+    expected_stop_reason: str,
+) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        return [FetcherResponse('provider detail', status, {})]
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = waybackarchive.SearchWaybackarchive('example.com')
+
+    report = await search.process()
+
+    assert await search.get_hostnames() == set()
+    assert report == SourceExecutionReport(expected_status, expected_stop_reason)
+
+
+@pytest.mark.asyncio
+async def test_process_reports_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[None]:
+        return [None]
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = waybackarchive.SearchWaybackarchive('example.com')
+
+    report = await search.process()
+
+    assert await search.get_hostnames() == set()
+    assert report == SourceExecutionReport('failed', 'transport-error')
+
+
+@pytest.mark.asyncio
+async def test_process_keeps_partial_results_when_a_later_page_transport_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse | None]:
+        query = parse_qs(urlparse(urls[0]).query)
+        if query['url'] == ['*.example.com']:
+            if 'resumeKey' in query:
+                return [None]
+            return cdx_response('https://api.example.com/path\n\nnext-page')
+        return cdx_response('')
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = waybackarchive.SearchWaybackarchive('example.com')
+
+    report = await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert report == SourceExecutionReport('failed', 'transport-error')
 
 
 pytestmark = pytest.mark.provider_contract('waybackarchive')

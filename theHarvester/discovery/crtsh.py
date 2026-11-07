@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class SearchCrtsh:
     RUNTIME_SECONDS = 60.0
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word
         self.data: list = []
         self.proxy = False
