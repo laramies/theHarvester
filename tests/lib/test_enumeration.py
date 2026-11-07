@@ -4,12 +4,11 @@ from dataclasses import fields
 import pytest
 
 from theHarvester.lib.enumeration import (
-    DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
-    DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_LIMIT,
     DEFAULT_SOURCE_WORKERS,
     EnumerationOptions,
 )
+from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT, DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS
 from theHarvester.lib.source_catalog import selected_action_names
 
 
@@ -19,8 +18,8 @@ def test_enumeration_options_fill_the_shared_execution_defaults() -> None:
     assert options == EnumerationOptions(domain='example.com', source='crtsh')
     assert options.limit == DEFAULT_RESULT_LIMIT == 500
     assert options.start == 0
-    assert options.dns_recursive_query_limit == DEFAULT_DNS_RECURSIVE_QUERY_LIMIT is None
-    assert options.dns_recursive_runtime_seconds == DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS is None
+    assert options.dns_recursive_query_limit == DEFAULT_RECURSIVE_DNS_QUERY_LIMIT is None
+    assert options.dns_recursive_runtime_seconds == DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS is None
     assert options.source_workers == DEFAULT_SOURCE_WORKERS == 3
 
 
@@ -105,3 +104,20 @@ def test_enumeration_options_preserve_virtual_host_inputs() -> None:
 )
 def test_virtual_host_inputs_select_the_direct_action(selection: dict[str, object]) -> None:
     assert selected_action_names(selection) == ('vhost',)
+
+
+def test_enumeration_options_freeze_sequence_inputs_for_every_tuple_field() -> None:
+    tuple_fields = {field.name for field in fields(EnumerationOptions) if isinstance(field.default, tuple)}
+    options = EnumerationOptions.from_namespace(
+        Namespace(domain='example.com', dns_resolvers=['192.0.2.1'], vhost_candidates=['admin.example.com'])
+    )
+
+    assert tuple_fields == {'dns_resolvers', 'vhost_candidates'}
+    assert options.dns_resolvers == ('192.0.2.1',)
+    assert options.vhost_candidates == ('admin.example.com',)
+    hash(options)  # frozen options stay hashable
+
+
+def test_enumeration_options_require_a_domain() -> None:
+    with pytest.raises(AttributeError):
+        EnumerationOptions.from_namespace(Namespace(source='crtsh'))
