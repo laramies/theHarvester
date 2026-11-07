@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from collections import Counter
 from pathlib import Path
 
@@ -32,6 +33,7 @@ SOURCE_PROVIDER_LINKS = {
     'criminalip': 'https://www.criminalip.io/',
     'crt-name': 'https://crt.name/',
     'crtsh': 'https://crt.sh/',
+    'darkeye': 'https://darkeye.io/',
     'dehashed': 'https://dehashed.com/',
     'dnsdb': 'https://docs.domaintools.com/api/dnsdb/',
     'dnsdumpster': 'https://dnsdumpster.com/',
@@ -54,14 +56,19 @@ SOURCE_PROVIDER_LINKS = {
     'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
     'netlas': 'https://netlas.io/',
     'onyphe': 'https://www.onyphe.io/',
+    'otilabs': 'https://oti-labs.com/domain-intelligence-api',
     'otx': 'https://otx.alienvault.com/',
+    'outcrawl': 'https://outcrawl.ai/',
     'pentesttools': 'https://pentest-tools.com/',
+    'profundis': 'https://docs.profundis.io/api/subdomain-enumeration/',
     'projectdiscovery': 'https://chaos.projectdiscovery.io/',
     'rapiddns': 'https://rapiddns.io/',
     'robtex': 'https://www.robtex.com/',
     'rocketreach': 'https://rocketreach.co/',
+    'scanmalware': 'https://scanmalware.com/',
     'securityscorecard': 'https://securityscorecard.com/',
     'securityTrails': 'https://securitytrails.com/',
+    'serply': 'https://serply.io/',
     'sherlockeye': 'https://sherlockeye.io/',
     'shodan': 'https://www.shodan.io/',
     'shodanInternetDB': 'https://internetdb.shodan.io/',
@@ -154,7 +161,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 60
+    assert len(declared) == 66
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)
@@ -420,6 +427,15 @@ def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
     assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
+
+
+def test_installation_verifies_every_packaged_console_command() -> None:
+    scripts = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['scripts']
+    installation = Path('docs/wiki/Installation.md').read_text(encoding='utf-8')
+
+    for command in scripts:
+        assert f'`{command}`' in installation
+        assert f'uv run {command} --help' in installation or f'uv run {command} -h' in installation
 
 
 def test_operator_docs_cover_portable_database_export() -> None:

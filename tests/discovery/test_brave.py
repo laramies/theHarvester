@@ -8,7 +8,7 @@ import pytest
 from theHarvester.discovery import bravesearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.configuration import InMemoryCredentialAdapter
-from theHarvester.lib.core import FetcherResponse, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 
@@ -460,3 +460,47 @@ async def test_brave_reports_provider_offset_boundary_as_truncation_when_unlimit
 
 
 pytestmark = pytest.mark.provider_contract('brave')
+
+
+@pytest.mark.asyncio
+async def test_brave_collects_with_in_memory_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    request_headers: list[dict[str, str]] = []
+
+    async def fetch(*_args: Any, headers: dict[str, str], **_kwargs: Any) -> FetcherResponse:
+        request_headers.append(headers)
+        return FetcherResponse(
+            {
+                'query': {'more_results_available': False},
+                'web': {
+                    'results': [
+                        {
+                            'title': 'Documentation',
+                            'description': 'Example documentation',
+                            'url': 'https://docs.example.com',
+                        }
+                    ]
+                },
+            },
+            200,
+            {},
+        )
+
+    monkeypatch.setattr(AsyncFetcher, 'fetch_json', fetch)
+    search = bravesearch.SearchBrave(
+        'example.com',
+        1,
+        credential_adapter=InMemoryCredentialAdapter({'brave': {'key': 'memory-key'}}),
+    )
+
+    await search.process()
+
+    assert set(await search.get_hostnames()) == {'docs.example.com'}
+    assert request_headers
+    assert {headers['X-Subscription-Token'] for headers in request_headers} == {'memory-key'}
+
+
+def test_brave_rejects_empty_in_memory_credentials() -> None:
+    credentials = InMemoryCredentialAdapter({'brave': {'key': ''}})
+
+    with pytest.raises(MissingKey, match='Brave Search'):
+        bravesearch.SearchBrave('example.com', 1, credential_adapter=credentials)

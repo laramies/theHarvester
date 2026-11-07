@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added Outcrawl search discovery for subdomains and emails with API-key configuration in `api-keys.yaml`, one exact-match and one `site:` query per run of at most twenty hits each, each link counted once against the result limit while text from repeated links is still parsed, a second request sized to leave room for repeated links, and partial coverage reported when a twenty-hit window is full.
+- Added keyless ScanMalware passive subdomain discovery from its public scan archive: Certificate Transparency DNS names, hosts a browser contacted while the service rendered pages on the domain, and the hosts of archived scans. The operator limit bounds the requested certificate names and the distinct hostnames taken from archived scans, so repeated scans of one host do not use it up, and degraded or truncated provider coverage is reported as partial.
+- Added DarkEye breach discovery covering Have I Been Ransomed? and Breach House, with one optional key per product under `darkeye` in `api-keys.yaml` (either one is enough), returning one breach name per ransomware leak, data breach, access lead or stealer log indexed for the domain, labelled with the product and category of the record, with Have I Been Ransomed? page-number pagination driven by the provider's `has_next`, deduplication across pages and across the two products, Breach House records kept only when they belong to the domain, and the result limit bounding billed requests.
+- Added Serply search discovery for subdomains and emails with API-key configuration in `api-keys.yaml`, start-offset pagination bounded at ten pages per query, per-query link deduplication that stops a query once a page repeats the previous window, and client-side trimming because the provider treats `num` as an approximate cap.
 - Added JSMON passive subdomain discovery with API-key configuration in `api-keys.yaml`, automatic pagination, unlimited-result mode, and retained partial results when quota or rate limits stop collection.
 - Added target-scoped saved-run reporting through `harvest-report contributions` and `harvest-report targets`, with safe one-target defaults and explicit all-target aggregation.
 - Added read-only hostname comparisons through `harvest-report hostname-changes`, the REST API, and HarvestView. Comparisons require the same target and source list, retain incomplete source outcomes, and interpret saved DNS evidence without claiming current network state.
@@ -81,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed unused schedule-store helpers and action-yield reporting interfaces from the 5.0 development line; scheduler tests now use bulk dispatch reservations directly.
+- Removed the single-range `reverse_all_ips_in_range` Python helper. Use `reverse_ip_ranges((iprange,), callback, nameservers)`; see the 5.0 migration guide.
+- Removed API endpoint post-scan path-pattern logging, which did not contribute findings or perform further scanning.
 - Removed the unused legacy `-e`/`--dns-server` CLI option and internal field; use `--dns-resolvers` to select resolver addresses.
 - Removed the unused legacy SecurityTrails parser that stripped leading `www.` labels outside the shared hostname-scope boundary.
 - Removed the mutable runtime takeover fingerprint download and silent handwritten fallback rules.
@@ -101,7 +108,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, hardened Shodan InternetDB and SubdomainFinder C99 evidence boundaries, and removed Windvane's implicit DNS-guessing fallback while retaining its provider-backed source.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Standardized BuiltWith and every other URL-producing adapter on `get_urls()`.
-- Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
 - Made ProjectDiscovery reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
 - Made Fofa reject incomplete credentials, report HTTP and malformed-response failures, normalize scoped hosts, and discard invalid IP values.
 - Made FullHunt reject empty credentials, report HTTP and malformed-response failures, and isolate malformed host records.
@@ -113,7 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed GitLab public discovery scope normalization, request bounds, and default-branch README requests.
 - Fixed Baidu, Mojeek, and Yahoo page-response separation and Brave missing-credential reporting, with offline web-search provider contract coverage.
 - Fixed DNS candidate validation to omit names without usable A, AAAA, or CNAME evidence, normalize and deduplicate IPv4, IPv6, and canonical-name records, and preserve the existing `Checker.check()` and `DnsForce.run()` return shape.
-- Fixed REST `/query` requests with a filename so they no longer fail with an unbound local value and HTTP 500 response ([c358df80](https://github.com/laramies/theHarvester/commit/c358df80)).
 - Fixed Brave result limits, malformed Mojeek responses, DuckDuckGo provider and parser boundaries, Baidu verification status reporting, invalid Robtex reverse lookups, and transient crt.sh failures ([72c0d9eb](https://github.com/laramies/theHarvester/commit/72c0d9eb), [48be3ccd](https://github.com/laramies/theHarvester/commit/48be3ccd), [6e7945b5](https://github.com/laramies/theHarvester/commit/6e7945b5), [48f959cc](https://github.com/laramies/theHarvester/commit/48f959cc), [1d56dc78](https://github.com/laramies/theHarvester/commit/1d56dc78), [e8d5278b](https://github.com/laramies/theHarvester/commit/e8d5278b), [26adbc49](https://github.com/laramies/theHarvester/commit/26adbc49)).
 - Fixed IntelX hostname, email, IP, and URL result normalization and kept its routing source-scoped ([281f6d45](https://github.com/laramies/theHarvester/commit/281f6d45)).
 - Fixed Wayback resume-key encoding and made page-limit truncation visible without discarding collected results ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9)).

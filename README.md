@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 60 discovery sources</strong></summary>
+<summary><strong>View all 66 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -240,6 +240,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
 | [`crt-name`](https://crt.name/) | subdomains only | P0 | No |
 | [`crtsh`](https://crt.sh/) | subdomains only | P0 | No |
+| [`darkeye`](https://darkeye.io/) | breaches only | P0 | Required |
 | [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
 | [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains only | P0 | Required |
 | [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
@@ -262,14 +263,19 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
 | [`netlas`](https://netlas.io/) | subdomains only | P0 | Required |
 | [`onyphe`](https://www.onyphe.io/) | subdomains, ips, asns | P0 | Required |
+| [`otilabs`](https://oti-labs.com/domain-intelligence-api) | subdomains, ips | P0 | Required |
 | [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
+| [`outcrawl`](https://outcrawl.ai/) | subdomains, emails | P0 | Required |
 | [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
+| [`profundis`](https://docs.profundis.io/api/subdomain-enumeration/) | subdomains only | P0 | Required |
 | [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains only | P0 | Required |
 | [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
 | [`robtex`](https://www.robtex.com/) | ips only | P0 | No |
 | [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
+| [`scanmalware`](https://scanmalware.com/) | subdomains only | P0 | No |
 | [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
 | [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
+| [`serply`](https://serply.io/) | subdomains, emails | P0 | Required |
 | [`sherlockeye`](https://sherlockeye.io/) | subdomains, emails, ips | P0 | Required |
 | [`shodan`](https://www.shodan.io/) | subdomains only | P1 | Required |
 | [`shodanct`](https://ctl.shodan.io/) | subdomains only | P0 | No |

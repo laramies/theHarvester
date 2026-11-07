@@ -77,7 +77,7 @@ class SearchShodan:
             if _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None:
                 raise ValueError('Shodan discovery target must be a hostname')
         self.key = Core.shodan_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('Shodan')
         self.tracker: OrderedDict[str, HostResult | str] = OrderedDict()
         self.shodan_hosts: dict[str, ShodanHostObservation] = {}

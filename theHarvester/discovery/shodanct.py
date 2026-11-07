@@ -49,24 +49,8 @@ class SearchShodanCt:
                 malformed = True
                 continue
             normalized = normalize_scoped_hostname(candidate.strip().removeprefix('*.'), self.word)
-            if normalized is None:
-                continue
-            labels = normalized.split('.')
-            if (
-                len(normalized) > 253
-                or not normalized.isascii()
-                or any(
-                    not label
-                    or len(label) > 63
-                    or not label[0].isalnum()
-                    or not label[-1].isalnum()
-                    or not all(character.isalnum() or character == '-' for character in label)
-                    for label in labels
-                )
-            ):
-                malformed = True
-                continue
-            self.hostnames.add(normalized)
+            if normalized is not None:
+                self.hostnames.add(normalized)
 
         if malformed:
             logger.info('Shodan CT ignored malformed hostname data')

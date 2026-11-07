@@ -22,7 +22,17 @@ if TYPE_CHECKING:
 async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import contextlib
+
     requests: list[dict[str, object]] = []
+    session_proxy: list[object] = []
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any):
+        session_proxy.append(kwargs.get('proxy'))
+        yield session
+
     projects = [
         {
             'id': 'group/project',
@@ -55,11 +65,11 @@ async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
     async def fake_fetch_all(
         urls: list[str] | set[str],
         headers: dict[str, str] | None = None,
-        proxy: bool = False,
+        session: object | None = None,
         **_kwargs: Any,
-    ) -> list[str]:
+    ) -> list[FetcherResponse]:
         url = next(iter(urls))
-        requests.append({'url': url, 'headers': headers, 'proxy': proxy})
+        requests.append({'url': url, 'headers': headers, 'session': session})
         responses = {
             'https://gitlab.com/api/v4/projects?search=example.test&per_page=100&page=1': json.dumps(projects),
             'https://gitlab.com/api/v4/projects/group%2Fproject/repository/files/README.md/raw?ref=feature%2Freadme': (
@@ -70,16 +80,18 @@ async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
         }
         if url not in responses:
             raise AssertionError(f'unexpected GitLab request: {url}')
-        return [responses[url]]
+        return [FetcherResponse(responses[url], 200, {})]
 
     monkeypatch.setattr(gitlabsearch.Core, 'get_user_agent', staticmethod(lambda: 'UA'))
+    monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = gitlabsearch.SearchGitlab('example.test')
 
     await search.process(proxy=True)
 
+    assert session_proxy == [True]
     assert requests == [
-        {'url': url, 'headers': {'User-agent': 'UA'}, 'proxy': True}
+        {'url': url, 'headers': {'User-agent': 'UA'}, 'session': session}
         for url in (
             'https://gitlab.com/api/v4/projects?search=example.test&per_page=100&page=1',
             'https://gitlab.com/api/v4/projects/group%2Fproject/repository/files/README.md/raw?ref=feature%2Freadme',
@@ -114,14 +126,14 @@ async def test_decoded_pages_are_accepted_without_silent_slicing(monkeypatch: py
     ]
     users = [{'public_email': f'user-{index}@example.test'} for index in range(1, 12)]
 
-    async def fake_fetch_all(urls: list[str] | set[str], **_kwargs: Any) -> list[object]:
+    async def fake_fetch_all(urls: list[str] | set[str], **_kwargs: Any) -> list[FetcherResponse]:
         url = next(iter(urls))
         if 'projects?search=example.test&' in url:
-            return [projects]
+            return [FetcherResponse(projects, 200, {})]
         if 'projects?search=*.example.test&' in url:
-            return [[]]
+            return [FetcherResponse([], 200, {})]
         if '/users?' in url:
-            return [users]
+            return [FetcherResponse(users, 200, {})]
         raise AssertionError(f'unexpected GitLab request: {url}')
 
     monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -207,6 +219,44 @@ async def test_unlimited_search_reports_gitlab_provider_bound(monkeypatch: pytes
 
     assert await search.process() == SourceExecutionReport('partial', 'provider-limit')
     assert await search.get_hostnames() == {'api.example.test'}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('status', 'expected_report'),
+    [
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+    ],
+)
+async def test_unlimited_search_reports_gitlab_http_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    expected_report: SourceExecutionReport,
+) -> None:
+    async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
+        assert kwargs['include_metadata'] is True
+        return [FetcherResponse({'message': 'provider detail'}, status, {})]
+
+    monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = gitlabsearch.SearchGitlab('example.test', None)
+
+    assert await search.process() == expected_report
+    assert await search.get_hostnames() == set()
+    assert await search.get_emails() == set()
+
+
+@pytest.mark.asyncio
+async def test_unlimited_search_reports_gitlab_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[None]:
+        return [None]
+
+    monkeypatch.setattr(gitlabsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = gitlabsearch.SearchGitlab('example.test', None)
+
+    assert await search.process() == SourceExecutionReport('failed', 'transport-error')
+    assert await search.get_hostnames() == set()
+    assert await search.get_emails() == set()
 
 
 @pytest.mark.asyncio

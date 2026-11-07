@@ -4,6 +4,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -178,16 +179,10 @@ class SearchBuiltWith:
             return SourceExecutionReport('failed', error.reason)
         except Exception:
             return SourceExecutionReport('failed', 'transport-error')
-        if not isinstance(response, FetcherResponse):
-            return SourceExecutionReport('failed', 'transport-error')
-        if response.status in {401, 403}:
-            return SourceExecutionReport('failed', 'access-denied')
-        if response.status == 429:
-            return SourceExecutionReport('rate-limited', 'http-429')
-        if not 200 <= response.status < 300 or not isinstance(response.body, dict):
-            reason = f'http-{response.status}' if not 200 <= response.status < 300 else 'invalid-response'
-            return SourceExecutionReport('failed', reason)
-        if not isinstance(response.body.get('Results'), list):
+        if failure := provider_http_error(response):
+            return SourceExecutionReport(*failure)
+        assert isinstance(response, FetcherResponse)
+        if not isinstance(response.body, dict) or not isinstance(response.body.get('Results'), list):
             return SourceExecutionReport('failed', 'invalid-response')
 
         self.tech_stack = response.body

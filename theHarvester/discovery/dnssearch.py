@@ -38,8 +38,6 @@ class DnsForce:
         self.stop_reason: str | None = None
         self.query_error_count = 0
         self.query_error_types: set[str] = set()
-        # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
-        # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
         with DNS_NAMES.open('r') as file:
             self.list = file.readlines()
@@ -90,14 +88,14 @@ def serialize_ip_range(ip: str, netmask: str = '24') -> str:
         A range such as ``192.168.0.0/24``, or an empty string for invalid input.
 
     """
-    __ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
-    if __ip_matches and __ip_matches.groups():
-        __ip = __ip_matches.group(1)
-        __netmask = netmask or __ip_matches.group(3)
-        if __ip and __netmask:
-            return str(IPv4Network(f'{__ip}/{__netmask}', strict=False))
-        elif __ip:
-            return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
+    ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
+    if ip_matches and ip_matches.groups():
+        matched_ip = ip_matches.group(1)
+        matched_netmask = netmask or ip_matches.group(3)
+        if matched_ip and matched_netmask:
+            return str(IPv4Network(f'{matched_ip}/{matched_netmask}', strict=False))
+        if matched_ip:
+            return str(IPv4Network(f'{matched_ip}/24', strict=False))
 
     # invalid input ip
     return ''
@@ -269,29 +267,6 @@ async def reverse_ip_ranges(
     if close_error is not None:
         raise close_error
     return ReverseDNSResult(request_count, completed_count, stop_reason)
-
-
-async def reverse_all_ips_in_range(
-    iprange: str,
-    callback: Callable,
-    nameservers: list[str] | None = None,
-    error_types: set[str] | None = None,
-) -> None:
-    """Resolve usable addresses from one range with the shared bounds.
-
-    Parameters
-    ----------
-    iprange: str
-        An IPv4 range formatted as ``x.x.x.x/y``. Host bits are ignored.
-    callback: Callable
-        Function called for each resolved hostname.
-    nameservers: list[str] | None
-        DNS servers to query.
-    error_types: set[str] | None
-        Sink for unexpected resolver or transport error names.
-
-    """
-    await reverse_ip_ranges((iprange,), callback, nameservers, error_types)
 
 
 #####################################################################

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import math
 import re
 from ipaddress import ip_address
@@ -13,6 +14,8 @@ from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchZoomEye:
@@ -211,7 +214,8 @@ class SearchZoomEye:
                 proxy=proxy,
             ) as session:
                 await self.do_search(session)
-        except Exception:
+        except Exception as error:
+            logger.info('ZoomEye search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
         return self._report
 

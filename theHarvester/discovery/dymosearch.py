@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
@@ -5,6 +6,8 @@ from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDymo:
@@ -22,7 +25,7 @@ class SearchDymo:
 
     VERIFY_URL = 'https://api.tpeoficial.com/v1/private/secure/verify'
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str) -> None:
         self.word = word
         self.totalhosts: set[str] = set()
         self.results: dict[str, Any] = {}
@@ -92,5 +95,6 @@ class SearchDymo:
         self.proxy = proxy
         try:
             return await self.do_search()
-        except Exception:
+        except Exception as error:
+            logger.info('Dymo search failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')

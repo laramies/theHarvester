@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from urllib.parse import urlencode, urlsplit
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -19,11 +19,11 @@ class SearchCommoncrawl:
 
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
-    MAX_RECORDS_PER_REQUEST = 50
+    PAGE_RESPONSE_BYTES = 16 * 1024 * 1024
     MAX_CONSECUTIVE_PAGE_ERRORS = 3
     RUNTIME_SECONDS = 120.0
 
-    def __init__(self, word, limit: int | None = 500) -> None:
+    def __init__(self, word: str, limit: int | None = 500) -> None:
         self.word = word.lower().rstrip('.')
         self.limit = max(limit, 0) if limit is not None else None
         self.totalhosts: set[str] = set()
@@ -106,15 +106,12 @@ class SearchCommoncrawl:
                 selected.append(entry)
         return selected
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session) -> SourceExecutionReport | None:
         try:
             if self.limit == 0:
                 return None
 
-            headers = {'User-agent': Core.get_user_agent()}
-            catalog_response = await AsyncFetcher.fetch_all(
-                [f'{self.hostname}/collinfo.json'], headers=headers, proxy=self.proxy, json=True
-            )
+            catalog_response = await AsyncFetcher.fetch_all([f'{self.hostname}/collinfo.json'], session=session, json=True)
             if not catalog_response or not isinstance(catalog_response[0], list) or not catalog_response[0]:
                 logger.error('Common Crawl API error: invalid index catalog')
                 return SourceExecutionReport('failed', 'invalid-catalog')
@@ -149,7 +146,7 @@ class SearchCommoncrawl:
                     try:
                         query_had_errors = False
                         count_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "showNumPages": "true"})}'
-                        count_response = await AsyncFetcher.fetch_all([count_url], headers=headers, proxy=self.proxy)
+                        count_response = await AsyncFetcher.fetch_all([count_url], session=session)
                         count_payload = json.loads(count_response[0])
                         page_count = count_payload.get('pages') if isinstance(count_payload, dict) else None
                         if isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 0:
@@ -158,27 +155,49 @@ class SearchCommoncrawl:
                         first_page = 0
                         consecutive_page_errors = 0
                         while first_page < page_count:
-                            remaining = (
-                                self.limit - len(self.totalhosts) if self.limit is not None else self.MAX_RECORDS_PER_REQUEST
-                            )
-                            if self.limit is not None and remaining == 0:
-                                return None
-                            page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page, "limit": min(remaining, self.MAX_RECORDS_PER_REQUEST)})}'
+                            # CDX limit truncates captures inside a ZipNum page, so it can
+                            # hide later distinct hosts. Read the bounded page in full.
+                            page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page})}'
                             first_page += 1
-                            responses = await AsyncFetcher.fetch_all([page_url], headers=headers, proxy=self.proxy)
-                            if not isinstance(responses, list) or not responses:
-                                raise ValueError('invalid page response')
                             try:
-                                response = responses[0]
-                                if not response:
+                                try:
+                                    response = await AsyncFetcher.fetch_text(
+                                        page_url,
+                                        session=session,
+                                        request_timeout=60,
+                                        response_byte_limit=self.PAGE_RESPONSE_BYTES,
+                                    )
+                                except ResponseStreamError as error:
+                                    if error.reason == 'response-limit':
+                                        return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'response-limit')
+                                    raise ValueError(error.reason) from error
+                                if response.status == 404:
+                                    try:
+                                        empty_payload = json.loads(response.body)
+                                    except ValueError:
+                                        empty_payload = None
+                                    if (
+                                        isinstance(empty_payload, dict)
+                                        and empty_payload.get('error') == f'No Captures found for: {query}'
+                                    ):
+                                        query_succeeded = True
+                                        break
+                                if not 200 <= response.status < 300:
+                                    raise ValueError(f'http-{response.status}')
+                                payload = response.body
+                                if not payload:
                                     raise ValueError('empty page response')
-                                for record in self._safe_parse_json_lines(response):
+                                for record in self._safe_parse_json_lines(payload):
                                     if isinstance(record, dict):
                                         domain = self._extract_domain_from_url(record.get('url', ''))
                                         if domain.endswith(f'.{self.word}') or domain == self.word:
                                             self.totalhosts.add(domain)
                                             if self.limit is not None and len(self.totalhosts) >= self.limit:
-                                                return None
+                                                return (
+                                                    SourceExecutionReport('partial', 'query-errors')
+                                                    if failed_queries or query_had_errors
+                                                    else None
+                                                )
                             except ValueError as error:
                                 message = str(error)
                             except Exception:
@@ -216,8 +235,13 @@ class SearchCommoncrawl:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            async with asyncio.timeout(self.RUNTIME_SECONDS):
-                return await self.do_search()
+            async with (
+                AsyncFetcher.open_session(
+                    headers={'User-agent': Core.get_user_agent()}, proxy=self.proxy, request_timeout=60
+                ) as session,
+                asyncio.timeout(self.RUNTIME_SECONDS),
+            ):
+                return await self.do_search(session)
         except TimeoutError:
             logger.info(
                 f'Common Crawl runtime limit reached after {self.RUNTIME_SECONDS:g}s; preserved {len(self.totalhosts)} hosts'

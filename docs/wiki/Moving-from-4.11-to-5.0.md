@@ -110,12 +110,22 @@ For example, change `-b chaos` to `-b projectdiscovery`, or `"sources":["chaos"]
 
 Review `-b all` and capability selections before reuse. `all` now selects every P0 source and excludes P1/P2 sources; explicitly select other sources only when their activity is authorized. Capability selectors such as `emails` choose sources and retain all result types those sources return. For a fixed provider set, enumerate its names.
 
+## Update direct Python PTR calls
+
+Python callers using `theHarvester.discovery.dnssearch.reverse_all_ips_in_range` must switch to `reverse_ip_ranges`. Pass the range in a tuple:
+
+```python
+result = await dnssearch.reverse_ip_ranges((iprange,), callback, nameservers)
+```
+
+The callback and optional resolver arguments keep their meaning. The replacement returns a `ReverseDNSResult` with `request_count`, `completed_count`, and `stop_reason`; callers that previously ignored the return value may continue to do so. Request and runtime bounds can stop collection before every address is queried, so inspect `stop_reason` when completeness matters. This remains P1 DNS interaction and requires an explicitly authorized range.
+
 ## Use the right result format
 
 For new automation, use JSONL for one finalized run or SQLite for several runs.
 
 - JSONL starts with a summary record, followed by normalized findings. It retains terminal evidence status, source and action outcomes, provenance, and supported structured observations.
-- SQLite is the local multi-run store and the portable bulk import and export format. Portable exports omit queue, cancellation, and worker state.
+- SQLite is the local multi-run store and the portable bulk import and export format. The original local database and a portable export serve different purposes: portable exports contain finalized run evidence, but omit queue, cancellation, worker, and legacy-observation state.
 - JSON and XML remain available as grouped compatibility reports, but they do not contain the full evidence model.
 
 JSONL findings use the canonical result types `hostname`, `ip`, and `url`. Use each finding's `sources` and `actions` fields for attribution.
@@ -128,6 +138,21 @@ jq -r 'select(.type == "url") | .value' report.jsonl
 
 Read [Results and Local Data](Results-and-Local-Data) for the complete evidence and portability contract.
 
+### Preserve 4.11 SQLite history before upgrading
+
+Before starting 5.0 against an existing 4.11 database, make a separate backup of the **original local** `~/.local/share/theHarvester/stash.sqlite` (or your configured database path). Stop processes writing to it and use SQLite's backup facility to make a consistent copy; check that the backup opens before upgrading. Keep this backup under your normal sensitive-data retention policy. A 5.0 portable database export is not a backup of all local history.
+
+During normal database initialization, 5.0 retains the released five-column `results` rows (`domain`, `resource`, `type`, `find_date`, `source`) in the local `legacy_observations` table. Some legacy type names are normalized during migration. These rows lack the run ID, time window, producer outcomes, and complete source/action provenance required for finalized evidence records, so initialization does not invent runs or convert their `domain` values into saved-run targets. An upgraded database containing only these rows can therefore show no targets in `harvest-report targets`; that does **not** mean the rows were lost. Contributions and hostname comparisons likewise operate on finalized runs, not legacy observations.
+
+To inspect retained rows, use a read-only SQLite client against the **local database**. For example, if the `sqlite3` command is installed:
+
+```bash
+sqlite3 -readonly "$HOME/.local/share/theHarvester/stash.sqlite" \
+  'SELECT domain, resource, kind, discovered_on, source FROM legacy_observations;'
+```
+
+Keep any extracted data private. There is no built-in conversion of these runless rows into finalized runs or JSONL: the missing run context cannot be recovered from those columns alone. JSONL run export and portable SQLite export do not include them; retain the original database or its backup if you need this history. See [Results and Local Data](Results-and-Local-Data#legacy-411-observations) for the storage and export boundary.
+
 ## Report on saved runs
 
 Use `harvest-report` to list targets, summarize source contributions, or compare hostnames:
@@ -139,6 +164,8 @@ harvest-report hostname-changes --target example.test
 ```
 
 Contribution reports are target-scoped by default. A database with several targets requires `--target`, `--run-id`, or an intentional `--all-targets` aggregate. Hostname comparisons use the latest earlier run with the same canonical target and exact source list.
+
+These reports use finalized runs. If `targets` is empty immediately after upgrading a 4.11 database, check the retained local legacy rows as described [above](Moving-from-4.11-to-5.0#preserve-411-sqlite-history-before-upgrading) before assuming the database has no history.
 
 The comparison labels describe saved evidence:
 
@@ -176,6 +203,7 @@ These labels do not express importance or confidence. Check [Responsible Use and
 - Replace legacy REST routes and fields, then poll runs and parse normalized results.
 - Replace `-e` / `--dns-server` and removed source names; review what `all` selects.
 - Move new automation to JSONL, SQLite, or the authenticated API.
+- Back up the original 4.11 SQLite database before opening it with 5.0; keep that copy for legacy observations excluded from portable exports.
 - Use `hostname`, `ip`, and `url` to filter JSONL findings.
 - Use `harvest-report` for saved-run contributions and hostname comparisons.
 - Treat hostname differences as saved evidence, not current network truth.

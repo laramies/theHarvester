@@ -122,6 +122,7 @@ def test_source_factories_match_the_catalog() -> None:
         ('leakix', 'theHarvester.lib.source_runner.leakix.SearchLeakix', ('example.test',), {}),
         ('leaklookup', 'theHarvester.lib.source_runner.leaklookup.SearchLeakLookup', ('example.test',), {}),
         ('mojeek', 'theHarvester.lib.source_runner.mojeek.SearchMojeek', ('example.test', 25), {}),
+        ('profundis', 'theHarvester.lib.source_runner.profundis.SearchProfundis', ('example.test', 25), {}),
         ('netlas', 'theHarvester.lib.source_runner.netlas.SearchNetlas', ('example.test', 25), {}),
         ('onyphe', 'theHarvester.lib.source_runner.onyphe.SearchOnyphe', ('example.test', 25), {}),
         ('otx', 'theHarvester.lib.source_runner.otxsearch.SearchOtx', ('example.test',), {}),

@@ -113,18 +113,6 @@ class Checker:
         self.query_error_count = 0
         self.query_error_types: set[str] = set()
 
-    # @staticmethod
-    # async def query(host, resolver) -> Tuple[str, Any]:
-    #     try:
-    #         result = await resolver.gethostbyname(host, socket.AF_INET)
-    #         addresses = result.addresses
-    #         if addresses == [] or addresses is None or result is None:
-    #             return f"{host}:", tuple()
-    #         else:
-    #             return f"{host}:{', '.join(map(str, addresses))}", addresses
-    #     except Exception:
-    #         return f"{host}", tuple()
-
     async def resolve_host(self, host: str, resolver: aiodns.DNSResolver) -> tuple[str, HostDnsRecords] | None:
         record_types = ('A', 'AAAA', 'CNAME')
         results = await asyncio.gather(
