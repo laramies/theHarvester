@@ -45,6 +45,8 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
+from theHarvester.lib.legacy_reports import iter_xml_report, json_report
+from theHarvester.lib.legacy_reports import sanitize_for_xml as sanitize_for_xml  # re-exported for existing importers
 from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
@@ -80,7 +82,7 @@ from theHarvester.lib.virtual_host import (
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Iterable
+    from collections.abc import Awaitable, Callable, Iterable, Sequence
 
     from theHarvester.lib.network_evidence import NetworkObservation
     from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
@@ -109,16 +111,6 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
     return addresses
 
 
-def sanitize_for_xml(text: str) -> str:
-    """Sanitize text for safe inclusion in XML documents."""
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    text = text.replace("'", '&apos;')
-    return text
-
-
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
@@ -133,18 +125,8 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-async def start(
-    rest_args: argparse.Namespace | EnumerationOptions | None = None,
-    *,
-    completed_result_checkpoint: Callable[[CompletedResult], Awaitable[None]] | None = None,
-    persist_completed_result: bool = False,
-    include_breaches: bool = False,
-    return_completed_result: bool = False,
-    return_dns_brute_result: bool = False,
-    result_database: str | Path | None = None,
-    completed_run_id: UUID | None = None,
-):
-    """Run one CLI or transport-neutral enumeration request."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the theHarvester command-line parser."""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
     )
@@ -378,7 +360,989 @@ async def start(
             f'{", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
         ),
     )
+    return parser
 
+
+async def run_virtual_host_discovery(
+    *,
+    scope: str,
+    vhost_candidates: tuple[str, ...],
+    vhost_endpoint: str,
+    vhost_limits: VirtualHostLimits,
+    insecure: bool,
+    harvested_hosts: Iterable[str],
+    all_ip: list[str],
+    vhost_observations: list[VirtualHostObservation],
+    confirmed_hostnames: Callable[[], list[str]],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> None:
+    """Probe harvested endpoints for virtual hosts in ``scope`` and record the vhost action.
+
+    Distinct observations are added to ``vhost_observations``. On cancellation
+    the partial execution is recorded and ``persist_failure`` runs before the
+    error propagates; other failures are recorded as a scan error.
+    """
+    vhost_started = time.perf_counter()
+    output_logger.info('[*] Virtual-host discovery is P2 direct interaction (active reconnaissance).')
+    harvested_action_hosts = {
+        observation.value
+        for execution in action_executions
+        for observation in execution.observations
+        if observation.kind == 'hostname'
+    }
+    harvested_action_ips = {
+        observation.value for execution in action_executions for observation in execution.observations if observation.kind == 'ip'
+    }
+    harvested_candidates = {
+        normalized
+        for candidate in (*harvested_hosts, *harvested_action_hosts)
+        if (normalized := normalize_scoped_hostname(candidate, scope)) and normalized != scope
+    }
+    candidates = tuple(sorted(harvested_candidates | set(vhost_candidates)))
+    addresses = tuple(
+        sorted(
+            _normalize_ip_addresses((*all_ip, *harvested_action_ips)),
+            key=lambda value: (ip_address(value).version, int(ip_address(value))),
+        )
+    )
+    logger.info(
+        'Virtual-host discovery prepared: endpoints=%d; candidates=%d; request-limit=%d; '
+        'runtime=%.2fs; timeout=%.2fs; concurrency=%d',
+        1 if vhost_endpoint else len(addresses) * 2,
+        len(candidates),
+        vhost_limits.request_limit,
+        vhost_limits.runtime_seconds,
+        vhost_limits.timeout_seconds,
+        vhost_limits.concurrency,
+    )
+    try:
+        sweep = await discover_harvested_virtual_hosts(
+            scope=scope,
+            addresses=addresses,
+            candidates=candidates,
+            limits=vhost_limits,
+            insecure=insecure,
+            endpoint_override=vhost_endpoint,
+        )
+    except asyncio.CancelledError as error:
+        if isinstance(error, VirtualHostDiscoveryCancelled):
+            vhost_observations.extend(
+                observation for observation in error.result.observations if observation.classification == 'distinct'
+            )
+        confirmed_vhosts = confirmed_hostnames()
+        action_executions.append(
+            ActionExecution.finish(
+                action='vhost',
+                status='partial' if confirmed_vhosts else 'failed',
+                duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                groups={'hostname': confirmed_vhosts},
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+        await persist_failure()
+        raise
+    except Exception as error:
+        confirmed_vhosts = confirmed_hostnames()
+        action_executions.append(
+            ActionExecution.finish(
+                action='vhost',
+                status='partial' if confirmed_vhosts else 'failed',
+                duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                groups={'hostname': confirmed_vhosts},
+                error_type=type(error).__name__,
+                stop_reason='scan-error',
+            )
+        )
+        output_logger.info(f'[!] Virtual-host discovery failed: {type(error).__name__}')
+    else:
+        vhost_observations.extend(observation for observation in sweep.observations if observation.classification == 'distinct')
+        confirmed_vhosts = confirmed_hostnames()
+        if sweep.stop_reason in {'no-candidates', 'no-endpoints'}:
+            vhost_status: ExecutionStatus = 'skipped'
+        elif sweep.stop_reason in {'request-limit', 'runtime-limit'}:
+            vhost_status = 'partial'
+        elif sweep.scan_error_type or sweep.request_error_count or sweep.stop_reason in {'request-errors', 'scan-error'}:
+            vhost_status = 'partial' if confirmed_vhosts else 'failed'
+        else:
+            vhost_status = 'completed'
+        vhost_error_type = sweep.scan_error_type or next(iter(sweep.request_error_types), None)
+        action_executions.append(
+            ActionExecution.finish(
+                action='vhost',
+                status=vhost_status,
+                duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                groups={'hostname': confirmed_vhosts},
+                error_type=vhost_error_type,
+                stop_reason=sweep.stop_reason,
+            )
+        )
+        output_logger.info(
+            f'[*] Virtual hosts: confirmed={len(vhost_observations)}; '
+            f'candidate-endpoints={sweep.candidate_endpoint_count}/{sweep.total_candidate_endpoint_count}; '
+            f'endpoints={sweep.endpoint_count}/{sweep.total_endpoint_count}; requests={sweep.request_count}; '
+            f'stop={sweep.stop_reason}; elapsed={time.perf_counter() - vhost_started:.2f}s'
+        )
+        stop_hint = {
+            'no-candidates': 'No candidate hostnames were available; select hostname-producing sources or add --vhost-candidate.',
+            'no-endpoints': 'No literal-IP endpoints were available; select IP-producing sources, enable a DNS action, or use --vhost-endpoint.',
+            'request-limit': 'Coverage stopped at the request limit; raise --vhost-request-limit or narrow the scan.',
+            'request-errors': 'All requested coverage finished, but one or more requests failed.',
+            'runtime-limit': 'Coverage stopped at the runtime limit; raise --vhost-runtime-seconds or narrow the scan.',
+            'scan-error': 'Coverage stopped after an endpoint scan failed.',
+        }.get(sweep.stop_reason)
+        if stop_hint:
+            output_logger.info(f'[!] {stop_hint}')
+        for observation in vhost_observations:
+            output_logger.info(
+                f'{observation.hostname} at {observation.endpoint}: '
+                f'status={observation.status}; signals={",".join(observation.distinct_signals)}'
+            )
+
+
+async def run_screenshots(
+    *,
+    screenshot_dir: str,
+    word: str,
+    has_sources: bool,
+    dns_resolve_requested: bool,
+    resolved_hostnames: set[str],
+    all_hosts: list[str],
+    screenshot_artifacts: list[ArtifactReference],
+    screenshot_hostnames: set[str],
+    screenshot_ip_addresses: set[str],
+    action_executions: list[ActionExecution],
+    checkpoint: Callable[[], Awaitable[None]],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> None:
+    """Capture screenshots of reachable targets and record the screenshot action.
+
+    Artifacts and their subjects are added to the given collections, and
+    ``checkpoint`` runs once the action is recorded. On cancellation the partial
+    execution is recorded and ``persist_failure`` runs before the error propagates.
+    """
+    screenshot_started = time.perf_counter()
+    screen_shotter = ScreenShotter(screenshot_dir)
+
+    async def persist_screenshot_cancellation() -> None:
+        action_executions.append(
+            ActionExecution.finish(
+                action='screenshot',
+                status='partial' if screenshot_artifacts else 'failed',
+                duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                groups={},
+                artifacts=screenshot_artifacts,
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+        await persist_failure()
+
+    path_exists = screen_shotter.verify_path()
+    # Verify the path exists, if not create it or if user does not create it skips screenshot
+    if not path_exists:
+        action_executions.append(
+            ActionExecution.finish(
+                action='screenshot',
+                status='skipped',
+                duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                groups={},
+                stop_reason='path-unavailable',
+            )
+        )
+    else:
+        output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
+        output_logger.info('Filtering domains for ones we can reach')
+        if not has_sources:
+            unique_resolved_domains = resolved_hostnames | {word}
+        elif dns_resolve_requested:
+            unique_resolved_domains = resolved_hostnames
+        else:
+            # Technically not resolved in this case, which is not ideal
+            # You should always use dns resolve when doing screenshotting
+            output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
+            unique_resolved_domains = set(all_hosts)
+        reachable_targets: list[tuple[str, str]] = []
+        capture_error_types: set[str] = set()
+        if len(unique_resolved_domains) > 0:
+            # First filter out ones that didn't resolve
+            output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+
+            async def record_screenshot_artifact(subject: str, captured_url: str, screenshot_path: Path) -> None:
+                if not captured_url:
+                    capture_error_types.add('CaptureError')
+                    return
+                if not await anyio.Path(screenshot_path).is_file():
+                    capture_error_types.add('ArtifactMissing')
+                    return
+                raw_subject = subject.strip()
+                try:
+                    subject_value = str(ip_address(raw_subject))
+                    subject_kind: ResultKind = 'ip'
+                except ValueError:
+                    parsed_subject = urlsplit(
+                        raw_subject if raw_subject.startswith(('http://', 'https://')) else f'https://{raw_subject}'
+                    )
+                    if not parsed_subject.hostname:
+                        capture_error_types.add('InvalidScreenshotURL')
+                        return
+                    subject_value = parsed_subject.hostname.lower()
+                    try:
+                        subject_value = str(ip_address(subject_value))
+                        subject_kind = 'ip'
+                    except ValueError:
+                        subject_kind = 'hostname'
+                recorded_subjects = screenshot_ip_addresses if subject_kind == 'ip' else screenshot_hostnames
+                if subject_value in recorded_subjects:
+                    return
+                recorded_subjects.add(subject_value)
+                screenshot_bytes = await anyio.Path(screenshot_path).read_bytes()
+                screenshot_artifacts.append(
+                    ArtifactReference(
+                        kind='screenshot',
+                        subject_kind=subject_kind,
+                        subject_value=subject_value,
+                        path=str(Path(Path(screen_shotter.output).name) / screenshot_path.name),
+                        media_type='image/png',
+                        size_bytes=len(screenshot_bytes),
+                        sha256=hashlib.sha256(screenshot_bytes).hexdigest(),
+                        created_at=datetime.now(UTC),
+                    )
+                )
+
+            try:
+                reachable_targets = await screen_shotter.reachable_targets(sorted(unique_resolved_domains))
+                if reachable_targets:
+                    await screen_shotter.capture_targets(reachable_targets, record_screenshot_artifact)
+            except asyncio.CancelledError:
+                await persist_screenshot_cancellation()
+                raise
+            except Exception as ee:
+                capture_error_types.add(type(ee).__name__)
+                output_logger.info(f'An exception has occurred while taking screenshots: {ee}')
+        if not unique_resolved_domains:
+            screenshot_status: ExecutionStatus = 'skipped'
+            screenshot_stop_reason = 'no-input'
+        elif not reachable_targets:
+            screenshot_status = 'failed'
+            screenshot_stop_reason = 'no-reachable-targets'
+        elif capture_error_types and screenshot_artifacts:
+            screenshot_status = 'partial'
+            screenshot_stop_reason = 'capture-errors'
+        elif capture_error_types or (reachable_targets and not screenshot_artifacts):
+            screenshot_status = 'failed'
+            screenshot_stop_reason = 'capture-errors'
+        else:
+            screenshot_status = 'completed'
+            screenshot_stop_reason = None
+        action_executions.append(
+            ActionExecution.finish(
+                action='screenshot',
+                status=screenshot_status,
+                duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                groups={},
+                artifacts=screenshot_artifacts,
+                error_type=next(iter(sorted(capture_error_types)), None),
+                stop_reason=screenshot_stop_reason,
+            )
+        )
+        await checkpoint()
+        end = time.perf_counter()
+        # There is probably an easier way to do this
+        total = int(end - screenshot_started)
+        mon, sec = divmod(total, 60)
+        hr, mon = divmod(mon, 60)
+        total_time = f'{hr:02d}:{mon:02d}:{sec:02d}' if hr else f'{mon:02d}:{sec:02d}'
+        output_logger.info(f'Finished taking screenshots in {total_time} seconds')
+
+
+async def run_shodan_search(
+    *,
+    host_ip: list[str],
+    use_proxy: bool,
+    asn_attributions: list[AsnAttributionObservation],
+    total_asns: list[str],
+    shodan_action_hosts: set[str],
+    shodanres: list[dict[str, object]],
+    record_shodan_hosts: Callable[[Iterable[ShodanHostObservation]], tuple[ShodanHostObservation, ...]],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> None:
+    """Look up each address in ``host_ip`` on Shodan and record the shodan action.
+
+    Host evidence goes through ``record_shodan_hosts``, and ASN attributions,
+    host IPs and legacy report rows are added to the given collections. On
+    cancellation the execution is recorded and ``persist_failure`` runs before
+    the error propagates.
+    """
+    shodan_started = time.perf_counter()
+    shodan_error_types: set[str] = set()
+    shodan_asns: set[str] = set()
+    shodan_ips: set[str] = set()
+    shodan_proxy_transport_failed = False
+
+    def has_shodan_action_evidence() -> bool:
+        return bool(shodan_action_hosts or shodan_asns or shodan_ips)
+
+    output_logger.info('[*] Searching Shodan. ')
+    try:
+        with AsyncFetcher.proxy_scope(use_proxy and bool(host_ip)) as shodan_proxy:
+            shodan_search = None
+            if host_ip:
+                try:
+                    shodan_search = shodansearch.SearchShodan()
+                except Exception as init_error:
+                    shodan_error_types.add(type(init_error).__name__)
+                    output_logger.info(f'[SHODAN-error] Error starting Shodan: {type(init_error).__name__}')
+            if shodan_search is not None:
+                async with AsyncFetcher.open_session(proxy=shodan_proxy) as shodan_session:
+                    for ip in host_ip:
+                        try:
+                            output_logger.info('\tSearching for ' + ip)
+                            shodandict = await shodan_search.search_ip(ip, session=shodan_session)
+                            get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
+                            if get_asn_attributions is not None:
+                                collected_attributions = await get_asn_attributions()
+                                current_attributions = {
+                                    attribution for attribution in collected_attributions if attribution.subject_value == ip
+                                }
+                                asn_attributions.extend(current_attributions)
+                                shodan_asns.update(attribution.asn for attribution in current_attributions)
+                                shodan_ips.update(attribution.subject_value for attribution in current_attributions)
+                                total_asns.extend(attribution.asn for attribution in current_attributions)
+                            if shodan_search.error_type:
+                                shodan_error_types.add(shodan_search.error_type)
+
+                            shodan_result = shodandict.get(ip)
+                            # Check if the result is a string (error message)
+                            if isinstance(shodan_result, str):
+                                output_logger.info(f'{ip}: {shodan_result}')
+
+                            # Process the results if it's a dictionary
+                            if isinstance(shodan_result, dict):
+                                current_hosts = record_shodan_hosts(
+                                    host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
+                                )
+                                shodan_action_hosts.update(host.ip for host in current_hosts)
+                                shodanres.extend({'value': host.ip, 'details': host.to_details()} for host in current_hosts)
+                                output_logger.info('\n')
+                        except Exception as ip_error:
+                            shodan_error_types.add(type(ip_error).__name__)
+                            output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
+                            continue
+            shodan_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
+    except asyncio.CancelledError:
+        action_executions.append(
+            ActionExecution.finish(
+                action='shodan',
+                status='partial' if has_shodan_action_evidence() else 'failed',
+                duration_ms=(time.perf_counter() - shodan_started) * 1000,
+                groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+        await persist_failure()
+        raise
+    except Exception as action_error:
+        shodan_error_types.add(type(action_error).__name__)
+    shodan_status: ExecutionStatus = 'completed'
+    shodan_stop_reason = None
+    if shodan_proxy_transport_failed:
+        shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
+        shodan_stop_reason = 'transport-error'
+    elif not host_ip:
+        shodan_status = 'skipped'
+        shodan_stop_reason = 'no-input'
+    elif shodan_error_types:
+        shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
+        shodan_stop_reason = 'target-errors'
+    action_executions.append(
+        ActionExecution.finish(
+            action='shodan',
+            status=shodan_status,
+            duration_ms=(time.perf_counter() - shodan_started) * 1000,
+            groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
+            error_type=next(iter(sorted(shodan_error_types)), None),
+            stop_reason=shodan_stop_reason,
+        )
+    )
+
+
+async def run_routeviews(
+    *,
+    word: str,
+    asns: set[str],
+    asn_attributions: Iterable[AsnAttributionObservation],
+    use_proxy: bool,
+    network_prefixes: set[str],
+    total_asns: list[str],
+    network_observations: list[NetworkObservation],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> None:
+    """Enrich ``asns`` and the target's network seeds through RouteViews and record the action.
+
+    Prefixes, origin ASNs and observations are added to the given collections.
+    On cancellation the partial result is recorded and ``persist_failure`` runs
+    before the error propagates.
+    """
+    routeviews_started = time.perf_counter()
+    routeviews_network_seeds = {
+        attribution.subject_value
+        for attribution in asn_attributions
+        if attribution.producer_kind == 'source' and attribution.subject_kind == 'ip'
+    }
+    try:
+        routeviews_network_seeds.add(
+            str(ip_network(word.strip(), strict=False)) if '/' in word else str(ip_address(word.strip()))
+        )
+    except ValueError:
+        pass
+
+    def record_routeviews_result(result: RouteViewsResult) -> None:
+        network_prefixes.update(result.prefixes)
+        total_asns.extend(result.origin_asns)
+        network_observations.extend(result.observations)
+        action_executions.append(
+            ActionExecution.finish(
+                action='routeviews',
+                status=result.status,
+                duration_ms=(time.perf_counter() - routeviews_started) * 1000,
+                groups={'asn': result.origin_asns, 'prefix': result.prefixes},
+                error_type=result.error_type,
+                stop_reason=result.stop_reason,
+            )
+        )
+
+    try:
+        with AsyncFetcher.proxy_scope(use_proxy) as routeviews_proxy:
+            routeviews_result = await enrich_routeviews(
+                asns,
+                routeviews_network_seeds,
+                api_key=Core.routeviews_key(),
+                proxy=routeviews_proxy,
+            )
+    except RouteViewsCancelled as error:
+        record_routeviews_result(error.result)
+        await persist_failure()
+        raise
+    record_routeviews_result(routeviews_result)
+    if routeviews_result.prefixes:
+        print_section(
+            f'\n[*] RouteViews prefixes found: {len(routeviews_result.prefixes)}',
+            routeviews_result.prefixes,
+            '--------------------',
+        )
+    output_logger.info(
+        '[*] RouteViews: '
+        f'prefixes={len(routeviews_result.prefixes)}; origins={len(routeviews_result.origin_asns)}; '
+        f'requests={routeviews_result.request_count}; errors={routeviews_result.error_count}; '
+        f'status={routeviews_result.status}; stop={routeviews_result.stop_reason or "complete"}'
+    )
+
+
+async def run_dns_brute(
+    *,
+    word: str,
+    nameservers: list[str],
+    full: list[str],
+    all_hosts: list[str],
+    resolved_hostnames: set[str],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> list[str]:
+    """Brute-force subdomains of ``word`` and record the dns-brute action.
+
+    In-scope results are added to ``full``, ``all_hosts`` and
+    ``resolved_hostnames``, and the resolver's ``host:ip`` pairs are returned.
+    On failure or cancellation the execution is recorded and ``persist_failure``
+    runs before the error propagates.
+    """
+    dns_brute_started = time.perf_counter()
+    output_logger.info('\n[*] Starting DNS brute force.')
+    try:
+        dns_force = dnssearch.DnsForce(word, nameservers, verbose=True)
+        resolved_pair, hosts, ips = await dns_force.run()
+    except asyncio.CancelledError:
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-brute',
+                status='failed',
+                duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+                groups={},
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+        await persist_failure()
+        raise
+    except Exception as error:
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-brute',
+                status='failed',
+                duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+                groups={},
+                error_type=type(error).__name__,
+            )
+        )
+        await persist_failure()
+        raise
+    resolved_hostnames.update(hosts)
+    normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
+    normalized_brute_ips = _normalize_ip_addresses(ips)
+    temp = set()
+    for host in resolved_pair:
+        if ':' in host:
+            # TODO parse addresses and sort them as they are IPs
+            subdomain, addr = host.split(':', 1)
+            if subdomain.endswith(word):
+                # Append to full, so it's within JSON/XML at the end if output file is requested
+                if host not in full:
+                    full.append(host)
+                    temp.add(subdomain + ':' + addr)
+                if host not in all_hosts:
+                    all_hosts.append(host)
+                continue
+        if host.endswith(word):
+            if host not in full:
+                full.append(host)
+                temp.add(host)
+            if host not in all_hosts:
+                all_hosts.append(host)
+    output_logger.info('\n[*] Hosts found after DNS brute force:')
+    for sub in temp:
+        output_logger.info(sub)
+    dns_brute_error_count = getattr(dns_force, 'query_error_count', 0)
+    dns_brute_error_types: set[str] = set(getattr(dns_force, 'query_error_types', set()))
+    dns_brute_stop_reason = getattr(dns_force, 'stop_reason', None)
+    dns_brute_status: ExecutionStatus = 'completed'
+    if dns_brute_stop_reason is not None:
+        dns_brute_status = 'partial' if getattr(dns_force, 'completed_count', 0) else 'failed'
+    elif dns_brute_error_count:
+        dns_brute_status = 'partial'
+    action_executions.append(
+        ActionExecution.finish(
+            action='dns-brute',
+            status=dns_brute_status,
+            duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+            groups={'hostname': normalized_brute_hosts, 'ip': normalized_brute_ips},
+            error_type=next(iter(sorted(dns_brute_error_types)), None),
+            stop_reason=dns_brute_stop_reason or ('query-errors' if dns_brute_error_count else None),
+        )
+    )
+    return resolved_pair
+
+
+async def run_takeover_check(
+    *,
+    hosts: list[str],
+    word: str,
+    nameservers: Sequence[str],
+    use_proxy: bool,
+    takeover_outcomes: list[TakeoverCandidateOutcome],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> dict[str, dict[str, object]]:
+    """Run the subdomain takeover check over ``hosts`` and record the takeover action.
+
+    Replaces ``takeover_outcomes`` with the scanner's outcomes and returns their
+    details by hostname. On failure or cancellation the execution is recorded
+    and ``persist_failure`` runs before the error propagates.
+    """
+    takeover_results: dict[str, dict[str, object]] = {}
+    takeover_started = time.perf_counter()
+    output_logger.info('\n[*] Performing subdomain takeover check')
+    output_logger.info('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
+    if not hosts:
+        action_executions.append(
+            ActionExecution.finish(
+                action='takeover',
+                status='skipped',
+                duration_ms=(time.perf_counter() - takeover_started) * 1000,
+                groups={},
+                stop_reason='no-input',
+            )
+        )
+    else:
+        search_take: takeover.TakeoverScanner | None = None
+
+        async def collect_takeover_evidence(*, best_effort: bool = False) -> tuple[dict[str, dict[str, object]], set[str]]:
+            if search_take is None:
+                return {}, set()
+            try:
+                outcomes = await search_take.get_takeover_outcomes()
+            except asyncio.CancelledError, Exception:
+                if not best_effort:
+                    raise
+                return {}, set()
+            takeover_outcomes[:] = list(outcomes)
+            return ({outcome.hostname: outcome.to_details() for outcome in outcomes}, {item.hostname for item in outcomes})
+
+        try:
+            search_take = takeover.TakeoverScanner(
+                hosts,
+                target=word,
+                nameservers=nameservers,
+            )
+            await search_take.process(proxy=use_proxy)
+            takeover_results, takeover_evidence = await collect_takeover_evidence()
+        except (asyncio.CancelledError, Exception) as error:
+            takeover_results, takeover_evidence = await collect_takeover_evidence(best_effort=True)
+            action_executions.append(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='partial' if takeover_evidence else 'failed',
+                    duration_ms=(time.perf_counter() - takeover_started) * 1000,
+                    groups={'takeover': takeover_evidence},
+                    error_type=type(error).__name__,
+                    stop_reason='cancelled' if isinstance(error, asyncio.CancelledError) else 'scan-error',
+                )
+            )
+            await persist_failure()
+            raise
+        assert search_take is not None
+        takeover_request_errors = search_take.request_error_count
+        takeover_dns_errors = search_take.dns_error_count
+        takeover_inconclusive = getattr(search_take, 'inconclusive_count', 0)
+        takeover_scan_error = search_take.scan_error_type
+        takeover_status_value: ExecutionStatus = 'completed'
+        if takeover_scan_error:
+            takeover_status_value = 'partial' if takeover_evidence else 'failed'
+        elif takeover_inconclusive:
+            takeover_status_value = 'failed' if takeover_inconclusive == search_take.candidate_count else 'partial'
+        elif takeover_request_errors or takeover_dns_errors:
+            takeover_status_value = 'partial'
+        action_executions.append(
+            ActionExecution.finish(
+                action='takeover',
+                status=takeover_status_value,
+                duration_ms=(time.perf_counter() - takeover_started) * 1000,
+                groups={'takeover': takeover_evidence},
+                error_type=takeover_scan_error or next(iter(sorted(search_take.request_error_types)), None),
+                stop_reason=(
+                    search_take.stop_reason
+                    or ('request-errors' if takeover_request_errors else 'query-errors' if takeover_dns_errors else None)
+                ),
+            )
+        )
+    return takeover_results
+
+
+async def run_dns_lookup(
+    *,
+    word: str,
+    host_ip: Iterable[str],
+    nameservers: list[str] | None,
+    dnsrev: list[str],
+    full: list[str],
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> None:
+    """Reverse-resolve the /24 ranges around ``host_ip`` and record the dns-lookup action.
+
+    In-scope names are appended to ``dnsrev`` and ``full``. When the lookup
+    fails or is cancelled, the execution is recorded and ``persist_failure``
+    runs before the error propagates.
+    """
+    dns_lookup_started = time.perf_counter()
+    dns_lookup_error_types: set[str] = set()
+    output_logger.info('\n[*] Starting active queries for DNSLookup.')
+
+    reverse_ranges: set[str] = set()
+    for entry in host_ip:
+        __ip_range = dnssearch.serialize_ip_range(ip=entry, netmask='24')
+        if __ip_range:
+            reverse_ranges.add(__ip_range)
+    for iprange in sorted(reverse_ranges):
+        output_logger.info('\n[*] Performing reverse lookup on ' + iprange)
+
+    reverse_result = None
+    try:
+        if reverse_ranges:
+            reverse_result = await dnssearch.reverse_ip_ranges(
+                tuple(sorted(reverse_ranges)),
+                dnssearch.generate_postprocessing_callback(target=word, local_results=dnsrev, overall_results=full),
+                nameservers=nameservers,
+                error_types=dns_lookup_error_types,
+            )
+    except (asyncio.CancelledError, Exception) as error:
+        normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-lookup',
+                status='partial' if normalized_reverse_hosts else 'failed',
+                duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
+                groups={'hostname': normalized_reverse_hosts},
+                error_type=type(error).__name__,
+                stop_reason='cancelled' if isinstance(error, asyncio.CancelledError) else None,
+            )
+        )
+        await persist_failure()
+        raise
+    output_logger.info('\n[*] Hosts found after reverse lookup (in target domain):')
+    output_logger.info('--------------------------------------------------------')
+    for xh in dnsrev:
+        output_logger.info(xh)
+    normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
+    dns_lookup_status: ExecutionStatus = 'completed'
+    dns_lookup_stop_reason = None
+    if not reverse_ranges:
+        dns_lookup_status = 'skipped'
+        dns_lookup_stop_reason = 'no-input'
+    elif reverse_result is not None and reverse_result.stop_reason is not None:
+        dns_lookup_status = 'partial' if reverse_result.completed_count else 'failed'
+        dns_lookup_stop_reason = reverse_result.stop_reason
+    elif dns_lookup_error_types:
+        dns_lookup_status = 'partial'
+        dns_lookup_stop_reason = 'query-errors'
+    action_executions.append(
+        ActionExecution.finish(
+            action='dns-lookup',
+            status=dns_lookup_status,
+            duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
+            groups={'hostname': normalized_reverse_hosts},
+            error_type=next(iter(sorted(dns_lookup_error_types)), None),
+            stop_reason=dns_lookup_stop_reason,
+        )
+    )
+
+
+async def run_api_scan(
+    *,
+    domain: str,
+    wordlist_path: str,
+    use_proxy: bool,
+    action_executions: list[ActionExecution],
+    persist_failure: Callable[[], Awaitable[None]],
+) -> list[str]:
+    """Run the API endpoint scan action and return the discovered URLs.
+
+    Appends the action's execution to ``action_executions``. On cancellation
+    the partial execution is recorded and ``persist_failure`` runs before the
+    ``CancelledError`` propagates.
+    """
+    discovered_urls: list[str] = []
+    api_scan_started = time.perf_counter()
+    api_scanner = None
+    api_proxy_transport_failed = False
+
+    def collect_api_action_groups(
+        scanner: api_endpoints.SearchApiEndpoints | None,
+        *,
+        best_effort: bool = False,
+    ) -> tuple[set[str], set[str], dict[ResultKind, Iterable[str]]]:
+        endpoints: set[str] = set()
+        interesting: set[str] = set()
+
+        def collect(getter: Callable[[], Iterable[str]]) -> set[str]:
+            if not best_effort:
+                return set(getter())
+            try:
+                return set(getter())
+            except Exception:
+                return set()
+
+        if scanner is not None:
+            endpoints = collect(scanner.get_found_endpoints)
+            interesting = collect(scanner.get_interesting_endpoints)
+            if best_effort:
+                endpoints.update(interesting)
+        groups: dict[ResultKind, Iterable[str]] = {'url': endpoints | interesting}
+        return endpoints, interesting, groups
+
+    try:
+        # Define a default wordlist if none is specified
+        wordlist = wordlist_path or str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
+
+        if not await anyio.Path(wordlist).exists():
+            output_logger.info(f'\n[!] Wordlist not found: {wordlist}')
+            output_logger.info('Creating a basic API wordlist for scanning...')
+            # Create a default simple API endpoint list
+            basic_endpoints = [
+                '/api',
+                '/api/v1',
+                '/api/v2',
+                '/api/v3',
+                '/graphql',
+                '/swagger',
+                '/docs',
+                '/redoc',
+                '/swagger-ui',
+                '/openapi.json',
+                '/api-docs',
+                '/rest',
+                '/ws',
+                '/swagger-ui.html',
+                '/health',
+                '/status',
+                '/metrics',
+                '/actuator',
+                '/debug',
+            ]
+            temp_wordlist = str(DATA_DIR / 'wordlists' / 'temp_api_endpoints.txt')
+            async with await anyio.open_file(temp_wordlist, 'w') as f:
+                await f.write('\n'.join(basic_endpoints))
+            wordlist = temp_wordlist
+            output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
+
+        output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
+        with AsyncFetcher.proxy_scope(use_proxy) as api_proxy_selected:
+            api_proxy = AsyncFetcher._resolve_proxy(api_proxy_selected)[0]
+            if wordlist_path and api_proxy is not None:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=domain,
+                    wordlist=wordlist,
+                    exact_paths=True,
+                    proxy=api_proxy,
+                )
+            elif wordlist_path:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=domain,
+                    wordlist=wordlist,
+                    exact_paths=True,
+                )
+            elif api_proxy is not None:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=domain,
+                    wordlist=wordlist,
+                    proxy=api_proxy,
+                )
+            else:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=domain,
+                    wordlist=wordlist,
+                )
+            await api_scanner.do_search()
+            api_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
+
+        # Print results
+        endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
+        output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
+        for endpoint in sorted(endpoints_found):
+            output_logger.info(f'    - {endpoint}')
+
+        output_logger.info(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
+        for endpoint in sorted(interesting_endpoints):
+            output_logger.info(f'    - {endpoint}')
+
+        auth_required = api_scanner.get_auth_required()
+        output_logger.info(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
+        for endpoint in sorted(auth_required):
+            output_logger.info(f'    - {endpoint}')
+
+        api_versions = api_scanner.get_api_versions()
+        output_logger.info(f'\n[*] Detected API versions: {len(api_versions)}')
+        for version in sorted(api_versions):
+            output_logger.info(f'    - {version}')
+
+        rate_limits = api_scanner.get_rate_limits()
+        output_logger.info(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
+        for endpoint, info in sorted(rate_limits.items()):
+            output_logger.info(f'    - {endpoint} ({info.method})')
+
+        methods = api_scanner.get_methods()
+        output_logger.info(f'\n[*] HTTP methods used: {", ".join(sorted(methods))}')
+
+        status_codes = api_scanner.get_status_codes()
+        output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, sorted(status_codes)))}')
+
+        if endpoints_found or interesting_endpoints:
+            discovered_urls.extend(sorted(endpoints_found | interesting_endpoints))
+
+        api_scan_error = api_scanner.scan_error_type
+        api_request_errors = api_scanner.request_error_count
+        scanner_stop_reason = getattr(api_scanner, 'stop_reason', None)
+        api_scan_status: ExecutionStatus = 'completed'
+        api_error_type = None
+        api_stop_reason = None
+        if api_proxy_transport_failed:
+            api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+            api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+            api_stop_reason = 'transport-error'
+        elif api_scan_error:
+            api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+            api_error_type = api_scan_error
+            api_stop_reason = 'scan-error'
+        elif scanner_stop_reason in {'request-limit', 'runtime-limit'}:
+            api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+            api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+            api_stop_reason = scanner_stop_reason
+        elif api_request_errors:
+            api_scan_status = 'partial'
+            api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+            api_stop_reason = 'request-errors'
+        elif rate_limits:
+            api_scan_status = 'rate-limited'
+            api_stop_reason = 'rate-limited'
+        action_executions.append(
+            ActionExecution.finish(
+                action='api-scan',
+                status=api_scan_status,
+                duration_ms=(time.perf_counter() - api_scan_started) * 1000,
+                groups=api_action_groups,
+                error_type=api_error_type,
+                stop_reason=api_stop_reason,
+            )
+        )
+
+        if api_stop_reason is None:
+            output_logger.info('\n[+] API scanning completed successfully.')
+        else:
+            output_logger.info(f'\n[!] API scanning stopped with reason: {api_stop_reason}.')
+
+    except asyncio.CancelledError:
+        if not any(execution.action == 'api-scan' for execution in action_executions):
+            _endpoints, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
+            action_executions.append(
+                ActionExecution.finish(
+                    action='api-scan',
+                    status='partial' if any(api_action_groups.values()) else 'failed',
+                    duration_ms=(time.perf_counter() - api_scan_started) * 1000,
+                    groups=api_action_groups,
+                    error_type='CancelledError',
+                    stop_reason='cancelled',
+                )
+            )
+        await persist_failure()
+        raise
+    except Exception as error:
+        endpoints_found, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
+        if endpoints_found:
+            discovered_urls.extend(sorted(endpoints_found))
+        if not any(execution.action == 'api-scan' for execution in action_executions):
+            action_executions.append(
+                ActionExecution.finish(
+                    action='api-scan',
+                    status='partial' if any(api_action_groups.values()) else 'failed',
+                    duration_ms=(time.perf_counter() - api_scan_started) * 1000,
+                    groups=api_action_groups,
+                    error_type=type(error).__name__,
+                    stop_reason='scan-error',
+                )
+            )
+        if isinstance(error, MissingKey):
+            output_logger.info('\n[!] API endpoint scanning could not start because a required key is missing.')
+        else:
+            output_logger.info(f'\n[!] API endpoint scanning failed with {type(error).__name__}.')
+            output_logger.info('    Continuing with the rest of the scan...')
+    return discovered_urls
+
+
+async def start(
+    rest_args: argparse.Namespace | EnumerationOptions | None = None,
+    *,
+    completed_result_checkpoint: Callable[[CompletedResult], Awaitable[None]] | None = None,
+    persist_completed_result: bool = False,
+    include_breaches: bool = False,
+    return_completed_result: bool = False,
+    return_dns_brute_result: bool = False,
+    result_database: str | Path | None = None,
+    completed_run_id: UUID | None = None,
+):
+    """Run one CLI or transport-neutral enumeration request."""
     dnsbrute: tuple[bool, bool]
     # indicates this from the rest API
     if rest_args:
@@ -388,7 +1352,7 @@ async def start(
         filename = args.filename
         dnsbrute = (args.dns_brute, return_dns_brute_result) if args.dns_brute else (args.dns_brute, False)
     else:
-        args = EnumerationOptions.from_namespace(parser.parse_args())
+        args = EnumerationOptions.from_namespace(build_parser().parse_args())
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
         configure_logging(verbose=args.verbose)
@@ -501,7 +1465,6 @@ async def start(
     full: list = []
     resolved_hostnames: set[str] = set()
     reported_host_ip_pairs: set[tuple[str, str]] = set()
-    ips: list = []
     host_ip: list = []
     limit: int | None = args.limit
     routeviews_enabled = args.routeviews
@@ -526,7 +1489,6 @@ async def start(
     all_servers: list[str] = []
     all_cms: list[str] = []
     all_analytics: list[str] = []
-    endpoints_found: set[str] = set()
     screenshot_artifacts: list[ArtifactReference] = []
     screenshot_hostnames: set[str] = set()
     screenshot_ip_addresses: set[str] = set()
@@ -1108,13 +2070,13 @@ async def start(
         print_section(f'\n[*] URLs found: {len(all_urls)}', all_urls, '--------------------')
         all_urls = sorted_unique(all_urls)
 
+    ip_list: list[str] = []
     if len(all_ip) == 0:
         output_logger.info('\n[*] No IPs found.')
     else:
         output_logger.info('\n[*] IPs found: ' + str(len(all_ip)))
         output_logger.info('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = []
         for ip in set(all_ip):
             try:
                 ip = ip.strip()
@@ -1178,80 +2140,19 @@ async def start(
 
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
-        dns_brute_started = time.perf_counter()
-        output_logger.info('\n[*] Starting DNS brute force.')
-        try:
-            dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
-            resolved_pair, hosts, ips = await dns_force.run()
-        except asyncio.CancelledError:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='dns-brute',
-                    status='failed',
-                    duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
-                    groups={},
-                    error_type='CancelledError',
-                    stop_reason='cancelled',
-                )
-            )
+
+        async def persist_failed_dns_brute() -> None:
             await checkpoint_completed_result()
             await persist_result(finish_completed_result())
-            raise
-        except Exception as error:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='dns-brute',
-                    status='failed',
-                    duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
-                    groups={},
-                    error_type=type(error).__name__,
-                )
-            )
-            await checkpoint_completed_result()
-            await persist_result(finish_completed_result())
-            raise
-        resolved_hostnames.update(hosts)
-        normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
-        normalized_brute_ips = _normalize_ip_addresses(ips)
-        temp = set()
-        for host in resolved_pair:
-            if ':' in host:
-                # TODO parse addresses and sort them as they are IPs
-                subdomain, addr = host.split(':', 1)
-                if subdomain.endswith(word):
-                    # Append to full, so it's within JSON/XML at the end if output file is requested
-                    if host not in full:
-                        full.append(host)
-                        temp.add(subdomain + ':' + addr)
-                    if host not in all_hosts:
-                        all_hosts.append(host)
-                    continue
-            if host.endswith(word):
-                if host not in full:
-                    full.append(host)
-                    temp.add(host)
-                if host not in all_hosts:
-                    all_hosts.append(host)
-        output_logger.info('\n[*] Hosts found after DNS brute force:')
-        for sub in temp:
-            output_logger.info(sub)
-        dns_brute_error_count = getattr(dns_force, 'query_error_count', 0)
-        dns_brute_error_types: set[str] = set(getattr(dns_force, 'query_error_types', set()))
-        dns_brute_stop_reason = getattr(dns_force, 'stop_reason', None)
-        dns_brute_status: ExecutionStatus = 'completed'
-        if dns_brute_stop_reason is not None:
-            dns_brute_status = 'partial' if getattr(dns_force, 'completed_count', 0) else 'failed'
-        elif dns_brute_error_count:
-            dns_brute_status = 'partial'
-        action_executions.append(
-            ActionExecution.finish(
-                action='dns-brute',
-                status=dns_brute_status,
-                duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
-                groups={'hostname': normalized_brute_hosts, 'ip': normalized_brute_ips},
-                error_type=next(iter(sorted(dns_brute_error_types)), None),
-                stop_reason=dns_brute_stop_reason or ('query-errors' if dns_brute_error_count else None),
-            )
+
+        resolved_pair = await run_dns_brute(
+            word=word,
+            nameservers=final_dns_resolver_list,
+            full=full,
+            all_hosts=all_hosts,
+            resolved_hostnames=resolved_hostnames,
+            action_executions=action_executions,
+            persist_failure=persist_failed_dns_brute,
         )
         await checkpoint_completed_result()
         # Preserve the dedicated utility response after retaining its completed evidence.
@@ -1260,45 +2161,8 @@ async def start(
             return resolved_pair
 
     if routeviews_enabled:
-        routeviews_started = time.perf_counter()
-        routeviews_asns = {explicit_asn_target} if explicit_asn_target is not None else set()
-        routeviews_network_seeds = {
-            attribution.subject_value
-            for attribution in asn_attributions
-            if attribution.producer_kind == 'source' and attribution.subject_kind == 'ip'
-        }
-        try:
-            routeviews_network_seeds.add(
-                str(ip_network(word.strip(), strict=False)) if '/' in word else str(ip_address(word.strip()))
-            )
-        except ValueError:
-            pass
 
-        def record_routeviews_result(result: RouteViewsResult) -> None:
-            network_prefixes.update(result.prefixes)
-            total_asns.extend(result.origin_asns)
-            network_observations.extend(result.observations)
-            action_executions.append(
-                ActionExecution.finish(
-                    action='routeviews',
-                    status=result.status,
-                    duration_ms=(time.perf_counter() - routeviews_started) * 1000,
-                    groups={'asn': result.origin_asns, 'prefix': result.prefixes},
-                    error_type=result.error_type,
-                    stop_reason=result.stop_reason,
-                )
-            )
-
-        try:
-            with AsyncFetcher.proxy_scope(use_proxy) as routeviews_proxy:
-                routeviews_result = await enrich_routeviews(
-                    routeviews_asns,
-                    routeviews_network_seeds,
-                    api_key=Core.routeviews_key(),
-                    proxy=routeviews_proxy,
-                )
-        except RouteViewsCancelled as error:
-            record_routeviews_result(error.result)
+        async def persist_cancelled_routeviews() -> None:
             cancelled_result = finish_completed_result()
             try:
                 if completed_result_checkpoint is not None and cancelled_result is not None:
@@ -1307,309 +2171,81 @@ async def start(
                 output_logger.info(f'[!] RouteViews cancellation checkpoint failed: {checkpoint_error}')
             finally:
                 await persist_result(cancelled_result)
-            raise
-        record_routeviews_result(routeviews_result)
-        if routeviews_result.prefixes:
-            print_section(
-                f'\n[*] RouteViews prefixes found: {len(routeviews_result.prefixes)}',
-                routeviews_result.prefixes,
-                '--------------------',
-            )
-        output_logger.info(
-            '[*] RouteViews: '
-            f'prefixes={len(routeviews_result.prefixes)}; origins={len(routeviews_result.origin_asns)}; '
-            f'requests={routeviews_result.request_count}; errors={routeviews_result.error_count}; '
-            f'status={routeviews_result.status}; stop={routeviews_result.stop_reason or "complete"}'
+
+        await run_routeviews(
+            word=word,
+            asns={explicit_asn_target} if explicit_asn_target is not None else set(),
+            asn_attributions=asn_attributions,
+            use_proxy=use_proxy,
+            network_prefixes=network_prefixes,
+            total_asns=total_asns,
+            network_observations=network_observations,
+            action_executions=action_executions,
+            persist_failure=persist_cancelled_routeviews,
         )
         await checkpoint_completed_result()
 
     # TakeOver Checking
     if takeover_status:
-        takeover_started = time.perf_counter()
-        output_logger.info('\n[*] Performing subdomain takeover check')
-        output_logger.info('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
-        if not all_hosts:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='takeover',
-                    status='skipped',
-                    duration_ms=(time.perf_counter() - takeover_started) * 1000,
-                    groups={},
-                    stop_reason='no-input',
-                )
-            )
-        else:
-            search_take: takeover.TakeoverScanner | None = None
 
-            async def collect_takeover_evidence(*, best_effort: bool = False) -> tuple[dict[str, dict[str, object]], set[str]]:
-                if search_take is None:
-                    return {}, set()
-                try:
-                    outcomes = await search_take.get_takeover_outcomes()
-                except asyncio.CancelledError, Exception:
-                    if not best_effort:
-                        raise
-                    return {}, set()
-                takeover_outcomes[:] = list(outcomes)
-                return ({outcome.hostname: outcome.to_details() for outcome in outcomes}, {item.hostname for item in outcomes})
+        async def persist_failed_takeover() -> None:
+            await persist_result(finish_completed_result())
 
-            try:
-                search_take = takeover.TakeoverScanner(
-                    all_hosts,
-                    target=word,
-                    nameservers=final_dns_resolver_list or DEFAULT_DNS_RESOLVERS,
-                )
-                await search_take.process(proxy=use_proxy)
-                takeover_results, takeover_evidence = await collect_takeover_evidence()
-            except (asyncio.CancelledError, Exception) as error:
-                takeover_results, takeover_evidence = await collect_takeover_evidence(best_effort=True)
-                action_executions.append(
-                    ActionExecution.finish(
-                        action='takeover',
-                        status='partial' if takeover_evidence else 'failed',
-                        duration_ms=(time.perf_counter() - takeover_started) * 1000,
-                        groups={'takeover': takeover_evidence},
-                        error_type=type(error).__name__,
-                        stop_reason='cancelled' if isinstance(error, asyncio.CancelledError) else 'scan-error',
-                    )
-                )
-                await persist_result(finish_completed_result())
-                raise
-            assert search_take is not None
-            takeover_request_errors = search_take.request_error_count
-            takeover_dns_errors = search_take.dns_error_count
-            takeover_inconclusive = getattr(search_take, 'inconclusive_count', 0)
-            takeover_scan_error = search_take.scan_error_type
-            takeover_status_value: ExecutionStatus = 'completed'
-            if takeover_scan_error:
-                takeover_status_value = 'partial' if takeover_evidence else 'failed'
-            elif takeover_inconclusive:
-                takeover_status_value = 'failed' if takeover_inconclusive == search_take.candidate_count else 'partial'
-            elif takeover_request_errors or takeover_dns_errors:
-                takeover_status_value = 'partial'
-            action_executions.append(
-                ActionExecution.finish(
-                    action='takeover',
-                    status=takeover_status_value,
-                    duration_ms=(time.perf_counter() - takeover_started) * 1000,
-                    groups={'takeover': takeover_evidence},
-                    error_type=takeover_scan_error or next(iter(sorted(search_take.request_error_types)), None),
-                    stop_reason=(
-                        search_take.stop_reason
-                        or ('request-errors' if takeover_request_errors else 'query-errors' if takeover_dns_errors else None)
-                    ),
-                )
-            )
+        takeover_results = await run_takeover_check(
+            hosts=all_hosts,
+            word=word,
+            nameservers=final_dns_resolver_list or DEFAULT_DNS_RESOLVERS,
+            use_proxy=use_proxy,
+            takeover_outcomes=takeover_outcomes,
+            action_executions=action_executions,
+            persist_failure=persist_failed_takeover,
+        )
         await checkpoint_action_result()
+
     # DNS reverse lookup
     dnsrev: list = []
+
+    async def persist_failed_dns_action() -> None:
+        await checkpoint_completed_result(extra_hostnames=dnsrev)
+        await persist_result(finish_completed_result(extra_hostnames=dnsrev))
+
     if dnslookup is True:
-        dns_lookup_started = time.perf_counter()
-        dns_lookup_error_types: set[str] = set()
-        output_logger.info('\n[*] Starting active queries for DNSLookup.')
-
-        reverse_ranges: set[str] = set()
-        for entry in host_ip:
-            __ip_range = dnssearch.serialize_ip_range(ip=entry, netmask='24')
-            if __ip_range:
-                reverse_ranges.add(__ip_range)
-        for iprange in sorted(reverse_ranges):
-            output_logger.info('\n[*] Performing reverse lookup on ' + iprange)
-
-        reverse_result = None
-        try:
-            if reverse_ranges:
-                reverse_result = await dnssearch.reverse_ip_ranges(
-                    tuple(sorted(reverse_ranges)),
-                    dnssearch.generate_postprocessing_callback(target=word, local_results=dnsrev, overall_results=full),
-                    nameservers=(final_dns_resolver_list or None),
-                    error_types=dns_lookup_error_types,
-                )
-        except (asyncio.CancelledError, Exception) as error:
-            normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
-            action_executions.append(
-                ActionExecution.finish(
-                    action='dns-lookup',
-                    status='partial' if normalized_reverse_hosts else 'failed',
-                    duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
-                    groups={'hostname': normalized_reverse_hosts},
-                    error_type=type(error).__name__,
-                    stop_reason='cancelled' if isinstance(error, asyncio.CancelledError) else None,
-                )
-            )
-            await checkpoint_completed_result(extra_hostnames=dnsrev)
-            await persist_result(finish_completed_result(extra_hostnames=dnsrev))
-            raise
-        output_logger.info('\n[*] Hosts found after reverse lookup (in target domain):')
-        output_logger.info('--------------------------------------------------------')
-        for xh in dnsrev:
-            output_logger.info(xh)
-        normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
-        dns_lookup_status: ExecutionStatus = 'completed'
-        dns_lookup_stop_reason = None
-        if not reverse_ranges:
-            dns_lookup_status = 'skipped'
-            dns_lookup_stop_reason = 'no-input'
-        elif reverse_result is not None and reverse_result.stop_reason is not None:
-            dns_lookup_status = 'partial' if reverse_result.completed_count else 'failed'
-            dns_lookup_stop_reason = reverse_result.stop_reason
-        elif dns_lookup_error_types:
-            dns_lookup_status = 'partial'
-            dns_lookup_stop_reason = 'query-errors'
-        action_executions.append(
-            ActionExecution.finish(
-                action='dns-lookup',
-                status=dns_lookup_status,
-                duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
-                groups={'hostname': normalized_reverse_hosts},
-                error_type=next(iter(sorted(dns_lookup_error_types)), None),
-                stop_reason=dns_lookup_stop_reason,
-            )
+        await run_dns_lookup(
+            word=word,
+            host_ip=host_ip,
+            nameservers=final_dns_resolver_list or None,
+            dnsrev=dnsrev,
+            full=full,
+            action_executions=action_executions,
+            persist_failure=persist_failed_dns_action,
         )
         await checkpoint_completed_result(extra_hostnames=dnsrev)
 
     if vhost_enabled:
-        vhost_started = time.perf_counter()
         assert vhost_limits is not None
-        output_logger.info('[*] Virtual-host discovery is P2 direct interaction (active reconnaissance).')
-        harvested_action_hosts = {
-            observation.value
-            for execution in action_executions
-            for observation in execution.observations
-            if observation.kind == 'hostname'
-        }
-        harvested_action_ips = {
-            observation.value
-            for execution in action_executions
-            for observation in execution.observations
-            if observation.kind == 'ip'
-        }
-        harvested_candidates = {
-            normalized
-            for candidate in (*all_hosts, *dnsrev, *harvested_action_hosts)
-            if (normalized := normalize_scoped_hostname(candidate, vhost_scope)) and normalized != vhost_scope
-        }
-        candidates = tuple(sorted(harvested_candidates | set(vhost_candidates)))
-        addresses = tuple(
-            sorted(
-                _normalize_ip_addresses((*all_ip, *harvested_action_ips)),
-                key=lambda value: (ip_address(value).version, int(ip_address(value))),
-            )
-        )
-        logger.info(
-            'Virtual-host discovery prepared: endpoints=%d; candidates=%d; request-limit=%d; '
-            'runtime=%.2fs; timeout=%.2fs; concurrency=%d',
-            1 if vhost_endpoint else len(addresses) * 2,
-            len(candidates),
-            vhost_limits.request_limit,
-            vhost_limits.runtime_seconds,
-            vhost_limits.timeout_seconds,
-            vhost_limits.concurrency,
-        )
-        try:
-            sweep = await discover_harvested_virtual_hosts(
-                scope=vhost_scope,
-                addresses=addresses,
-                candidates=candidates,
-                limits=vhost_limits,
-                insecure=args.vhost_insecure,
-                endpoint_override=vhost_endpoint,
-            )
-        except asyncio.CancelledError as error:
-            if isinstance(error, VirtualHostDiscoveryCancelled):
-                vhost_observations.extend(
-                    observation for observation in error.result.observations if observation.classification == 'distinct'
-                )
-            confirmed_vhosts = confirmed_virtual_hostnames()
-            action_executions.append(
-                ActionExecution.finish(
-                    action='vhost',
-                    status='partial' if confirmed_vhosts else 'failed',
-                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
-                    groups={'hostname': confirmed_vhosts},
-                    error_type='CancelledError',
-                    stop_reason='cancelled',
-                )
-            )
+
+        async def persist_cancelled_vhosts() -> None:
             await persist_result(finish_completed_result(extra_hostnames=dnsrev))
-            raise
-        except Exception as error:
-            confirmed_vhosts = confirmed_virtual_hostnames()
-            action_executions.append(
-                ActionExecution.finish(
-                    action='vhost',
-                    status='partial' if confirmed_vhosts else 'failed',
-                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
-                    groups={'hostname': confirmed_vhosts},
-                    error_type=type(error).__name__,
-                    stop_reason='scan-error',
-                )
-            )
-            output_logger.info(f'[!] Virtual-host discovery failed: {type(error).__name__}')
-        else:
-            vhost_observations.extend(
-                observation for observation in sweep.observations if observation.classification == 'distinct'
-            )
-            confirmed_vhosts = confirmed_virtual_hostnames()
-            if sweep.stop_reason in {'no-candidates', 'no-endpoints'}:
-                vhost_status: ExecutionStatus = 'skipped'
-            elif sweep.stop_reason in {'request-limit', 'runtime-limit'}:
-                vhost_status = 'partial'
-            elif sweep.scan_error_type or sweep.request_error_count or sweep.stop_reason in {'request-errors', 'scan-error'}:
-                vhost_status = 'partial' if confirmed_vhosts else 'failed'
-            else:
-                vhost_status = 'completed'
-            vhost_error_type = sweep.scan_error_type or next(iter(sweep.request_error_types), None)
-            action_executions.append(
-                ActionExecution.finish(
-                    action='vhost',
-                    status=vhost_status,
-                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
-                    groups={'hostname': confirmed_vhosts},
-                    error_type=vhost_error_type,
-                    stop_reason=sweep.stop_reason,
-                )
-            )
-            output_logger.info(
-                f'[*] Virtual hosts: confirmed={len(vhost_observations)}; '
-                f'candidate-endpoints={sweep.candidate_endpoint_count}/{sweep.total_candidate_endpoint_count}; '
-                f'endpoints={sweep.endpoint_count}/{sweep.total_endpoint_count}; requests={sweep.request_count}; '
-                f'stop={sweep.stop_reason}; elapsed={time.perf_counter() - vhost_started:.2f}s'
-            )
-            stop_hint = {
-                'no-candidates': 'No candidate hostnames were available; select hostname-producing sources or add --vhost-candidate.',
-                'no-endpoints': 'No literal-IP endpoints were available; select IP-producing sources, enable a DNS action, or use --vhost-endpoint.',
-                'request-limit': 'Coverage stopped at the request limit; raise --vhost-request-limit or narrow the scan.',
-                'request-errors': 'All requested coverage finished, but one or more requests failed.',
-                'runtime-limit': 'Coverage stopped at the runtime limit; raise --vhost-runtime-seconds or narrow the scan.',
-                'scan-error': 'Coverage stopped after an endpoint scan failed.',
-            }.get(sweep.stop_reason)
-            if stop_hint:
-                output_logger.info(f'[!] {stop_hint}')
-            for observation in vhost_observations:
-                output_logger.info(
-                    f'{observation.hostname} at {observation.endpoint}: '
-                    f'status={observation.status}; signals={",".join(observation.distinct_signals)}'
-                )
+
+        await run_virtual_host_discovery(
+            scope=vhost_scope,
+            vhost_candidates=vhost_candidates,
+            vhost_endpoint=vhost_endpoint,
+            vhost_limits=vhost_limits,
+            insecure=args.vhost_insecure,
+            harvested_hosts=(*all_hosts, *dnsrev),
+            all_ip=all_ip,
+            vhost_observations=vhost_observations,
+            confirmed_hostnames=confirmed_virtual_hostnames,
+            action_executions=action_executions,
+            persist_failure=persist_cancelled_vhosts,
+        )
         await checkpoint_action_result(extra_hostnames=dnsrev)
 
     # Screenshots
     if len(args.screenshot) > 0:
-        screenshot_started = time.perf_counter()
-        screen_shotter = ScreenShotter(args.screenshot)
 
-        async def persist_screenshot_cancellation() -> None:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='screenshot',
-                    status='partial' if screenshot_artifacts else 'failed',
-                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
-                    groups={},
-                    artifacts=screenshot_artifacts,
-                    error_type='CancelledError',
-                    stop_reason='cancelled',
-                )
-            )
+        async def persist_cancelled_screenshots() -> None:
             completed = finish_completed_result(extra_hostnames=dnsrev)
             if completed is None:
                 return
@@ -1619,217 +2255,41 @@ async def start(
             finally:
                 await persist_result(completed)
 
-        path_exists = screen_shotter.verify_path()
-        # Verify the path exists, if not create it or if user does not create it skips screenshot
-        if not path_exists:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='screenshot',
-                    status='skipped',
-                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
-                    groups={},
-                    stop_reason='path-unavailable',
-                )
-            )
-        else:
-            output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
-            output_logger.info('Filtering domains for ones we can reach')
-            if not engines:
-                unique_resolved_domains = resolved_hostnames | {word}
-            elif dnsresolve != '':
-                unique_resolved_domains = resolved_hostnames
-            else:
-                # Technically not resolved in this case, which is not ideal
-                # You should always use dns resolve when doing screenshotting
-                output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
-                unique_resolved_domains = set(all_hosts)
-            reachable_targets: list[tuple[str, str]] = []
-            capture_error_types: set[str] = set()
-            if len(unique_resolved_domains) > 0:
-                # First filter out ones that didn't resolve
-                output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-
-                async def record_screenshot_artifact(subject: str, captured_url: str, screenshot_path: Path) -> None:
-                    if not captured_url:
-                        capture_error_types.add('CaptureError')
-                        return
-                    if not await anyio.Path(screenshot_path).is_file():
-                        capture_error_types.add('ArtifactMissing')
-                        return
-                    raw_subject = subject.strip()
-                    try:
-                        subject_value = str(ip_address(raw_subject))
-                        subject_kind: ResultKind = 'ip'
-                    except ValueError:
-                        parsed_subject = urlsplit(
-                            raw_subject if raw_subject.startswith(('http://', 'https://')) else f'https://{raw_subject}'
-                        )
-                        if not parsed_subject.hostname:
-                            capture_error_types.add('InvalidScreenshotURL')
-                            return
-                        subject_value = parsed_subject.hostname.lower()
-                        try:
-                            subject_value = str(ip_address(subject_value))
-                            subject_kind = 'ip'
-                        except ValueError:
-                            subject_kind = 'hostname'
-                    recorded_subjects = screenshot_ip_addresses if subject_kind == 'ip' else screenshot_hostnames
-                    if subject_value in recorded_subjects:
-                        return
-                    recorded_subjects.add(subject_value)
-                    screenshot_bytes = await anyio.Path(screenshot_path).read_bytes()
-                    screenshot_artifacts.append(
-                        ArtifactReference(
-                            kind='screenshot',
-                            subject_kind=subject_kind,
-                            subject_value=subject_value,
-                            path=str(Path(Path(screen_shotter.output).name) / screenshot_path.name),
-                            media_type='image/png',
-                            size_bytes=len(screenshot_bytes),
-                            sha256=hashlib.sha256(screenshot_bytes).hexdigest(),
-                            created_at=datetime.now(UTC),
-                        )
-                    )
-
-                try:
-                    reachable_targets = await screen_shotter.reachable_targets(sorted(unique_resolved_domains))
-                    if reachable_targets:
-                        await screen_shotter.capture_targets(reachable_targets, record_screenshot_artifact)
-                except asyncio.CancelledError:
-                    await persist_screenshot_cancellation()
-                    raise
-                except Exception as ee:
-                    capture_error_types.add(type(ee).__name__)
-                    output_logger.info(f'An exception has occurred while taking screenshots: {ee}')
-            if not unique_resolved_domains:
-                screenshot_status: ExecutionStatus = 'skipped'
-                screenshot_stop_reason = 'no-input'
-            elif not reachable_targets:
-                screenshot_status = 'failed'
-                screenshot_stop_reason = 'no-reachable-targets'
-            elif capture_error_types and screenshot_artifacts:
-                screenshot_status = 'partial'
-                screenshot_stop_reason = 'capture-errors'
-            elif capture_error_types or (reachable_targets and not screenshot_artifacts):
-                screenshot_status = 'failed'
-                screenshot_stop_reason = 'capture-errors'
-            else:
-                screenshot_status = 'completed'
-                screenshot_stop_reason = None
-            action_executions.append(
-                ActionExecution.finish(
-                    action='screenshot',
-                    status=screenshot_status,
-                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
-                    groups={},
-                    artifacts=screenshot_artifacts,
-                    error_type=next(iter(sorted(capture_error_types)), None),
-                    stop_reason=screenshot_stop_reason,
-                )
-            )
+        async def checkpoint_screenshots() -> None:
             await checkpoint_action_result(extra_hostnames=dnsrev)
-            end = time.perf_counter()
-            # There is probably an easier way to do this
-            total = int(end - screenshot_started)
-            mon, sec = divmod(total, 60)
-            hr, mon = divmod(mon, 60)
-            total_time = f'{hr:02d}:{mon:02d}:{sec:02d}' if hr else f'{mon:02d}:{sec:02d}'
-            output_logger.info(f'Finished taking screenshots in {total_time} seconds')
+
+        await run_screenshots(
+            screenshot_dir=args.screenshot,
+            word=word,
+            has_sources=bool(engines),
+            dns_resolve_requested=dnsresolve != '',
+            resolved_hostnames=resolved_hostnames,
+            all_hosts=all_hosts,
+            screenshot_artifacts=screenshot_artifacts,
+            screenshot_hostnames=screenshot_hostnames,
+            screenshot_ip_addresses=screenshot_ip_addresses,
+            action_executions=action_executions,
+            checkpoint=checkpoint_screenshots,
+            persist_failure=persist_cancelled_screenshots,
+        )
 
     # Shodan
     shodanres: list[dict[str, object]] = []
     if shodan is True:
-        shodan_started = time.perf_counter()
-        shodan_error_types: set[str] = set()
-        shodan_asns: set[str] = set()
-        shodan_ips: set[str] = set()
-        shodan_proxy_transport_failed = False
 
-        def has_shodan_action_evidence() -> bool:
-            return bool(shodan_action_hosts or shodan_asns or shodan_ips)
-
-        output_logger.info('[*] Searching Shodan. ')
-        try:
-            with AsyncFetcher.proxy_scope(use_proxy and bool(host_ip)) as shodan_proxy:
-                shodan_search = None
-                if host_ip:
-                    try:
-                        shodan_search = shodansearch.SearchShodan()
-                    except Exception as init_error:
-                        shodan_error_types.add(type(init_error).__name__)
-                        output_logger.info(f'[SHODAN-error] Error starting Shodan: {type(init_error).__name__}')
-                if shodan_search is not None:
-                    async with AsyncFetcher.open_session(proxy=shodan_proxy) as shodan_session:
-                        for ip in host_ip:
-                            try:
-                                output_logger.info('\tSearching for ' + ip)
-                                shodandict = await shodan_search.search_ip(ip, session=shodan_session)
-                                get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
-                                if get_asn_attributions is not None:
-                                    collected_attributions = await get_asn_attributions()
-                                    current_attributions = {
-                                        attribution for attribution in collected_attributions if attribution.subject_value == ip
-                                    }
-                                    asn_attributions.extend(current_attributions)
-                                    shodan_asns.update(attribution.asn for attribution in current_attributions)
-                                    shodan_ips.update(attribution.subject_value for attribution in current_attributions)
-                                    total_asns.extend(attribution.asn for attribution in current_attributions)
-                                if shodan_search.error_type:
-                                    shodan_error_types.add(shodan_search.error_type)
-
-                                shodan_result = shodandict.get(ip)
-                                # Check if the result is a string (error message)
-                                if isinstance(shodan_result, str):
-                                    output_logger.info(f'{ip}: {shodan_result}')
-
-                                # Process the results if it's a dictionary
-                                if isinstance(shodan_result, dict):
-                                    current_hosts = record_shodan_host_observations(
-                                        host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
-                                    )
-                                    shodan_action_hosts.update(host.ip for host in current_hosts)
-                                    shodanres.extend({'value': host.ip, 'details': host.to_details()} for host in current_hosts)
-                                    output_logger.info('\n')
-                            except Exception as ip_error:
-                                shodan_error_types.add(type(ip_error).__name__)
-                                output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
-                                continue
-                shodan_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
-        except asyncio.CancelledError:
-            action_executions.append(
-                ActionExecution.finish(
-                    action='shodan',
-                    status='partial' if has_shodan_action_evidence() else 'failed',
-                    duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                    groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
-                    error_type='CancelledError',
-                    stop_reason='cancelled',
-                )
-            )
+        async def persist_cancelled_shodan() -> None:
             await persist_result(finish_completed_result(extra_hostnames=dnsrev))
-            raise
-        except Exception as action_error:
-            shodan_error_types.add(type(action_error).__name__)
-        shodan_status: ExecutionStatus = 'completed'
-        shodan_stop_reason = None
-        if shodan_proxy_transport_failed:
-            shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
-            shodan_stop_reason = 'transport-error'
-        elif not host_ip:
-            shodan_status = 'skipped'
-            shodan_stop_reason = 'no-input'
-        elif shodan_error_types:
-            shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
-            shodan_stop_reason = 'target-errors'
-        action_executions.append(
-            ActionExecution.finish(
-                action='shodan',
-                status=shodan_status,
-                duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
-                error_type=next(iter(sorted(shodan_error_types)), None),
-                stop_reason=shodan_stop_reason,
-            )
+
+        await run_shodan_search(
+            host_ip=host_ip,
+            use_proxy=use_proxy,
+            asn_attributions=asn_attributions,
+            total_asns=total_asns,
+            shodan_action_hosts=shodan_action_hosts,
+            shodanres=shodanres,
+            record_shodan_hosts=record_shodan_host_observations,
+            action_executions=action_executions,
+            persist_failure=persist_cancelled_shodan,
         )
         display_new_asn_attributions()
         await checkpoint_action_result(extra_hostnames=dnsrev)
@@ -1838,294 +2298,57 @@ async def start(
         output_logger.info('\n[*] Reporting started.')
         try:
             filename = os.path.splitext(filename)[0] + '.xml'
-            # XML REPORT SECTION
             async with await anyio.open_file(filename, 'w+') as file:
-                await file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
-                sanitized_args = [sanitize_for_xml(f'"{arg}"' if ' ' in arg else arg) for arg in sys.argv[1:]]
-                await file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
-                for email in all_emails:
-                    await file.write('<email>' + sanitize_for_xml(email) + '</email>')
-                if collect_hosts:
-                    paired_hosts = {host for host, _ip in reported_host_ip_pairs}
-                    for host, ip in sorted(reported_host_ip_pairs):
-                        await file.write(
-                            f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
-                        )
-                    for x in full:
-                        host, ip = x.split(':', 1) if ':' in x else (x, '')
-                        if ip and len(ip) > 3:
-                            if (host, ip) in reported_host_ip_pairs:
-                                continue
-                            await file.write(
-                                f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
-                            )
-                        elif host not in paired_hosts:
-                            await file.write(f'<host>{sanitize_for_xml(host)}</host>')
-                    for host in confirmed_virtual_hostnames():
-                        await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
-                # TODO add Shodan output into XML report
-                await file.write('</theHarvester>')
+                for chunk in iter_xml_report(
+                    command_args=sys.argv[1:],
+                    emails=all_emails,
+                    host_ip_pairs=reported_host_ip_pairs if collect_hosts else None,
+                    hosts=full,
+                    virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else (),
+                ):
+                    await file.write(chunk)
                 output_logger.info('[*] XML File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
 
     # Enhanced code block for API Endpoint scanning feature
     if args.api_scan:
-        api_scan_started = time.perf_counter()
-        api_scanner = None
-        api_proxy_transport_failed = False
 
-        def collect_api_action_groups(
-            scanner: api_endpoints.SearchApiEndpoints | None,
-            *,
-            best_effort: bool = False,
-        ) -> tuple[set[str], set[str], dict[ResultKind, Iterable[str]]]:
-            endpoints: set[str] = set()
-            interesting: set[str] = set()
-
-            def collect(getter: Callable[[], Iterable[str]]) -> set[str]:
-                if not best_effort:
-                    return set(getter())
-                try:
-                    return set(getter())
-                except Exception:
-                    return set()
-
-            if scanner is not None:
-                endpoints = collect(scanner.get_found_endpoints)
-                interesting = collect(scanner.get_interesting_endpoints)
-                if best_effort:
-                    endpoints.update(interesting)
-            groups: dict[ResultKind, Iterable[str]] = {'url': endpoints | interesting}
-            return endpoints, interesting, groups
-
-        try:
-            # Define a default wordlist if none is specified
-            wordlist = args.wordlist or str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
-
-            if not await anyio.Path(wordlist).exists():
-                output_logger.info(f'\n[!] Wordlist not found: {wordlist}')
-                output_logger.info('Creating a basic API wordlist for scanning...')
-                # Create a default simple API endpoint list
-                basic_endpoints = [
-                    '/api',
-                    '/api/v1',
-                    '/api/v2',
-                    '/api/v3',
-                    '/graphql',
-                    '/swagger',
-                    '/docs',
-                    '/redoc',
-                    '/swagger-ui',
-                    '/openapi.json',
-                    '/api-docs',
-                    '/rest',
-                    '/ws',
-                    '/swagger-ui.html',
-                    '/health',
-                    '/status',
-                    '/metrics',
-                    '/actuator',
-                    '/debug',
-                ]
-                temp_wordlist = str(DATA_DIR / 'wordlists' / 'temp_api_endpoints.txt')
-                async with await anyio.open_file(temp_wordlist, 'w') as f:
-                    await f.write('\n'.join(basic_endpoints))
-                wordlist = temp_wordlist
-                output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
-
-            output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
-            with AsyncFetcher.proxy_scope(use_proxy) as api_proxy_selected:
-                api_proxy = AsyncFetcher._resolve_proxy(api_proxy_selected)[0]
-                if args.wordlist and api_proxy is not None:
-                    api_scanner = api_endpoints.SearchApiEndpoints(
-                        word=args.domain,
-                        wordlist=wordlist,
-                        exact_paths=True,
-                        proxy=api_proxy,
-                    )
-                elif args.wordlist:
-                    api_scanner = api_endpoints.SearchApiEndpoints(
-                        word=args.domain,
-                        wordlist=wordlist,
-                        exact_paths=True,
-                    )
-                elif api_proxy is not None:
-                    api_scanner = api_endpoints.SearchApiEndpoints(
-                        word=args.domain,
-                        wordlist=wordlist,
-                        proxy=api_proxy,
-                    )
-                else:
-                    api_scanner = api_endpoints.SearchApiEndpoints(
-                        word=args.domain,
-                        wordlist=wordlist,
-                    )
-                await api_scanner.do_search()
-                api_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
-
-            # Print results
-            endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
-            output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
-            for endpoint in sorted(endpoints_found):
-                output_logger.info(f'    - {endpoint}')
-
-            output_logger.info(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
-            for endpoint in sorted(interesting_endpoints):
-                output_logger.info(f'    - {endpoint}')
-
-            auth_required = api_scanner.get_auth_required()
-            output_logger.info(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
-            for endpoint in sorted(auth_required):
-                output_logger.info(f'    - {endpoint}')
-
-            api_versions = api_scanner.get_api_versions()
-            output_logger.info(f'\n[*] Detected API versions: {len(api_versions)}')
-            for version in sorted(api_versions):
-                output_logger.info(f'    - {version}')
-
-            rate_limits = api_scanner.get_rate_limits()
-            output_logger.info(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
-            for endpoint, info in sorted(rate_limits.items()):
-                output_logger.info(f'    - {endpoint} ({info.method})')
-
-            methods = api_scanner.get_methods()
-            output_logger.info(f'\n[*] HTTP methods used: {", ".join(sorted(methods))}')
-
-            status_codes = api_scanner.get_status_codes()
-            output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, sorted(status_codes)))}')
-
-            if endpoints_found or interesting_endpoints:
-                all_urls.extend(sorted(endpoints_found | interesting_endpoints))
-
-            api_scan_error = api_scanner.scan_error_type
-            api_request_errors = api_scanner.request_error_count
-            scanner_stop_reason = getattr(api_scanner, 'stop_reason', None)
-            api_scan_status: ExecutionStatus = 'completed'
-            api_error_type = None
-            api_stop_reason = None
-            if api_proxy_transport_failed:
-                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
-                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
-                api_stop_reason = 'transport-error'
-            elif api_scan_error:
-                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
-                api_error_type = api_scan_error
-                api_stop_reason = 'scan-error'
-            elif scanner_stop_reason in {'request-limit', 'runtime-limit'}:
-                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
-                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
-                api_stop_reason = scanner_stop_reason
-            elif api_request_errors:
-                api_scan_status = 'partial'
-                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
-                api_stop_reason = 'request-errors'
-            elif rate_limits:
-                api_scan_status = 'rate-limited'
-                api_stop_reason = 'rate-limited'
-            action_executions.append(
-                ActionExecution.finish(
-                    action='api-scan',
-                    status=api_scan_status,
-                    duration_ms=(time.perf_counter() - api_scan_started) * 1000,
-                    groups=api_action_groups,
-                    error_type=api_error_type,
-                    stop_reason=api_stop_reason,
-                )
-            )
-
-            if api_stop_reason is None:
-                output_logger.info('\n[+] API scanning completed successfully.')
-            else:
-                output_logger.info(f'\n[!] API scanning stopped with reason: {api_stop_reason}.')
-
-        except asyncio.CancelledError:
-            if not any(execution.action == 'api-scan' for execution in action_executions):
-                _endpoints, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
-                action_executions.append(
-                    ActionExecution.finish(
-                        action='api-scan',
-                        status='partial' if any(api_action_groups.values()) else 'failed',
-                        duration_ms=(time.perf_counter() - api_scan_started) * 1000,
-                        groups=api_action_groups,
-                        error_type='CancelledError',
-                        stop_reason='cancelled',
-                    )
-                )
+        async def persist_cancelled_api_scan() -> None:
             await persist_result(finish_completed_result(extra_hostnames=dnsrev))
-            raise
-        except Exception as error:
-            endpoints_found, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
-            if endpoints_found:
-                all_urls.extend(sorted(endpoints_found))
-            if not any(execution.action == 'api-scan' for execution in action_executions):
-                action_executions.append(
-                    ActionExecution.finish(
-                        action='api-scan',
-                        status='partial' if any(api_action_groups.values()) else 'failed',
-                        duration_ms=(time.perf_counter() - api_scan_started) * 1000,
-                        groups=api_action_groups,
-                        error_type=type(error).__name__,
-                        stop_reason='scan-error',
-                    )
-                )
-            if isinstance(error, MissingKey):
-                output_logger.info('\n[!] API endpoint scanning could not start because a required key is missing.')
-            else:
-                output_logger.info(f'\n[!] API endpoint scanning failed with {type(error).__name__}.')
-                output_logger.info('    Continuing with the rest of the scan...')
 
+        all_urls.extend(
+            await run_api_scan(
+                domain=args.domain,
+                wordlist_path=args.wordlist,
+                use_proxy=use_proxy,
+                action_executions=action_executions,
+                persist_failure=persist_cancelled_api_scan,
+            )
+        )
         await checkpoint_action_result(extra_hostnames=dnsrev)
 
     all_urls = sorted_unique(all_urls)
 
     if filename != '':
         try:
-            # JSON REPORT SECTION
             filename = os.path.splitext(filename)[0] + '.json'
-            # create dict with values for JSON output
-            json_dict: dict = dict()
-            # start by adding the command line arguments
-            json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
-            # to determine if a variable exists
-            # it should but just a validation check
-            if 'ip_list' in locals():
-                if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
-                    json_dict['ips'] = ip_list
-
-            if len(all_emails) > 0:
-                json_dict['emails'] = all_emails
-
-            if collect_hosts:
-                if dnsresolve != '' and len(full) > 0:
-                    json_dict['hosts'] = full
-                elif len(all_hosts) > 0:
-                    json_dict['hosts'] = all_hosts
-                else:
-                    json_dict['hosts'] = []
-
-                if virtual_hostnames := confirmed_virtual_hostnames():
-                    json_dict['vhosts'] = virtual_hostnames
-
-            if len(all_urls) > 0:
-                json_dict['urls'] = all_urls
-
-            if len(total_asns) > 0:
-                json_dict['asns'] = total_asns
-
-            if network_prefixes:
-                json_dict['prefixes'] = sorted(network_prefixes)
-
-            if len(all_people) > 0:
-                json_dict['people'] = all_people
-
-            if takeover_status and len(takeover_results) > 0:
-                json_dict['takeover_results'] = takeover_results
-
-            json_dict['shodan'] = shodanres
             async with await anyio.open_file(filename, 'w+') as fp:
-                dumped_json = json.dumps(json_dict, separators=(',', ':'), sort_keys=True)
-                await fp.write(dumped_json)
+                await fp.write(
+                    json_report(
+                        command_args=sys.argv[1:],
+                        ips=ip_list if all_ip else [],
+                        emails=all_emails,
+                        hosts=(full if dnsresolve != '' and full else all_hosts) if collect_hosts else None,
+                        virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else [],
+                        urls=all_urls,
+                        asns=total_asns,
+                        prefixes=network_prefixes,
+                        people=all_people,
+                        takeover_results=takeover_results if takeover_status else {},
+                        shodan=shodanres,
+                    )
+                )
             output_logger.info('[*] JSON File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:
             output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
