@@ -6,7 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterable, Mapping, Sequence
+    from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 
 
 def sanitize_for_xml(text: str) -> str:
@@ -27,6 +27,41 @@ def _xml_host(host: str, ip: str) -> str:
     return f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
 
 
+def iter_xml_report(
+    *,
+    command_args: Sequence[str],
+    emails: Iterable[str],
+    host_ip_pairs: Collection[tuple[str, str]] | None,
+    hosts: Iterable[str],
+    virtual_hostnames: Iterable[str],
+) -> Iterator[str]:
+    """Yield the legacy XML report element by element.
+
+    ``host_ip_pairs`` is ``None`` when hostname collection is disabled, which
+    omits every host and virtual-host element. Writers that consume the chunks
+    as they are produced keep the partial document if rendering fails.
+    """
+    yield '<?xml version="1.0" encoding="UTF-8"?><theHarvester>'
+    yield '<cmd>' + ' '.join(sanitize_for_xml(arg) for arg in _quoted_command(command_args)) + '</cmd>'
+    for email in emails:
+        yield f'<email>{sanitize_for_xml(email)}</email>'
+    if host_ip_pairs is not None:
+        paired_hosts = {host for host, _ip in host_ip_pairs}
+        for host, ip in sorted(host_ip_pairs):
+            yield _xml_host(host, ip)
+        for entry in hosts:
+            host, ip = entry.split(':', 1) if ':' in entry else (entry, '')
+            if ip and len(ip) > 3:
+                if (host, ip) not in host_ip_pairs:
+                    yield _xml_host(host, ip)
+            elif host not in paired_hosts:
+                yield f'<host>{sanitize_for_xml(host)}</host>'
+        for host in virtual_hostnames:
+            yield f'<vhost>{sanitize_for_xml(host)}</vhost>'
+    # TODO add Shodan output into XML report
+    yield '</theHarvester>'
+
+
 def xml_report(
     *,
     command_args: Sequence[str],
@@ -35,28 +70,16 @@ def xml_report(
     hosts: Iterable[str],
     virtual_hostnames: Iterable[str],
 ) -> str:
-    """Render the legacy XML report.
-
-    ``host_ip_pairs`` is ``None`` when hostname collection is disabled, which
-    omits every host and virtual-host element.
-    """
-    parts = ['<?xml version="1.0" encoding="UTF-8"?><theHarvester>']
-    parts.append('<cmd>' + ' '.join(sanitize_for_xml(arg) for arg in _quoted_command(command_args)) + '</cmd>')
-    parts.extend(f'<email>{sanitize_for_xml(email)}</email>' for email in emails)
-    if host_ip_pairs is not None:
-        paired_hosts = {host for host, _ip in host_ip_pairs}
-        parts.extend(_xml_host(host, ip) for host, ip in sorted(host_ip_pairs))
-        for entry in hosts:
-            host, ip = entry.split(':', 1) if ':' in entry else (entry, '')
-            if ip and len(ip) > 3:
-                if (host, ip) not in host_ip_pairs:
-                    parts.append(_xml_host(host, ip))
-            elif host not in paired_hosts:
-                parts.append(f'<host>{sanitize_for_xml(host)}</host>')
-        parts.extend(f'<vhost>{sanitize_for_xml(host)}</vhost>' for host in virtual_hostnames)
-    # TODO add Shodan output into XML report
-    parts.append('</theHarvester>')
-    return ''.join(parts)
+    """Render the whole legacy XML report; see ``iter_xml_report``."""
+    return ''.join(
+        iter_xml_report(
+            command_args=command_args,
+            emails=emails,
+            host_ip_pairs=host_ip_pairs,
+            hosts=hosts,
+            virtual_hostnames=virtual_hostnames,
+        )
+    )
 
 
 def json_report(

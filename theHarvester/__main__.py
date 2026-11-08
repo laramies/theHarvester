@@ -45,7 +45,7 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
-from theHarvester.lib.legacy_reports import json_report, xml_report
+from theHarvester.lib.legacy_reports import iter_xml_report, json_report
 from theHarvester.lib.legacy_reports import sanitize_for_xml as sanitize_for_xml  # re-exported for existing importers
 from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
@@ -2299,15 +2299,14 @@ async def start(
         try:
             filename = os.path.splitext(filename)[0] + '.xml'
             async with await anyio.open_file(filename, 'w+') as file:
-                await file.write(
-                    xml_report(
-                        command_args=sys.argv[1:],
-                        emails=all_emails,
-                        host_ip_pairs=reported_host_ip_pairs if collect_hosts else None,
-                        hosts=full,
-                        virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else (),
-                    )
-                )
+                for chunk in iter_xml_report(
+                    command_args=sys.argv[1:],
+                    emails=all_emails,
+                    host_ip_pairs=reported_host_ip_pairs if collect_hosts else None,
+                    hosts=full,
+                    virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else (),
+                ):
+                    await file.write(chunk)
                 output_logger.info('[*] XML File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')

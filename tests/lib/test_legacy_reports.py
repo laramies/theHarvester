@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 
-from theHarvester.lib.legacy_reports import json_report, xml_report
+import pytest
+
+from theHarvester.lib.legacy_reports import iter_xml_report, json_report, xml_report
 
 
 def _json(**overrides: object) -> dict[str, object]:
@@ -96,3 +98,24 @@ def test_xml_report_omits_hosts_when_hostname_collection_is_disabled() -> None:
     )
 
     assert report == '<?xml version="1.0" encoding="UTF-8"?><theHarvester><cmd></cmd></theHarvester>'
+
+
+def test_iter_xml_report_yields_earlier_elements_before_a_rendering_error() -> None:
+    chunks = iter_xml_report(
+        command_args=[],
+        emails=['first@example.test', None],  # type: ignore[list-item]
+        host_ip_pairs=None,
+        hosts=[],
+        virtual_hostnames=[],
+    )
+    written: list[str] = []
+
+    with pytest.raises(AttributeError):
+        for chunk in chunks:
+            written.append(chunk)
+
+    assert written == [
+        '<?xml version="1.0" encoding="UTF-8"?><theHarvester>',
+        '<cmd></cmd>',
+        '<email>first@example.test</email>',
+    ]
