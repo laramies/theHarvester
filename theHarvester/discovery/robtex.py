@@ -4,7 +4,7 @@ from ipaddress import ip_address
 
 import aiohttp
 
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -39,13 +39,11 @@ class SearchRobtex:
             headers = {'User-agent': Core.get_user_agent()}
 
             url = f'{self.hostname}/pdns/forward/{self.word}'
-            responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
-                [url],
+            response = await AsyncFetcher.fetch_one(
+                url,
                 headers=headers,
                 proxy=self.proxy,
-                include_metadata=True,
             )
-            response = responses[0] if responses else None
             if response is None:
                 logger.info(f'No response from Robtex API for: {url}')
                 return SourceExecutionReport('failed', 'transport-error')

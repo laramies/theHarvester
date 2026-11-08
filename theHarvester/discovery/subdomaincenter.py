@@ -18,14 +18,12 @@ class SubdomainCenter:
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             current_url = f'{self.server}{self.word}'
-            responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
-                [current_url],
+            response = await AsyncFetcher.fetch_one(
+                current_url,
                 headers=headers,
                 proxy=self.proxy,
                 json=True,
-                include_metadata=True,
             )
-            response = responses[0] if responses else None
             if failure := provider_http_error(response):
                 logger.info(
                     f'SubdomainCenter request failed with HTTP {response.status}'

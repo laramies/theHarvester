@@ -1,8 +1,9 @@
 import logging
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
-from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+from theHarvester.discovery.provider_response import http_status_error
+from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -29,23 +30,19 @@ class SearchDiscovery:
     async def do_search(self) -> SourceExecutionReport | None:
         try:
             url = f'{self.hostname}/dns/{self.word}/subdomains'
-            response = await AsyncFetcher.fetch_all(
-                [url],
+            metadata = await AsyncFetcher.fetch_one(
+                url,
                 headers={'User-Agent': Core.get_user_agent(), 'Authorization': self.key},
                 proxy=self.proxy,
                 json=True,
-                include_metadata=True,
             )
 
-            metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
             if metadata is None:
                 logger.info('No response from ProjectDiscovery for: %s', url)
                 return SourceExecutionReport('failed', 'transport-error')
-            if not 200 <= metadata.status < 300:
+            if error := http_status_error(metadata.status):
                 logger.info('ProjectDiscovery request failed with HTTP %s', metadata.status)
-                status: SourceReportStatus = 'rate-limited' if metadata.status == 429 else 'failed'
-                reason = 'access-denied' if metadata.status in {401, 403} else f'http-{metadata.status}'
-                return SourceExecutionReport(status, reason)
+                return SourceExecutionReport(*error)
 
             try:
                 data = metadata.body

@@ -3,7 +3,7 @@ import logging
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -29,14 +29,12 @@ class SearchHunter:
         self.emails: list = []
 
     async def _fetch_json(self, url: str, headers: dict[str, str], session) -> dict | SourceExecutionReport:
-        response = await AsyncFetcher.fetch_all(
-            [url],
+        metadata = await AsyncFetcher.fetch_one(
+            url,
             headers=headers,
             session=session,
             json=True,
-            include_metadata=True,
         )
-        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
             logger.info('Hunter request failed without a response')
             return SourceExecutionReport('failed', 'transport-error')

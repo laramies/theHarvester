@@ -1,6 +1,6 @@
 import logging
 
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -21,18 +21,16 @@ class SearchHaveIBeenPwned:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         """Search for breaches associated with a domain or email."""
         try:
-            responses = await AsyncFetcher.fetch_all(
-                [f'{self.base_url}/breaches?domain={self.word}'],
+            response = await AsyncFetcher.fetch_one(
+                f'{self.base_url}/breaches?domain={self.word}',
                 headers=self.headers,
                 json=True,
                 proxy=proxy,
-                include_metadata=True,
             )
         except OSError, RuntimeError, ValueError:
             logger.info('HaveIBeenPwned request failed')
             return SourceExecutionReport('failed', 'transport-error')
 
-        response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
         if response is None:
             logger.info('HaveIBeenPwned request failed')
             return SourceExecutionReport('failed', 'transport-error')

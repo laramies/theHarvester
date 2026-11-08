@@ -3,6 +3,7 @@ from ipaddress import ip_address
 
 #!/usr/bin/env python3
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -25,26 +26,19 @@ class SearchDNSDumpster:
         url = f'{self.base_url}/domain/{self.word}'
         headers = {'User-Agent': Core.get_user_agent(), 'X-API-Key': self.key}
         try:
-            response = await AsyncFetcher.fetch_all(
-                [url],
+            metadata = await AsyncFetcher.fetch_one(
+                url,
                 headers=headers,
                 json=True,
                 proxy=self.proxy,
-                include_metadata=True,
             )
         except Exception as error:
             logger.info('DNSDumpster request failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
 
-        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
-        if metadata is None:
-            return SourceExecutionReport('failed', 'transport-error')
-        if metadata.status == 429:
-            return SourceExecutionReport('rate-limited', 'http-429')
-        if metadata.status in {401, 403}:
-            return SourceExecutionReport('failed', 'access-denied')
-        if not 200 <= metadata.status < 300:
-            return SourceExecutionReport('failed', f'http-{metadata.status}')
+        if error := provider_http_error(metadata):
+            return SourceExecutionReport(*error)
+        assert isinstance(metadata, FetcherResponse)
         if not isinstance(metadata.body, dict):
             return SourceExecutionReport('failed', 'invalid-response')
         if 'error' in metadata.body:

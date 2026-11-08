@@ -56,15 +56,13 @@ class SearchFullHunt:
     async def _fetch_data(self, endpoint: str, session: Any | None = None) -> dict[str, Any]:
         """Fetch JSON data from one FullHunt endpoint."""
         url = f'{self.BASE_URL}/{endpoint}'
-        response = await AsyncFetcher.fetch_all(
-            [url],
+        metadata = await AsyncFetcher.fetch_one(
+            url,
             json=True,
             headers=self._get_headers(),
             proxy=self.proxy if session is None else False,
-            include_metadata=True,
             session=session,
         )
-        metadata = response[0] if response else None
         if error := provider_http_error(metadata):
             self._stop(*error)
             raise RuntimeError(f'FullHunt request failed: {error[1]}')

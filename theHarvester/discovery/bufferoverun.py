@@ -2,6 +2,7 @@ import csv
 from ipaddress import ip_address
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -19,22 +20,15 @@ class SearchBufferover:
 
     async def do_search(self) -> SourceExecutionReport | None:
         url = f'https://tls.bufferover.run/dns?q={self.word}'
-        response = await AsyncFetcher.fetch_all(
-            [url],
+        metadata = await AsyncFetcher.fetch_one(
+            url,
             json=True,
             headers={'User-Agent': Core.get_user_agent(), 'x-api-key': f'{self.key}'},
             proxy=self.proxy,
-            include_metadata=True,
         )
-        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
-        if metadata is None:
-            return SourceExecutionReport('failed', 'transport-error')
-        if metadata.status == 429:
-            return SourceExecutionReport('rate-limited', 'http-429')
-        if metadata.status in {401, 403}:
-            return SourceExecutionReport('failed', 'access-denied')
-        if not 200 <= metadata.status < 300:
-            return SourceExecutionReport('failed', f'http-{metadata.status}')
+        if error := provider_http_error(metadata):
+            return SourceExecutionReport(*error)
+        assert isinstance(metadata, FetcherResponse)
         if not isinstance(metadata.body, dict) or not isinstance(metadata.body.get('Results'), list):
             return SourceExecutionReport('failed', 'invalid-response')
 
