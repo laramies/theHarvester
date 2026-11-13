@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+_XML_ILLEGAL_CHAR_REGEX = re.compile(r'[^\u0009\u000a\u000d\u0020-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]')
+
 
 def sanitize_for_xml(text: str) -> str:
     """Sanitize text for safe inclusion in XML documents."""
     text = text.replace('&', '&amp;')
+    text = _XML_ILLEGAL_CHAR_REGEX.sub('', text)
     text = text.replace('<', '&lt;')
     text = text.replace('>', '&gt;')
     text = text.replace('"', '&quot;')
@@ -34,6 +40,7 @@ def iter_xml_report(
     host_ip_pairs: Collection[tuple[str, str]] | None,
     hosts: Iterable[str],
     virtual_hostnames: Iterable[str],
+    shodan_hosts: Iterable[ShodanHostObservation] = (),
 ) -> Iterator[str]:
     """Yield the legacy XML report element by element.
 
@@ -58,7 +65,25 @@ def iter_xml_report(
                 yield f'<host>{sanitize_for_xml(host)}</host>'
         for host in virtual_hostnames:
             yield f'<vhost>{sanitize_for_xml(host)}</vhost>'
-    # TODO add Shodan output into XML report
+    for shodan_host in sorted(shodan_hosts, key=lambda h: h.sort_key()):
+        yield '<shodan>'
+        yield f'<host>{sanitize_for_xml(shodan_host.ip)}</host>'
+        if shodan_host.asn:
+            yield f'<asn>{sanitize_for_xml(shodan_host.asn)}</asn>'
+        if shodan_host.organization:
+            yield f'<organization>{sanitize_for_xml(shodan_host.organization)}</organization>'
+        if shodan_host.isp:
+            yield f'<isp>{sanitize_for_xml(shodan_host.isp)}</isp>'
+        for hostname in shodan_host.hostnames:
+            yield f'<hostname>{sanitize_for_xml(hostname)}</hostname>'
+        for service in shodan_host.services:
+            yield f'<service><port>{service.port}</port><transport>{sanitize_for_xml(service.transport)}</transport>'
+            if service.product:
+                yield f'<product>{sanitize_for_xml(service.product)}</product>'
+            if service.version:
+                yield f'<version>{sanitize_for_xml(service.version)}</version>'
+            yield '</service>'
+        yield '</shodan>'
     yield '</theHarvester>'
 
 
@@ -69,6 +94,7 @@ def xml_report(
     host_ip_pairs: Collection[tuple[str, str]] | None,
     hosts: Iterable[str],
     virtual_hostnames: Iterable[str],
+    shodan_hosts: Iterable[ShodanHostObservation] = (),
 ) -> str:
     """Render the whole legacy XML report; see ``iter_xml_report``."""
     return ''.join(
@@ -78,6 +104,7 @@ def xml_report(
             host_ip_pairs=host_ip_pairs,
             hosts=hosts,
             virtual_hostnames=virtual_hostnames,
+            shodan_hosts=shodan_hosts,
         )
     )
 
