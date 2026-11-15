@@ -333,16 +333,17 @@ class RunWorker:
             current = await store.get(run_id)
             cancelling = current is not None and current['status'] == 'cancelling'
             evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
-            if evidence_error:
-                await store.fail(
-                    run_id,
-                    evidence_error,
-                    log,
-                    cancelled=cancelling,
-                )
+            if cancelling:
+                # Same record as a cancellation seen while the child was still running.
+                # A cancelled run keeps whatever evidence it checkpointed.
+                failure_message = 'Cancelled by operator' + (f'; {evidence_error}' if evidence_error else '')
+                await store.fail(run_id, failure_message, log, cancelled=True, evidence=evidence)
                 return
-            # A cancelled run keeps whatever evidence it checkpointed; otherwise only a clean exit with evidence finishes.
-            if cancelling or (process.returncode == 0 and evidence is not None):
+            if evidence_error:
+                await store.fail(run_id, evidence_error, log)
+                return
+            # Only a clean exit with evidence finishes.
+            if process.returncode == 0 and evidence is not None:
                 await store.finish(run_id, evidence, log)
             else:
                 await store.fail(

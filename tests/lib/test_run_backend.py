@@ -1426,6 +1426,79 @@ def test_cancelling_execute_claimed_terminates_the_child_process(tmp_path, monke
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize('terminal', ['completed', 'cancelled'])
+def test_late_failure_does_not_overwrite_a_terminal_run(tmp_path, terminal) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='example.test', sources=['crtsh']))
+        await store.claim_next()
+        if terminal == 'cancelled':
+            await store.cancel(queued['run_id'])
+        await store.finish(queued['run_id'], None, 'finished log')
+        finished = await store.get(queued['run_id'])
+        # A late caller (orphan recovery, a lost lease) must not clobber the terminal record.
+        await store.fail(queued['run_id'], 'Worker lost its execution lease', 'late log')
+        return finished, await store.get(queued['run_id'])
+
+    finished, run = asyncio.run(scenario())
+
+    assert finished is not None
+    assert finished['status'] == terminal
+    assert run is not None
+    assert run['status'] == terminal
+    assert run['error'] == finished['error']
+    assert run['completed_at'] == finished['completed_at']
+
+
+def test_cancellation_that_races_child_exit_records_the_reason(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+
+        async def exited_process(_run_id, _database, _artifact_dir):
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                '-c',
+                'pass',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await process.wait()
+            return process
+
+        poll = store.lifecycle.get
+
+        async def cancel_right_after_poll(run_id):
+            # The worker's poll still sees 'running'; the operator's cancel lands just
+            # after it, while the child has already exited.
+            record = await poll(run_id)
+            if record is not None and record['status'] == 'running':
+                await store.cancel(run_id)
+            return record
+
+        worker = run_worker.RunWorker(process_factory=exited_process)
+        await store.create(RunRequest(target='example.test', sources=['crtsh']))
+        run = await store.claim_next()
+        assert run is not None
+        monkeypatch.setattr(store.lifecycle, 'get', cancel_right_after_poll)
+        await worker.execute_claimed(store, run)
+        return await store.get(run['run_id'])
+
+    detail = asyncio.run(scenario())
+
+    assert detail is not None
+    assert detail['status'] == 'cancelled'
+    assert detail['error'] == 'Cancelled by operator'
+
+
 def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_models import RunRequest
