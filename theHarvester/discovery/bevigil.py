@@ -51,14 +51,12 @@ class SearchBeVigil:
                 request_timeout=60,
             ) as session:
                 for endpoint, field in requests:
-                    responses = await AsyncFetcher.fetch_all(
-                        [endpoint],
+                    response = await AsyncFetcher.fetch_one(
+                        endpoint,
                         json=True,
                         headers=headers,
-                        include_metadata=True,
                         session=session,
                     )
-                    response = responses[0] if responses else None
                     if error := provider_http_error(response):
                         return SourceExecutionReport(*error)
                     assert isinstance(response, FetcherResponse)

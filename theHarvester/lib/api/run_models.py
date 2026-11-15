@@ -9,8 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from theHarvester.lib.completed_result import parse_virtual_host_details
 from theHarvester.lib.dns_consensus import Addressability  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.enumeration import (
-    DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
-    DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
+    DEFAULT_RESULT_LIMIT,
     DEFAULT_RESULT_START,
     DEFAULT_SOURCE_WORKERS,
 )
@@ -22,6 +21,7 @@ from theHarvester.lib.hostname_comparison import (  # noqa: TC001 - Pydantic res
     HostnameDifferenceType,
     ResolutionEvidence,
 )
+from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT, DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
@@ -60,7 +60,7 @@ class RunRequest(BaseModel):
         ),
     )
     limit: int = Field(
-        default=500,
+        default=DEFAULT_RESULT_LIMIT,
         ge=0,
         description=(
             'Maximum results requested from each source when supported; 0 continues to provider exhaustion with '
@@ -124,12 +124,12 @@ class RunRequest(BaseModel):
         description='Maximum recursive label depth. Zero disables recursive DNS discovery.',
     )
     dns_recursive_query_limit: int | None = Field(
-        default=DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
+        default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
         gt=0,
         description='Maximum DNS record queries shared across all three resolver vantages.',
     )
     dns_recursive_runtime_seconds: float | None = Field(
-        default=DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
+        default=DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS,
         gt=0,
         allow_inf_nan=False,
         description='Maximum wall-clock seconds spent in recursive DNS discovery.',

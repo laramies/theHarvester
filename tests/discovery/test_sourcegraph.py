@@ -10,6 +10,7 @@ import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import sourcegraph
+from tests.result_store_helpers import recording_result_store
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -441,16 +442,6 @@ async def test_sourcegraph_partial_outcome_reaches_completed_result(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     install_stream(
         monkeypatch,
         (
@@ -463,7 +454,7 @@ async def test_sourcegraph_partial_outcome_reaches_completed_result(
         ),
     )
     report = tmp_path / 'sourcegraph-partial'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(
         sys,
         'argv',

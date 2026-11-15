@@ -21,14 +21,12 @@ class SearchSubdomainApi:
 
     async def do_search(self) -> SourceExecutionReport | None:
         url = f'{self.BASE_URL}?{urlencode({"domain": self.word})}'
-        responses = await AsyncFetcher.fetch_all(
-            [url],
+        response = await AsyncFetcher.fetch_one(
+            url,
             headers={'User-Agent': Core.get_user_agent()},
             proxy=self.proxy,
             json=True,
-            include_metadata=True,
         )
-        response = responses[0] if responses else None
         if error := provider_http_error(response):
             return SourceExecutionReport(*error)
         assert isinstance(response, FetcherResponse)

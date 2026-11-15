@@ -693,7 +693,7 @@ class RunLifecycleStore:
         async with self._session() as session:
             await session.execute(
                 update(_RunRecordRow)
-                .where(_RunRecordRow.run_id == run_id)
+                .where(_RunRecordRow.run_id == run_id, _RunRecordRow.status.in_({'running', 'cancelling'}))
                 .values(
                     status=status,
                     completed_at=completed_at,

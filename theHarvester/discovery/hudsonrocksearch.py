@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from aiohttp import ClientError
 
 from theHarvester.discovery.provider_response import provider_http_error
-from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
@@ -138,8 +138,7 @@ class SearchHudsonRock:
         # so only HTTP 429 responses are retried here; transport failures are terminal.
         for attempt in range(self.max_retries):
             self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
-            responses = await AsyncFetcher.fetch_all([url], session=session, json=True, include_metadata=True)
-            response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
+            response = await AsyncFetcher.fetch_one(url, session=session, json=True)
             if response is None:
                 self.logger.warning(f'Invalid response format for {search_type} search: {target}')
                 return None, SourceExecutionReport('failed', 'transport-error')

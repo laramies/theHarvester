@@ -29,13 +29,11 @@ class SearchLeakix:
         self.url = f'https://leakix.net/api/subdomains/{word}'
 
     async def _fetch(self, session: ClientSession) -> FetcherResponse | None:
-        responses = await AsyncFetcher.fetch_all(
-            [self.url],
+        response = await AsyncFetcher.fetch_one(
+            self.url,
             session=session,
             json=True,
-            include_metadata=True,
         )
-        response = responses[0] if responses else None
         return response if isinstance(response, FetcherResponse) else None
 
     @staticmethod

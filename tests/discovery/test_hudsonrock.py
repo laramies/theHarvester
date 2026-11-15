@@ -13,6 +13,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import hudsonrocksearch
 from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
+from tests.result_store_helpers import recording_result_store
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -275,16 +276,6 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeHudsonRock:
         def __init__(self, target: str) -> None:
             assert target == 'analyst@example.com'
@@ -312,7 +303,7 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
             ]
 
     report = tmp_path / 'hudsonrock-report'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(hudsonrocksearch, 'SearchHudsonRock', FakeHudsonRock)
     monkeypatch.setattr(
         sys,
