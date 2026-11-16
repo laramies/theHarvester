@@ -16,7 +16,7 @@ from theHarvester.lib.takeover_rules import TakeoverRule
 
 def test_takeover_rules_cover_the_pinned_validated_corpus() -> None:
     fixture_path = Path(__file__).parents[1] / 'fixtures' / 'takeover_can_i_take_over_xyz_5bd4e128.fixture'
-    fixture = json.loads(fixture_path.read_text())
+    fixture = json.loads(fixture_path.read_text(encoding='utf-8'))
     assert fixture['provenance'] == {
         'repository': 'EdOverflow/can-i-take-over-xyz',
         'commit': '5bd4e128',
