@@ -2305,6 +2305,7 @@ async def start(
                     host_ip_pairs=reported_host_ip_pairs if collect_hosts else None,
                     hosts=full,
                     virtual_hostnames=confirmed_virtual_hostnames() if collect_hosts else (),
+                    shodan_hosts=shodan_hosts.values(),
                 ):
                     await file.write(chunk)
                 output_logger.info('[*] XML File saved.')

@@ -4,7 +4,9 @@ import json
 
 import pytest
 
-from theHarvester.lib.legacy_reports import iter_xml_report, json_report, xml_report
+from theHarvester.lib.legacy_reports import iter_xml_report, json_report, sanitize_for_xml, xml_report
+from theHarvester.lib.shodan_evidence import ShodanHostObservation, ShodanServiceObservation
+from xml.etree import ElementTree
 
 
 def _json(**overrides: object) -> dict[str, object]:
@@ -119,3 +121,55 @@ def test_iter_xml_report_yields_earlier_elements_before_a_rendering_error() -> N
         '<cmd></cmd>',
         '<email>first@example.test</email>',
     ]
+
+
+def test_sanitize_for_xml_strips_illegal_control_characters_and_escapes_markup() -> None:
+    raw = 'valid text & <tag> "quote" \'single\' \x1b[31mred\x1b[0m \x00null\x08back\x0bvt\x0cff\x0e\x1f \t\n\r'
+    sanitized = sanitize_for_xml(raw)
+    assert sanitized == 'valid text &amp; &lt;tag&gt; &quot;quote&quot; &apos;single&apos; [31mred[0m nullbackvtff \t\n\r'
+
+
+def test_xml_report_includes_shodan_hosts_and_parses() -> None:
+    shodan_hosts = [
+        ShodanHostObservation(
+            ip='192.0.2.10',
+            asn='AS64496',
+            organization='Example & Sons <Transit>\x1b',
+            isp='Example ISP & Co',
+            hostnames=('shodan.example.test',),
+            services=(
+                ShodanServiceObservation(
+                    port=443,
+                    transport='tcp',
+                    product='nginx\x1b & apache <v1>',
+                    version='1.24.0\x07 <beta>',
+                ),
+            ),
+        )
+    ]
+
+    report = xml_report(
+        command_args=['-d', 'example.test'],
+        emails=[],
+        host_ip_pairs=None,
+        hosts=[],
+        virtual_hostnames=[],
+        shodan_hosts=shodan_hosts,
+    )
+
+    root = ElementTree.fromstring(report)
+    shodan_elements = root.findall('shodan')
+    assert len(shodan_elements) == 1
+    shodan_el = shodan_elements[0]
+    assert shodan_el.findtext('host') == '192.0.2.10'
+    assert shodan_el.findtext('asn') == 'AS64496'
+    assert shodan_el.findtext('organization') == 'Example & Sons <Transit>'
+    assert shodan_el.findtext('isp') == 'Example ISP & Co'
+    assert shodan_el.findtext('hostname') == 'shodan.example.test'
+    service_el = shodan_el.find('service')
+    assert service_el is not None
+    assert service_el.findtext('port') == '443'
+    assert service_el.findtext('transport') == 'tcp'
+    assert service_el.findtext('product') == 'nginx & apache <v1>'
+    assert service_el.findtext('version') == '1.24.0 <beta>'
+
