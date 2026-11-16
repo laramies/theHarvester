@@ -81,8 +81,8 @@ from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonica
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
 from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
-from theHarvester.lib.hostnames import normalize_scoped_hostname
-from theHarvester.lib.result_values import normalize_ip
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
+from theHarvester.lib.result_values import is_ip_address, normalize_ip
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -214,12 +214,21 @@ _BUILTWITH_GETTERS: tuple[tuple[str, ResultKind], ...] = (
 
 def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable[object]) -> set[ResultObservation]:
     observations: set[ResultObservation] = set()
-    canonical_target = normalize_scoped_hostname(request.target, request.target)
+    is_ip = is_ip_address(request.target)
+    canonical_target = None if is_ip else normalize_scoped_hostname(request.target, request.target)
     for item in values:
         if kind == 'hostname':
-            value = normalize_scoped_hostname(item, request.target)
-            if value is None or value == canonical_target:
-                continue
+            if is_ip:
+                if not isinstance(item, str):
+                    continue
+                try:
+                    value = normalize_hostname(item)
+                except ValueError:
+                    continue
+            else:
+                value = normalize_scoped_hostname(item, request.target)
+                if value is None or value == canonical_target:
+                    continue
         elif kind == 'email':
             value = str(item).strip().lower()
             if not value:
@@ -275,8 +284,17 @@ async def _collect_observations(
         shodan_hosts.update(canonical_shodan_hosts(list(await adapter.get_shodan_hosts())))
         observations.update(ResultObservation(request.source, 'shodan-host', host.ip) for host in shodan_hosts)
     if request.source == 'rapiddns':
+        is_ip = is_ip_address(request.target)
         for host, address in await adapter.get_host_ip_pairs():
-            normalized_host = normalize_scoped_hostname(host, request.target)
+            if is_ip:
+                if not isinstance(host, str):
+                    continue
+                try:
+                    normalized_host = normalize_hostname(host)
+                except ValueError:
+                    continue
+            else:
+                normalized_host = normalize_scoped_hostname(host, request.target)
             try:
                 normalized_address = normalize_ip(str(address))
             except ValueError:
