@@ -240,6 +240,7 @@ class Core:
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
         'routeviews': ('key',),
+        'searchapi': ('key',),
         'securityscorecard': ('key',),
         'securityTrails': ('key',),
         'serply': ('key',),
@@ -459,6 +460,10 @@ class Core:
     def routeviews_key() -> str | None:
         value = Core.api_keys().get('routeviews', {}).get('key')
         return value.strip() if isinstance(value, str) and value.strip() else None
+
+    @staticmethod
+    def searchapi_key() -> str:
+        return Core._api_key_value('searchapi')
 
     @staticmethod
     def securityscorecard_key() -> str:
