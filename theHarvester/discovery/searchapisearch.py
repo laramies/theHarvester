@@ -29,7 +29,8 @@ class SearchSearchApi:
     PAGE_SIZE = 10
 
     # Ten pages is a provider boundary guard, not a theHarvester result cap: it
-    # bounds the conversation when a query keeps reporting a next page.
+    # bounds the conversation when a query keeps reporting a next page, and
+    # reaching it is reported as partial coverage.
     MAX_PAGES = 10
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -74,16 +75,21 @@ class SearchSearchApi:
         # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
-        # Both queries often return the same pages. Each link counts once against
-        # the limit, but every row's text is kept for parsing, because the same
-        # link can carry a different snippet with new evidence.
+        # Both queries often return the same pages, and Google windows overlap
+        # within one query. Each link counts once against the limit, but every
+        # row's text is kept for parsing, because a repeated link can carry a
+        # different snippet with new evidence.
         texts_by_link: dict[str, set[str]] = {}
+        # A query stopped by the page bound leaves coverage incomplete even when
+        # the other query exhausts normally, so the outcome is kept until the end.
+        truncated = False
         for query in queries:
             if self.limit is not None and len(self.results) >= self.limit:
                 break
             # Pages are numbered from one; the response names the next page only
-            # while Google has one.
-            seen_links: set[str] = set()
+            # while Google has one, and that field alone decides whether the
+            # query goes on: a window that only repeats earlier rows is not
+            # evidence of exhaustion.
             try:
                 for page in range(1, self.MAX_PAGES + 1):
                     if self.limit is not None and len(self.results) >= self.limit:
@@ -120,11 +126,6 @@ class SearchSearchApi:
                     if not rows:
                         break
 
-                    # Deduplicate the whole page before trimming to the limit:
-                    # Google windows can overlap, and a page whose first rows
-                    # repeat the previous window may still carry fresh links
-                    # further down.
-                    fresh: list[tuple[str, str, dict[str, str]]] = []
                     for row in rows:
                         title = row.get('title') or ''
                         snippet = row.get('snippet') or ''
@@ -144,29 +145,11 @@ class SearchSearchApi:
                         else:
                             key = link or f'{domain} {title}'
                             evidence_link = f'{link} {domain}'.strip()
-                        if key in seen_links:
-                            continue
-                        seen_links.add(key)
                         text = f'{title} {snippet} {evidence_link}\n'
-                        result = {
-                            'title': title,
-                            'snippet': snippet,
-                            'link': link,
-                            'domain': domain,
-                            'displayed_link': displayed_link,
-                        }
-                        fresh.append((key, text, result))
-
-                    # A page that only repeats the previous window means the
-                    # provider has no further results for this query.
-                    if not fresh:
-                        break
-
-                    for key, text, result in fresh:
                         known = texts_by_link.get(key)
                         if known is not None:
-                            # Counted by the other query already; keep only text
-                            # not seen for this link.
+                            # Already counted, by this query or the other one:
+                            # keep only text not seen for this link.
                             if text not in known:
                                 known.add(text)
                                 self.totalresults += text
@@ -177,7 +160,15 @@ class SearchSearchApi:
                             continue
                         texts_by_link[key] = {text}
                         self.totalresults += text
-                        self.results.append(result)
+                        self.results.append(
+                            {
+                                'title': title,
+                                'snippet': snippet,
+                                'link': link,
+                                'domain': domain,
+                                'displayed_link': displayed_link,
+                            }
+                        )
                     if self.limit is not None and len(self.results) >= self.limit:
                         return SourceExecutionReport('completed', 'result-limit')
 
@@ -187,10 +178,14 @@ class SearchSearchApi:
 
                     await asyncio.sleep(get_delay())
                 else:
-                    return SourceExecutionReport('partial', 'provider-limit')
+                    # The provider still advertised a page past the bound; the
+                    # other query runs, but coverage of this one is incomplete.
+                    truncated = True
 
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
+        if truncated:
+            return SourceExecutionReport('partial', 'provider-limit')
         return None
 
     async def get_emails(self):

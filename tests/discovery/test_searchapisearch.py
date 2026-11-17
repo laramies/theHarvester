@@ -202,6 +202,8 @@ async def test_searchapi_deduplicates_redirect_rows_by_displayed_link_across_pag
     """Redirect tokens change between requests, so a repeated window is recognized by its displayed links."""
 
     page_one = [_redirect(index) for index in range(10)]
+    # Page two repeats page one under fresh tokens and still advertises a next
+    # page; page three is the no-results body that ends the query.
     page_two = [
         dict(_redirect(index), link=f'https://www.google.com/goto?url=OTHER{index}&gsessionid=later') for index in range(10)
     ]
@@ -220,6 +222,7 @@ async def test_searchapi_deduplicates_redirect_rows_by_displayed_link_across_pag
     assert [(request['q'], request['page']) for request in requests] == [
         (['"example.com"'], ['1']),
         (['"example.com"'], ['2']),
+        (['"example.com"'], ['3']),
         (['site:example.com'], ['1']),
     ]
     assert len(search.results) == 10
@@ -562,17 +565,25 @@ async def test_searchapi_keeps_fresh_rows_from_an_overlapping_final_page(
 
 
 @pytest.mark.asyncio
-async def test_searchapi_stops_a_query_once_a_page_repeats_the_previous_window(
+async def test_searchapi_follows_next_past_a_page_that_only_repeats_earlier_links(
     monkeypatch: pytest.MonkeyPatch,
     searchapi_credentials: InMemoryCredentialAdapter,
 ) -> None:
-    """A page that only repeats earlier links ends the query even when a next page is advertised."""
+    """A window that only repeats earlier rows is not exhaustion: while next is advertised, the query goes on."""
 
+    responses = iter(
+        [
+            _response([_result(index) for index in range(10)]),
+            _response([_result(index) for index in range(10)], page=2),
+            _response([_result(10), _result(11)], next_page=None, page=3),
+            _no_results(),
+        ]
+    )
     requests: list[dict[str, list[str]]] = []
 
     async def fake_fetch(url: str, **_kwargs: Any) -> FetcherResponse:
         requests.append(_query(url))
-        return _response([_result(index) for index in range(10)])
+        return next(responses)
 
     monkeypatch.setattr(searchapisearch.AsyncFetcher, 'fetch_json', fake_fetch)
     search = searchapisearch.SearchSearchApi('example.com', None, credential_adapter=searchapi_credentials)
@@ -581,12 +592,58 @@ async def test_searchapi_stops_a_query_once_a_page_repeats_the_previous_window(
     assert [(request['q'], request['page']) for request in requests] == [
         (['"example.com"'], ['1']),
         (['"example.com"'], ['2']),
+        (['"example.com"'], ['3']),
         (['site:example.com'], ['1']),
-        (['site:example.com'], ['2']),
     ]
-    # The site: query repeated the first query's links, which count once.
-    assert len(search.results) == 10
-    assert search.totalresults.count('\n') == 10
+    assert [result['link'] for result in search.results] == [_result(index)['link'] for index in range(12)]
+    assert search.totalresults.count('\n') == 12
+    assert report is None
+
+
+@pytest.mark.asyncio
+async def test_searchapi_keeps_new_text_from_a_link_repeated_within_one_query(
+    monkeypatch: pytest.MonkeyPatch,
+    searchapi_credentials: InMemoryCredentialAdapter,
+) -> None:
+    """A later page of the same query can repeat a link with a snippet that carries new evidence."""
+
+    responses = iter(
+        [
+            _response([dict(_result(1), snippet='one.example.com')]),
+            _response(
+                [dict(_result(1), snippet='Contact admin@example.com or two.example.com'), _result(2)],
+                next_page=None,
+                page=2,
+            ),
+            _no_results(),
+        ]
+    )
+    requests: list[dict[str, list[str]]] = []
+
+    async def fake_fetch(url: str, **_kwargs: Any) -> FetcherResponse:
+        requests.append(_query(url))
+        return next(responses)
+
+    monkeypatch.setattr(searchapisearch.AsyncFetcher, 'fetch_json', fake_fetch)
+    search = searchapisearch.SearchSearchApi('example.com', 5, credential_adapter=searchapi_credentials)
+    report = await search.process()
+
+    assert [(request['q'], request['page']) for request in requests] == [
+        (['"example.com"'], ['1']),
+        (['"example.com"'], ['2']),
+        (['site:example.com'], ['1']),
+    ]
+    # The repeated link counts once; both of its snippets reach the parser.
+    assert [result['link'] for result in search.results] == [_result(1)['link'], _result(2)['link']]
+    assert search.totalresults.count('\n') == 3
+    assert await search.get_emails() == {'admin@example.com'}
+    assert await search.get_hostnames() == [
+        'example.com',
+        'host-1.example.com',
+        'host-2.example.com',
+        'one.example.com',
+        'two.example.com',
+    ]
     assert report is None
 
 
@@ -732,6 +789,8 @@ async def test_searchapi_reports_the_page_boundary_as_truncation_when_unlimited(
     monkeypatch: pytest.MonkeyPatch,
     searchapi_credentials: InMemoryCredentialAdapter,
 ) -> None:
+    """Ten pages still advertising a next page bound the query; the other query runs and the result is partial."""
+
     requests: list[dict[str, list[str]]] = []
 
     async def fake_fetch(url: str, **_kwargs: Any) -> FetcherResponse:
@@ -743,8 +802,10 @@ async def test_searchapi_reports_the_page_boundary_as_truncation_when_unlimited(
     search = searchapisearch.SearchSearchApi('example.com', None, credential_adapter=searchapi_credentials)
     report = await search.process()
 
-    assert [request['page'] for request in requests] == [[str(page)] for page in range(1, 11)]
-    assert len(search.results) == 100
+    assert [(request['q'], request['page']) for request in requests] == [
+        (['"example.com"'], [str(page)]) for page in range(1, 11)
+    ] + [(['site:example.com'], [str(page)]) for page in range(1, 11)]
+    assert len(search.results) == 200
     assert report == SourceExecutionReport('partial', 'provider-limit')
 
 
