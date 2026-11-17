@@ -116,6 +116,36 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
     return addresses
 
 
+def _append_unique_host(
+    host: str,
+    full: list[str],
+    all_hosts: list[str],
+    full_seen: set[str] | None = None,
+    all_seen: set[str] | None = None,
+) -> None:
+    """Append hostnames to the output lists without repeatedly scanning the full list for membership."""
+    if full_seen is None:
+        full_seen = set(full)
+    if all_seen is None:
+        all_seen = set(all_hosts)
+    if host not in full_seen:
+        full.append(host)
+        full_seen.add(host)
+    if host not in all_seen:
+        all_hosts.append(host)
+        all_seen.add(host)
+
+
+def sanitize_for_xml(text: str) -> str:
+    """Sanitize text for safe inclusion in XML documents."""
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    text = text.replace('"', '&quot;')
+    text = text.replace("'", '&apos;')
+    return text
+
+
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
@@ -889,24 +919,24 @@ async def run_dns_brute(
     resolved_hostnames.update(hosts)
     normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
     normalized_brute_ips = _normalize_ip_addresses(ips)
+    full_seen = set(full)
+    all_seen = set(all_hosts)
     new_rows = set()
     for host in resolved_pair:
         if ':' in host:
             subdomain, _addr = host.split(':', 1)
             if subdomain.endswith(word):
                 sorted_host = sort_host_ip_row(host)
-                if sorted_host not in full:
-                    full.append(sorted_host)
+                is_new_full = sorted_host not in full_seen
+                _append_unique_host(sorted_host, full, all_hosts, full_seen, all_seen)
+                if is_new_full:
                     new_rows.add(sorted_host)
-                if sorted_host not in all_hosts:
-                    all_hosts.append(sorted_host)
                 continue
         if host.endswith(word):
-            if host not in full:
-                full.append(host)
+            is_new_full = host not in full_seen
+            _append_unique_host(host, full, all_hosts, full_seen, all_seen)
+            if is_new_full:
                 new_rows.add(host)
-            if host not in all_hosts:
-                all_hosts.append(host)
     output_logger.info('\n[*] Hosts found after DNS brute force:')
     for row in sorted(new_rows, key=host_ip_sort_key):
         output_logger.info(row)
@@ -2123,7 +2153,6 @@ async def start(
         async def persist_failed_dns_brute() -> None:
             await checkpoint_completed_result()
             await persist_result(finish_completed_result())
-
         resolved_pair = await run_dns_brute(
             word=word,
             nameservers=final_dns_resolver_list,
