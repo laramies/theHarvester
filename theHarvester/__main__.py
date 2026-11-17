@@ -111,6 +111,26 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
     return addresses
 
 
+def _append_unique_host(
+    host: str,
+    full: list[str],
+    all_hosts: list[str],
+    full_seen: set[str] | None = None,
+    all_seen: set[str] | None = None,
+) -> None:
+    """Append hostnames to the output lists without repeatedly scanning the full list for membership."""
+    if full_seen is None:
+        full_seen = set(full)
+    if all_seen is None:
+        all_seen = set(all_hosts)
+    if host not in full_seen:
+        full.append(host)
+        full_seen.add(host)
+    if host not in all_seen:
+        all_hosts.append(host)
+        all_seen.add(host)
+
+
 def sanitize_for_xml(text: str) -> str:
     """Sanitize text for safe inclusion in XML documents."""
     text = text.replace('&', '&amp;')
@@ -1258,6 +1278,8 @@ async def start(
         resolved_hostnames.update(hosts)
         normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
         normalized_brute_ips = _normalize_ip_addresses(ips)
+        full_seen = set(full)
+        all_seen = set(all_hosts)
         temp = set()
         for host in resolved_pair:
             if ':' in host:
@@ -1265,18 +1287,16 @@ async def start(
                 subdomain, addr = host.split(':', 1)
                 if subdomain.endswith(word):
                     # Append to full, so it's within JSON/XML at the end if output file is requested
-                    if host not in full:
-                        full.append(host)
+                    is_new_full = host not in full_seen
+                    _append_unique_host(host, full, all_hosts, full_seen, all_seen)
+                    if is_new_full:
                         temp.add(subdomain + ':' + addr)
-                    if host not in all_hosts:
-                        all_hosts.append(host)
                     continue
             if host.endswith(word):
-                if host not in full:
-                    full.append(host)
+                is_new_full = host not in full_seen
+                _append_unique_host(host, full, all_hosts, full_seen, all_seen)
+                if is_new_full:
                     temp.add(host)
-                if host not in all_hosts:
-                    all_hosts.append(host)
         output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
             output_logger.info(sub)
