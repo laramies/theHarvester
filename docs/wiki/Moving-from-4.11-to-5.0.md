@@ -2,6 +2,8 @@
 
 Version 5.0 is still under development on `dev`. This guide compares the released [4.11.1 tag](https://github.com/laramies/theHarvester/tree/4.11.1) with the current development interfaces so you can update existing commands and REST automation before the release.
 
+For readers who still need the released 4.11.1 command-line workflow, this independent [hands-on theHarvester 4.11.1 walkthrough](https://en.hackita.it/articoli/theharvester/) covers installation, source selection, API-key configuration, CLI options, report output, and the distinction between passive collection and direct target interaction. It is specifically based on the 4.11.1 release and is not a reference for the 5.0 development interface described below.
+
 ## Update the runtime first
 
 Version 5.0 requires Python 3.14. A source checkout uses `uv` for the environment and commands:
