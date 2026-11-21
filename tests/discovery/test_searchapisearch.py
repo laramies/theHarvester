@@ -810,6 +810,34 @@ async def test_searchapi_reports_the_page_boundary_as_truncation_when_unlimited(
 
 
 @pytest.mark.asyncio
+async def test_searchapi_keeps_truncation_when_a_later_query_fills_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    searchapi_credentials: InMemoryCredentialAdapter,
+) -> None:
+    """A page cap hit by the first query is not forgotten when the second query fills the result limit."""
+
+    requests: list[dict[str, list[str]]] = []
+
+    async def fake_fetch(url: str, **_kwargs: Any) -> FetcherResponse:
+        query = _query(url)
+        requests.append(query)
+        if query['q'] == ['"example.com"']:
+            # Every page repeats the same single link while still advertising a next page.
+            return _response([_result(0)], page=int(query['page'][0]))
+        return _response([_result(0), _result(1)], next_page=None)
+
+    monkeypatch.setattr(searchapisearch.AsyncFetcher, 'fetch_json', fake_fetch)
+    search = searchapisearch.SearchSearchApi('example.com', 2, credential_adapter=searchapi_credentials)
+    report = await search.process()
+
+    assert [(request['q'], request['page']) for request in requests] == [
+        (['"example.com"'], [str(page)]) for page in range(1, 11)
+    ] + [(['site:example.com'], ['1'])]
+    assert [result['link'] for result in search.results] == [_result(0)['link'], _result(1)['link']]
+    assert report == SourceExecutionReport('partial', 'provider-limit')
+
+
+@pytest.mark.asyncio
 async def test_searchapi_stops_after_an_exact_full_page(
     monkeypatch: pytest.MonkeyPatch,
     searchapi_credentials: InMemoryCredentialAdapter,

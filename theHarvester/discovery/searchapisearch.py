@@ -83,6 +83,7 @@ class SearchSearchApi:
         # A query stopped by the page bound leaves coverage incomplete even when
         # the other query exhausts normally, so the outcome is kept until the end.
         truncated = False
+        limit_reached = False
         for query in queries:
             if self.limit is not None and len(self.results) >= self.limit:
                 break
@@ -170,7 +171,11 @@ class SearchSearchApi:
                             }
                         )
                     if self.limit is not None and len(self.results) >= self.limit:
-                        return SourceExecutionReport('completed', 'result-limit')
+                        # The allowance is full, but whether the run is complete
+                        # still depends on whether an earlier query hit the page
+                        # bound, so the outcome is decided after the query loop.
+                        limit_reached = True
+                        break
 
                     pagination = resp.get('pagination')
                     if not isinstance(pagination, dict) or not pagination.get('next'):
@@ -184,8 +189,13 @@ class SearchSearchApi:
 
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
+        # A query stopped at the page bound leaves coverage incomplete even when
+        # a later query then filled the allowance; saved-run comparisons rely on
+        # that distinction to avoid marking missing findings as no longer reported.
         if truncated:
             return SourceExecutionReport('partial', 'provider-limit')
+        if limit_reached:
+            return SourceExecutionReport('completed', 'result-limit')
         return None
 
     async def get_emails(self):
