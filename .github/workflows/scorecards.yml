@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       contents: read
       actions: read
