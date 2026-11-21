@@ -88,7 +88,6 @@ class SearchDuckDuckGo:
         self.proxy: bool = False
 
     async def do_search(self) -> SourceExecutionReport | None:
-        # Query only the provider; URLs in the response are evidence, not crawl targets.
         url = f'{self.api}?{urlencode({"q": self.word, "format": "json", "pretty": 1})}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
@@ -123,4 +122,4 @@ class SearchDuckDuckGo:
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        return await self.do_search()  # Only need to search once since using API.
+        return await self.do_search()

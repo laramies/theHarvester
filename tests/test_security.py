@@ -23,7 +23,6 @@ class TestXMLInjectionPrevention:
 
     def test_sanitize_for_xml_escapes_special_characters(self):
         """Escape XML special characters."""
-        # Test all XML special characters
         test_cases = [
             ('&', '&amp;'),
             ('<', '&lt;'),
@@ -50,13 +49,11 @@ class TestXMLInjectionPrevention:
 
         for malicious_input in malicious_inputs:
             result = sanitize_for_xml(malicious_input)
-            # Ensure dangerous characters are escaped
             assert '&lt;' in result or '&amp;' in result, f'Failed to sanitize: {malicious_input}'
             assert '<' not in result or result == malicious_input.replace('<', '&lt;'), f'XML tags not escaped: {malicious_input}'
 
     def test_command_line_args_are_sanitized_in_xml_output(self):
         """Escape command-line arguments before writing them to XML."""
-        # Simulate dangerous command line arguments
         dangerous_args = [
             '--domain=test.com',
             "--source='<script>alert(1)</script>'",
@@ -66,7 +63,6 @@ class TestXMLInjectionPrevention:
 
         for arg in dangerous_args:
             sanitized = sanitize_for_xml(arg)
-            # Verify no unescaped XML special characters remain
             assert '<script>' not in sanitized, f'Script tag not escaped in: {arg}'
             assert '&param=' not in sanitized or '&amp;' in sanitized, f'Ampersand not escaped in: {arg}'
 
@@ -85,7 +81,6 @@ class TestInformationDisclosure:
         """Keep stack traces out of API error responses."""
         response = client.get('/api/v1/sources')
 
-        # Even if there's an error, traceback should not be in response
         if response.status_code >= 400:
             response_data = response.json()
             assert 'traceback' not in response_data, 'Traceback exposed in error response'
@@ -105,14 +100,13 @@ class TestInformationDisclosure:
             response = client.get(endpoint, headers={'X-API-Key': 'operator-secret'})
             response_text = str(response.json() if response.status_code != 200 else {})
 
-            # Check for common path leakage patterns
             path_patterns = [
                 r'/home/\w+/',
                 r'/usr/local/',
                 r'C:\\Users\\',
                 r'/var/www/',
                 r'site-packages/',
-                r'\.py:\d+',  # filename.py:123
+                r'\.py:\d+',
             ]
 
             for pattern in path_patterns:
@@ -123,15 +117,12 @@ class TestInformationDisclosure:
 
     def test_debug_mode_does_not_expose_sensitive_info(self, client, monkeypatch):
         """Keep sensitive details hidden when ``DEBUG=1``."""
-        # Set DEBUG environment variable
         monkeypatch.setenv('DEBUG', '1')
 
-        # Make request that might trigger an error
         response = client.get('/api/v1/runs/not-found')
 
         if response.status_code >= 400:
             response_data = response.json()
-            # Even with DEBUG=1, traceback should NOT be sent to client
             assert 'traceback' not in response_data, 'DEBUG mode exposes tracebacks to clients'
 
 
@@ -209,14 +200,11 @@ class TestPathTraversalPrevention:
         for dangerous_filename in dangerous_filenames:
             result = sanitize_filename(dangerous_filename)
 
-            # Should not contain any path separators
             assert '/' not in result, f'Path separator found in sanitized filename: {result}'
             assert '\\' not in result, f'Windows path separator found: {result}'
 
-            # Should not start with .. (parent directory reference at the beginning is most dangerous)
             assert not result.startswith('..'), f'Parent directory reference at start: {result}'
 
-            # Should only be the basename
             assert os.path.dirname(result) == '', f'Path component remains: {result}'
 
     def test_sanitize_filename_removes_dangerous_characters(self):
@@ -233,15 +221,12 @@ class TestPathTraversalPrevention:
         for input_filename in test_cases:
             result = sanitize_filename(input_filename)
 
-            # Should not be empty
             assert len(result) > 0, f'Sanitized filename is empty for: {input_filename}'
 
-            # Should not contain shell special characters
             dangerous_chars = [';', '|', '&', '$', '`', '(', ')', '{', '}', '[', ']', '<', '>']
             for char in dangerous_chars:
                 assert char not in result, f'Dangerous character {char} found in: {result}'
 
-            # Should only contain alphanumeric, dash, underscore, and dot
             assert re.match(r'^[a-zA-Z0-9._-]+$', result), f'Invalid characters in sanitized filename: {result}'
 
     def test_sanitize_filename_prevents_hidden_files(self):
@@ -251,8 +236,7 @@ class TestPathTraversalPrevention:
         for hidden_file in hidden_files:
             result = sanitize_filename(hidden_file)
 
-            # Should not start with a dot (except for allowed extensions)
-            if result:  # If not empty
+            if result:
                 assert not result.startswith('.'), f'Hidden file not prevented: {result}'
 
     def test_filename_sanitization_preserves_safe_filenames(self):
@@ -267,27 +251,21 @@ class TestPathTraversalPrevention:
         for safe_filename in safe_filenames:
             result = sanitize_filename(safe_filename)
 
-            # Safe filenames should be preserved (possibly with minor changes)
             assert len(result) > 0, 'Safe filename was completely removed'
             assert '.' in result if '.' in safe_filename else True, 'File extension removed incorrectly'
 
     def test_path_traversal_in_file_operations(self):
         """Keep a sanitized output path inside its destination directory."""
-        # This tests the actual usage in the code
         from theHarvester.__main__ import sanitize_filename
 
-        # Simulate user input
         user_input = '../../../etc/passwd'
         sanitized = sanitize_filename(user_input)
 
-        # Try to create a file with sanitized name
         with tempfile.TemporaryDirectory() as tmpdir:
             safe_path = os.path.join(tmpdir, sanitized)
 
-            # Ensure the resolved path is still within tmpdir
             assert os.path.commonpath([tmpdir, safe_path]) == tmpdir, 'Path traversal detected!'
 
-            # Verify we can't escape the directory
             assert tmpdir in os.path.abspath(safe_path), 'File path escaped temporary directory'
 
 
@@ -296,14 +274,12 @@ class TestSecurityBestPractices:
 
     def test_no_hardcoded_secrets_in_code(self):
         """Reject common hard-coded secret patterns in application files."""
-        # Check main application files for common secret patterns
         files_to_check = [
             'theHarvester/__main__.py',
             'theHarvester/lib/api/api.py',
             'theHarvester/lib/core.py',
         ]
 
-        # Patterns that might indicate hardcoded secrets
         secret_patterns = [
             r'password\s*=\s*["\'][^"\']+["\']',
             r'api_key\s*=\s*["\'][a-zA-Z0-9]{20,}["\']',
@@ -318,7 +294,6 @@ class TestSecurityBestPractices:
 
                 for pattern in secret_patterns:
                     matches = re.findall(pattern, content, re.IGNORECASE)
-                    # Filter out obvious non-secrets (like example values, empty strings, variable names)
                     real_matches = [
                         m
                         for m in matches

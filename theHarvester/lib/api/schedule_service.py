@@ -197,7 +197,7 @@ class ScheduleDispatcher:
             if existing is None:
                 try:
                     await self.run_store.create(run_request, run_id=run_id)
-                except Exception as error:  # Preserve idempotency if create partially succeeded.
+                except Exception as error:
                     existing = await self.run_store.get(run_id)
                     if existing is None:
                         message = f'{target}: {type(error).__name__}: {error}'

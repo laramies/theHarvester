@@ -5,7 +5,6 @@ from theHarvester.discovery import githubcode
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import CONFIG_DIRS, Core
 
-# Captured at collection time: other tests in this package replace Core.github_key without restoring it.
 _GITHUB_KEY_ACCESSOR = Core.__dict__['github_key']
 
 
@@ -30,7 +29,6 @@ def test_github_code_reads_a_key_configured_under_a_case_variant_provider_name(
 
 class TestSearchGithubCode:
     class OkResponse:
-        # Mocking the json method properly
         def __init__(self):
             self.response = Response(status_code=200)
             object.__setattr__(

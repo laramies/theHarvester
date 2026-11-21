@@ -58,7 +58,6 @@ class SearchOtx:
             logger.info(f'OTX request failed with HTTP {response.status}')
             return report
 
-        # Expect a list with one JSON-decoded dict
         dct: Any = response.body
         if not isinstance(dct, dict):
             self.totalhosts = set()

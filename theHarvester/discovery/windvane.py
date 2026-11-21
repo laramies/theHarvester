@@ -61,12 +61,10 @@ class SearchWindvane:
         try:
             return Core.windvane_key()
         except Exception:
-            # API key is optional for windvane - returns None for limited access
             return None
 
     @staticmethod
     def _safe_parse_json(payload: object) -> dict:
-        # If already a dict, return it; if string, try parse; else return {}
         if isinstance(payload, dict):
             return payload
         if isinstance(payload, str):
@@ -160,18 +158,15 @@ class SearchWindvane:
         try:
             headers = {'User-agent': Core.get_user_agent(), 'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-            # Add API key if available
             if self.api_key:
                 headers['X-Api-Key'] = self.api_key
 
-                # With API key, use full API endpoints
                 reports = [
                     await self._search_subdomains(headers, session),
                     await self._search_dns_history(headers, session),
                     await self._search_emails(headers, session),
                 ]
             else:
-                # Without API key, use the provider's limited endpoint only.
                 logger.info('[*] Windvane API key not found. Using limited unauthenticated access.')
                 reports = [await self._search_subdomains_limited(headers, session)]
 
@@ -259,6 +254,5 @@ class SearchWindvane:
         """
         self.proxy = proxy
 
-        # API key is already set via _get_api_key() method
         async with AsyncFetcher.open_session(proxy=self.proxy) as session:
             return await self.do_search(session)

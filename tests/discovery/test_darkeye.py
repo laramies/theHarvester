@@ -111,9 +111,7 @@ async def test_pages_are_followed_and_leaks_deduplicated_across_them(
             ],
             has_next=True,
         ),
-        # Leaks without metadata are dropped by the provider, so a page can be empty and still have a next page.
         page([], has_next=True, number=2),
-        # A leak indexed during the conversation is repeated at the top of a later page.
         page([leak('101', 'Example Corp (renamed)', 'akira'), leak('102', 'Example Labs', 'play')], number=3),
     )
     search = darkeye.SearchDarkEye('Example.COM', limit=None)
@@ -218,7 +216,6 @@ async def test_breach_house_records_of_other_domains_are_left_out(monkeypatch: p
         search_result(
             ransomware=[
                 record(1, 'Example Corp', 'akira', website='example.com'),
-                # The search matches free text, so a description that names the target is not a leak of it.
                 record(2, 'Other Corp', 'play', website='other.com'),
                 record(3, 'Not example.com', 'qilin', website='notexample.com'),
             ],
@@ -241,7 +238,6 @@ async def test_both_products_are_queried_and_shared_records_reported_once(
         monkeypatch,
         page([leak('101', 'Example Corp', 'akira', website='example.com')]),
         search_result(
-            # The same victim Have I Been Ransomed? returned, and a second listing by another group.
             ransomware=[
                 record(1, 'Example Corp', 'akira', website='example.com', discovered='2024-01-01 08:00:00'),
                 record(2, 'Example Corp', 'qilin', website='example.com'),
@@ -656,7 +652,6 @@ class LocalProvider:
         self.second_page_requested.set()
         if self.hold_second_page:
             await self.release_second_page.wait()
-        # The second page is only served to the session that received the cookie with the first.
         if request.cookies.get('provider-session') != 'ready':
             return web.json_response({'error': 'missing provider session'}, status=403)
         return web.json_response({'sources': [leak('2', 'Example B', 'play')], 'has_next': False})
@@ -687,7 +682,6 @@ async def local_provider(
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, '127.0.0.1', unused_tcp_port).start()
-    # The shared fixture replaces session construction; these tests use the real one.
     monkeypatch.setattr(darkeye.AsyncFetcher, 'open_session', REAL_OPEN_SESSION)
     monkeypatch.setattr(darkeye.AsyncFetcher, '_build_session', tracked_build_session)
     monkeypatch.setattr(darkeye.SearchDarkEye, 'HIBR_URL', f'http://localhost:{unused_tcp_port}/hibr')
@@ -713,7 +707,6 @@ async def test_pagination_carries_provider_state_through_the_real_transport(
         f'Example B (play) [{HIBR} | ransomware leak]',
         f'example.com dump (channel) [{BREACH_HOUSE} | data breach]',
     }
-    # The second page needs the cookie from the first; Breach House must not receive it.
     assert local_provider.requests == [
         ('/hibr/example.com', None, 'Bearer hibr-key'),
         ('/hibr/example.com/2', 'ready', 'Bearer hibr-key'),
@@ -741,7 +734,6 @@ async def test_cancellation_closes_the_session_through_the_real_transport(
 
     assert len(local_provider.sessions) == 1
     assert local_provider.sessions[0].closed
-    # The first page is kept, and Breach House is never started after the interruption.
     assert await search.get_breach_names() == {f'Example A (akira) [{HIBR} | ransomware leak]'}
     assert [path for path, _cookie, _auth in local_provider.requests] == ['/hibr/example.com', '/hibr/example.com/2']
     assert not [t for t in asyncio.all_tasks() if t.get_name() == 'provider-http-session-close']

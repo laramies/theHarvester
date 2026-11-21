@@ -21,9 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#####################################################################
-# DNS FORCE
-#####################################################################
 
 DNS_NAMES = DATA_DIR / 'wordlists' / 'dns-names.txt'
 
@@ -61,11 +58,6 @@ class DnsForce:
         return resolved_pair, hosts, ips
 
 
-#####################################################################
-# DNS REVERSE
-#####################################################################
-
-
 IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 PORT_REGEX = r'\d{1,5}'
 NETMASK_REGEX: str = r'\d{1,2}|' + IP_REGEX
@@ -97,7 +89,6 @@ def serialize_ip_range(ip: str, netmask: str = '24') -> str:
         if matched_ip:
             return str(IPv4Network(f'{matched_ip}/24', strict=False))
 
-    # invalid input ip
     return ''
 
 
@@ -267,11 +258,6 @@ async def reverse_ip_ranges(
     if close_error is not None:
         raise close_error
     return ReverseDNSResult(request_count, completed_count, stop_reason)
-
-
-#####################################################################
-# IO
-#####################################################################
 
 
 def log_query(ip: str) -> None:

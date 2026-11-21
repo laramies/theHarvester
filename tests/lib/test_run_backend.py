@@ -542,8 +542,6 @@ def test_orphan_recovery_survives_unreadable_evidence_for_one_run(tmp_path, monk
         assert await store.claim_next() is not None
         assert await store.claim_next() is not None
 
-        # A result entry without a value passes shallow evidence validation but
-        # breaks evidence reconstruction with a KeyError.
         corrupt_dir = store.artifact_directory(corrupt['run_id'])
         ensure_private_directory(corrupt_dir)
         (corrupt_dir / 'evidence.json').write_text(
@@ -598,7 +596,6 @@ def test_orphan_recovery_storage_failure_keeps_run_recoverable(tmp_path, monkeyp
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
 
     def locked_result_store(_cursor, statement, _parameters, _context) -> None:
-        # Fail at the SQLite driver so the store's own exception translation runs.
         if re.search(failing_statement, statement):
             raise sqlite3.OperationalError('database is locked')
 
@@ -1439,7 +1436,6 @@ def test_late_failure_does_not_overwrite_a_terminal_run(tmp_path, terminal) -> N
             await store.cancel(queued['run_id'])
         await store.finish(queued['run_id'], None, 'finished log')
         finished = await store.get(queued['run_id'])
-        # A late caller (orphan recovery, a lost lease) must not clobber the terminal record.
         await store.fail(queued['run_id'], 'Worker lost its execution lease', 'late log')
         return finished, await store.get(queued['run_id'])
 
@@ -1477,8 +1473,6 @@ def test_cancellation_that_races_child_exit_records_the_reason(tmp_path, monkeyp
         poll = store.lifecycle.get
 
         async def cancel_right_after_poll(run_id):
-            # The worker's poll still sees 'running'; the operator's cancel lands just
-            # after it, while the child has already exited.
             record = await poll(run_id)
             if record is not None and record['status'] == 'running':
                 await store.cancel(run_id)

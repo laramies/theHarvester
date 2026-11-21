@@ -17,7 +17,7 @@ def _screenshots_requested() -> bool:
 
 
 def main() -> None:
-    loop_factory = None  # asyncio's standard event loop
+    loop_factory = None
     if sys.platform == 'win32':
         if not _screenshots_requested():
             try:

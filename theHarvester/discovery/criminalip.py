@@ -114,9 +114,6 @@ class SearchCriminalIP:
         return SourceExecutionReport('failed', 'provider-error')
 
     async def do_search(self, session: aiohttp.ClientSession) -> SourceExecutionReport | None:
-        # https://www.criminalip.io/developer/api/post-domain-scan
-        # https://www.criminalip.io/developer/api/get-domain-status-id
-        # https://www.criminalip.io/developer/api/get-v2-domain-report-id
         url = 'https://api.criminalip.io/v1/domain/scan'
         response = await AsyncFetcher.post_fetch(
             url,
@@ -125,8 +122,6 @@ class SearchCriminalIP:
             session=session,
             include_metadata=True,
         )
-        # Expected response format:
-        # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
         if report := self._transport_report(response, 'scan'):
             return report
         if not isinstance(response.body, dict):
@@ -161,8 +156,6 @@ class SearchCriminalIP:
             if report := self._provider_status_report(status, 'status'):
                 return report
 
-            # Expected format:
-            # {"data": {"scan_percentage": 100}, "message": "api success", "status": 200}
             scan_percentage = status.get('data', {}).get('scan_percentage')
             if scan_percentage is None:
                 logger.info('CriminalIP status response did not include scan_percentage')
@@ -175,7 +168,6 @@ class SearchCriminalIP:
             if scan_percentage == -1:
                 logger.info('CriminalIP scan failed with scan_percentage -1')
                 return SourceExecutionReport('failed', 'provider-error')
-            # Wait for scan to finish
             if counter >= 5:
                 await asyncio.sleep(20 * get_delay())
             else:
@@ -211,9 +203,6 @@ class SearchCriminalIP:
         return None
 
     async def parser(self, jlines):
-        # TODO when new scope field is added to parse lines for potential new scope!
-        # TODO map as_name to asn for asn data
-        # TODO determine if returned URLs are useful
         if not isinstance(jlines, dict) or 'data' not in jlines.keys() or not isinstance(jlines['data'], dict):
             logger.info('CriminalIP report has an unexpected structure')
             return
@@ -307,7 +296,6 @@ class SearchCriminalIP:
                     if isinstance(ip, dict):
                         self._add_ip(ip.get('ip'))
 
-        # TODO combine data['links'] and data['network_logs'] urls into one list for one run through
         for link in data.get('links', []):
             if isinstance(link, dict):
                 self._add_host_from_url(link.get('url'))

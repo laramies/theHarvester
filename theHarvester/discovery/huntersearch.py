@@ -47,14 +47,12 @@ class SearchHunter:
         return metadata.body
 
     async def do_search(self, session) -> SourceExecutionReport | None:
-        # First determine if a user account is not a free account, this call is free
         headers = {'User-Agent': Core.get_user_agent()}
         acc_info_url = f'https://api.hunter.io/v2/account?api_key={self.key}'
         response = await self._fetch_json(acc_info_url, headers, session)
         if isinstance(response, SourceExecutionReport):
             return response
         is_free = 'plan_name' in response['data'].keys() and response['data']['plan_name'].lower() == 'free'
-        # Extract the total number of requests that are available for an account
 
         total_requests_avail = (
             response['data']['requests']['searches']['available'] - response['data']['requests']['searches']['used']
@@ -72,9 +70,6 @@ class SearchHunter:
             ):
                 return SourceExecutionReport('partial', 'provider-limit')
         else:
-            # Determine the total number of emails that are available
-            # As the most emails you can get within one query are 100
-            # This is only done where paid accounts are in play
             hunter_dinfo_url = f'https://api.hunter.io/v2/email-count?domain={self.word}'
             response = await self._fetch_json(hunter_dinfo_url, headers, session)
             if isinstance(response, SourceExecutionReport):
@@ -84,16 +79,12 @@ class SearchHunter:
                 min(available_results, self.requested_limit) if self.requested_limit is not None else available_results
             )
             total_number_reqs = (total_results + 99) // 100
-            # Parse out meta field within initial JSON response to determine the total number of results
             quota_exhausted = total_requests_avail < total_number_reqs
             if quota_exhausted:
                 logger.info('WARNING: account does not have enough requests to gather all emails')
                 logger.info(
                     f'Total requests available: {total_requests_avail}, total requests needed to be made: {total_number_reqs}'
                 )
-            # max number of emails you can get per request is 100
-            # increments of 100 with offset determining where to start
-            # See docs for more details: https://hunter.io/api-documentation/v2#domain-search
             result_end = self.start + min(total_results, max(total_requests_avail, 0) * 100)
             for offset in range(self.start, result_end, 100):
                 page_limit = min(100, result_end - offset)
@@ -125,7 +116,7 @@ class SearchHunter:
         self.proxy = proxy
         try:
             async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
-                return await self.do_search(session)  # Only need to do it once.
+                return await self.do_search(session)
         except AttributeError, KeyError, TypeError:
             logger.info('Hunter returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')

@@ -19,5 +19,4 @@ class MissingKeyError(Exception):
         return self.message
 
 
-# Backward compatibility: keep old name for external imports
 MissingKey = MissingKeyError

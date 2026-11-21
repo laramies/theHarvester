@@ -30,9 +30,7 @@ class ErrorResult(NamedTuple):
 
 
 class SearchGithubCode:
-    # GitHub asks clients without a rate-limit deadline to wait at least a minute.
     DEFAULT_RATE_LIMIT_WAIT_SECONDS = 60.0
-    # Longer deadlines end the source as rate-limited instead of holding the run.
     MAX_RATE_LIMIT_WAIT_SECONDS = 300.0
 
     def __init__(self, word: str, limit: int | None) -> None:
@@ -54,7 +52,6 @@ class SearchGithubCode:
                 'Accept': 'application/vnd.github.v3.text-match+json',
                 'Authorization': f'token {self.key}',
             }
-            # Retry control to avoid infinite loops on rate limiting
             self.retry_count = 0
             self.max_retries = 3
         except Exception as e:
@@ -102,7 +99,6 @@ class SearchGithubCode:
             _text, json_data, status, links, headers = response
             if status == 200:
                 results = await self.fragments_from_response(json_data)
-                # Ensure next_page and last_page default to 0 if None
                 next_page = await self.page_from_response('next', links) or 0
                 last_page = await self.page_from_response('last', links) or 0
                 return SuccessResult(results, next_page, last_page)
@@ -115,13 +111,11 @@ class SearchGithubCode:
 
     @staticmethod
     def _is_rate_limited(status: int, headers: dict[str, str]) -> bool:
-        # GitHub reports primary and secondary rate limits as 403 with these headers.
         return status == 403 and (headers.get('x-ratelimit-remaining') == '0' or 'retry-after' in headers)
 
     @classmethod
     def _rate_limit_wait(cls, headers: dict[str, str]) -> float:
         """Return the seconds GitHub requires before the next request."""
-        # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#exceeding-the-rate-limit
         deadlines: list[float] = []
         try:
             deadlines.append(float(headers['retry-after']))
@@ -179,7 +173,6 @@ class SearchGithubCode:
                                     self.page = 0
                                     return self._failure_report('repeated-page')
                                 seen_page_content.add(page_content)
-                            # Reset retry counter on any successful response
                             self.retry_count = 0
                             logger.info(f'\tSearching {self.counter} results.')
                             remaining = self.limit - self.counter if self.limit is not None else len(result.fragments)
@@ -213,7 +206,6 @@ class SearchGithubCode:
                             logger.info(f'\tRetrying page in {sleepy_time} seconds...')
                             await asyncio.sleep(sleepy_time)
                         else:
-                            # On error, stop to avoid endless retries on a bad state
                             logger.info(f'\tGitHub code API request failed with status {result.status_code}')
                             self.page = 0
                             reason = 'access-denied' if result.status_code in {401, 403} else 'provider-error'

@@ -115,7 +115,7 @@ def test_enumeration_options_freeze_sequence_inputs_for_every_tuple_field() -> N
     assert tuple_fields == {'dns_resolvers', 'vhost_candidates'}
     assert options.dns_resolvers == ('192.0.2.1',)
     assert options.vhost_candidates == ('admin.example.com',)
-    hash(options)  # frozen options stay hashable
+    hash(options)
 
 
 def test_enumeration_options_require_a_domain() -> None:

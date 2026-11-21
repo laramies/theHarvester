@@ -58,7 +58,6 @@ def iter_xml_report(
                 yield f'<host>{sanitize_for_xml(host)}</host>'
         for host in virtual_hostnames:
             yield f'<vhost>{sanitize_for_xml(host)}</vhost>'
-    # TODO add Shodan output into XML report
     yield '</theHarvester>'
 
 

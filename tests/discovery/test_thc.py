@@ -114,9 +114,6 @@ def recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return sleeps
 
 
-# =============================================================================
-# 1. Direct API Tests (Endpoint Validation)
-# =============================================================================
 @pytest.mark.live_network
 class TestThcApi:
     """Check the THC API contract."""
@@ -152,9 +149,6 @@ class TestThcApi:
         assert 'x-ratelimit-remaining' in response.headers
 
 
-# =============================================================================
-# 2. Subdomain Search Tests (Main Functionality)
-# =============================================================================
 class TestThcSubdomainSearch:
     """Check THC subdomain searches."""
 
@@ -326,9 +320,6 @@ class TestThcSubdomainSearch:
         assert await search.get_hostnames() == set()
 
 
-# =============================================================================
-# 3. Edge Case Tests
-# =============================================================================
 class TestThcEdgeCases:
     """Check unusual and invalid targets."""
 
@@ -373,9 +364,6 @@ class TestThcEdgeCases:
         assert isinstance(result, set)
 
 
-# =============================================================================
-# 4. Proxy Tests
-# =============================================================================
 class TestThcProxy:
     """Check proxy configuration."""
 
@@ -398,9 +386,6 @@ class TestThcProxy:
         assert search.proxy is False
 
 
-# =============================================================================
-# 5. Initialization and Attributes Tests
-# =============================================================================
 class TestThcInitialization:
     """Check the initial search state."""
 
@@ -440,9 +425,6 @@ class TestThcInitialization:
         assert callable(search.process)
 
 
-# =============================================================================
-# 6. Response Format Tests
-# =============================================================================
 class TestThcResponseFormat:
     """Check normalized hostname results."""
 
@@ -480,9 +462,6 @@ class TestThcResponseFormat:
             assert hostname == hostname.lower()
 
 
-# =============================================================================
-# 7. Integration Tests with theHarvester
-# =============================================================================
 class TestThcIntegration:
     """Check the source-runner interface."""
 

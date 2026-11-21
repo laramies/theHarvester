@@ -254,7 +254,6 @@ class Core:
 
     @staticmethod
     def _read_config(filename: str) -> str:
-        # Return the first we find
         for path in CONFIG_DIRS:
             with contextlib.suppress(FileNotFoundError):
                 file = path.expanduser() / filename
@@ -263,7 +262,6 @@ class Core:
                     logger.info(f'Read {filename} from {file}')
                 return config
 
-        # Fallback to creating default in the user's home dir
         default = (DATA_DIR / filename).read_text()
         dest = CONFIG_DIRS[0].expanduser() / filename
         dest.parent.mkdir(mode=0o700, exist_ok=True)
@@ -300,7 +298,6 @@ class Core:
 
     @staticmethod
     def _with_canonical_provider_names(configured: dict) -> dict:
-        # Provider names are matched case-insensitively; an exact canonical name wins over a case variant.
         if not isinstance(configured, dict):
             return configured
         canonical_names = {provider.casefold(): provider for provider in Core._API_KEY_FIELDS}
@@ -311,7 +308,6 @@ class Core:
                 normalized[canonical] = values
         return normalized
 
-    # Providers whose fields are alternatives: any one configured field is enough to run the source.
     _ANY_API_KEY_FIELD: ClassVar[frozenset[str]] = frozenset({'darkeye'})
 
     @staticmethod
@@ -359,7 +355,6 @@ class Core:
 
     @staticmethod
     def darkeye_keys() -> tuple[object, object]:
-        # Each DarkEye product has its own key, and either one is enough to run the source.
         credentials = Core.api_keys().get('darkeye', {})
         return credentials.get('haveibeenransom_key'), credentials.get('breachhouse_key')
 
@@ -843,12 +838,9 @@ class AsyncFetcher:
     ) -> aiohttp.BaseConnector:
         """Create an aiohttp connector for the selected proxy type."""
         if proxy_url and proxy_type == 'socks5':
-            # Create SOCKS5 proxy connector using aiohttp-socks
-            # ProxyConnector.from_url can handle socks5://host:port URLs
             connector = ProxyConnector.from_url(proxy_url, ssl=ssl_context)
             return connector
         else:
-            # Use default TCP connector for HTTP proxies or no proxy
             return aiohttp.TCPConnector(
                 ssl=ssl_context if ssl_context is not None else ssl.create_default_context(cafile=certifi.where())
             )
@@ -870,8 +862,6 @@ class AsyncFetcher:
     ) -> Any:
         caller_headers = headers
         headers = cls._default_headers(headers)
-        # By default, timeout is 5 minutes, changed to 12-minutes
-        # results are well worth the wait
         try:
             if session is None:
                 async with cls.open_session(headers=headers, proxy=proxy, request_timeout=720) as owned_session:
@@ -935,16 +925,12 @@ class AsyncFetcher:
             elif isinstance(verify, bool):
                 ssl_arg = verify
             else:
-                # A borrowed session already owns its TLS policy; defer to the
-                # session connector instead of rebuilding a context per request.
                 ssl_arg = None
             proxy_url, proxy_type = cls._resolve_proxy(proxy)
             client_timeout = cls._request_timeout(request_timeout)
             req_headers = cls._default_headers(headers)
 
-            # Decide whether we need to manage the session
             if owns_session:
-                # Create connector based on proxy type
                 session = (
                     await cls._build_session(req_headers, client_timeout, proxy_url, proxy_type, ssl_arg)
                     if proxy_url
@@ -956,7 +942,6 @@ class AsyncFetcher:
                 request_kwargs: dict[str, Any] = {}
                 if ssl_arg is not None:
                     request_kwargs['ssl'] = ssl_arg
-                # For HTTP proxies, pass the proxy parameter; for SOCKS5, the connector handles it
                 if proxy_url and proxy_type == 'http':
                     request_kwargs['proxy'] = proxy_url
                 if follow_redirects is not None:
@@ -1212,7 +1197,6 @@ class AsyncFetcher:
                     ]
                 )
             )
-        # By default, timeout is 5 minutes; 60 seconds should suffice
         async with cls.open_session(headers=headers, proxy=proxy, request_timeout=60) as owned_session:
             return list(
                 await asyncio.gather(

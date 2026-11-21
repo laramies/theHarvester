@@ -69,7 +69,6 @@ class SearchRocketReach:
                         return self._report('failed', 'quota-exhausted')
 
                     if detail and 'Request was throttled.' in str(detail):
-                        # Rate limit has been triggered need to sleep extra
                         logger.info('RocketReach request was throttled')
                         return self._report('rate-limited', 'provider-rate-limit')
 
