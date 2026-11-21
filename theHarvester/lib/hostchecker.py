@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import aiodns
 
 from theHarvester.lib.cancellation import drain_tasks_after_cancellation
+from theHarvester.lib.hostnames import host_ip_sort_key, ip_sort_key
 
 DEFAULT_DNS_CONCURRENCY = 20
 DEFAULT_DNS_REQUEST_LIMIT = None
@@ -143,8 +144,8 @@ class Checker:
                 if address.version == (4 if record_type == 'A' else 6):
                     values[record_type].add(str(address))
         records = HostDnsRecords(
-            ipv4=tuple(sorted(values['A'])),
-            ipv6=tuple(sorted(values['AAAA'])),
+            ipv4=tuple(sorted(values['A'], key=ip_sort_key)),
+            ipv6=tuple(sorted(values['AAAA'], key=ip_sort_key)),
             cnames=tuple(sorted(values['CNAME'])),
         )
         return (host, records) if records.addresses or records.cnames else None
@@ -192,9 +193,10 @@ class Checker:
     def snapshot(self) -> tuple[list[str], list[str], list[str]]:
         realhosts = sorted(self.realhosts)
         resolved = sorted(
-            f'{host}:{",".join(self.records[host].addresses)}' if self.records[host].addresses else host for host in realhosts
+            (f'{host}:{",".join(self.records[host].addresses)}' if self.records[host].addresses else host for host in realhosts),
+            key=host_ip_sort_key,
         )
-        return resolved, realhosts, sorted(self.addresses)
+        return resolved, realhosts, sorted(self.addresses, key=ip_sort_key)
 
     async def check(self) -> tuple[list[str], list[str], list[str]]:
         loop = asyncio.get_running_loop()

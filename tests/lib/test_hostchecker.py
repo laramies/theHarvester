@@ -765,3 +765,48 @@ async def test_check_rejects_empty_cname(monkeypatch: pytest.MonkeyPatch) -> Non
     checker = hostchecker.Checker(['empty.example.com'], nameservers=[])
 
     assert await checker.check() == ([], [], [])
+
+
+@pytest.mark.asyncio
+async def test_check_sorts_multi_answer_ip_addresses_numerically(monkeypatch: pytest.MonkeyPatch) -> None:
+    records_by_host: dict[str, dict[str, list[str]]] = {
+        'api.example.test': {
+            'A': ['192.0.2.100', '192.0.2.2', '192.0.2.1'],
+            'AAAA': ['2001:db8::10', '2001:db8::2'],
+        },
+        'web.example.test': {
+            'A': ['192.0.2.50'],
+            'AAAA': [],
+        },
+    }
+
+    class FakeResolver:
+        async def query_dns(self, host: str, record_type: str):
+            host_records = records_by_host.get(host, {}).get(record_type, [])
+            if host_records:
+                return SimpleNamespace(
+                    answer=[SimpleNamespace(data=SimpleNamespace(addr=ip)) for ip in host_records]
+                )
+            raise hostchecker.aiodns.error.DNSError(hostchecker.aiodns.error.ARES_ENODATA, 'no data')
+
+        async def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(hostchecker.aiodns, 'DNSResolver', lambda **_kwargs: FakeResolver())
+    checker = hostchecker.Checker(['web.example.test', 'api.example.test'], nameservers=[])
+
+    resolved, hosts, addresses = await checker.check()
+
+    assert hosts == ['api.example.test', 'web.example.test']
+    assert resolved == [
+        'api.example.test:192.0.2.1,192.0.2.2,192.0.2.100,2001:db8::2,2001:db8::10',
+        'web.example.test:192.0.2.50',
+    ]
+    assert addresses == [
+        '192.0.2.1',
+        '192.0.2.2',
+        '192.0.2.50',
+        '192.0.2.100',
+        '2001:db8::2',
+        '2001:db8::10',
+    ]
