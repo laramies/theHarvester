@@ -194,6 +194,7 @@ _SPECS = (
     ),
     _spec('shodanct', ResultRoute.SUBDOMAINS),
     _spec('sourcegraph', ResultRoute.SUBDOMAINS),
+    _spec('specstream', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('subdomainapi', ResultRoute.SUBDOMAINS),
     _spec('subdomaincenter', ResultRoute.SUBDOMAINS),
     _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
