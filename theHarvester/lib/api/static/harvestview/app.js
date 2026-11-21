@@ -99,7 +99,7 @@
     const response = await fetch(path, {...options, headers});
     if (!response.ok) {
       let payload = null;
-      try { payload = await response.json(); } catch { /* response has no JSON body */ }
+      try { payload = await response.json(); } catch {}
       const error = new Error(errorMessage(payload, `${response.status} ${response.statusText}`));
       error.status = response.status;
       throw error;

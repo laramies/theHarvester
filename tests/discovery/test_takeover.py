@@ -16,7 +16,7 @@ from theHarvester.lib.takeover_rules import TakeoverRule
 
 def test_takeover_rules_cover_the_pinned_validated_corpus() -> None:
     fixture_path = Path(__file__).parents[1] / 'fixtures' / 'takeover_can_i_take_over_xyz_5bd4e128.fixture'
-    fixture = json.loads(fixture_path.read_text())
+    fixture = json.loads(fixture_path.read_text(encoding='utf-8'))
     assert fixture['provenance'] == {
         'repository': 'EdOverflow/can-i-take-over-xyz',
         'commit': '5bd4e128',
@@ -1045,8 +1045,6 @@ async def test_takeover_invalid_response_is_inconclusive_and_does_not_stop_sibli
         pytest.param('', None, id='empty'),
         pytest.param('   ', None, id='blank'),
         pytest.param('/' + 'a' * 2048, None, id='longer-than-the-evidence-limit'),
-        # aiohttp decodes header bytes with surrogateescape, so a Latin-1 byte
-        # arrives as a lone surrogate that UTF-8 persistence cannot encode.
         pytest.param('/caf\udce9', '/caf�', id='undecodable-header-bytes'),
     ],
 )
@@ -1076,7 +1074,6 @@ async def test_takeover_evaluates_hosts_whose_redirect_location_cannot_be_kept(
         ('valid.example.test', 'indicator'),
     ]
     assert {item.location for item in outcomes[0].http} == {stored}
-    # The details are persisted as UTF-8 JSON.
     json.dumps([item.to_details() for item in outcomes], ensure_ascii=False).encode('utf-8')
 
 

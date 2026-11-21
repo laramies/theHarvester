@@ -223,7 +223,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 66 discovery sources</strong></summary>
+<summary><strong>View all 67 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -281,6 +281,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`shodanct`](https://ctl.shodan.io/) | subdomains only | P0 | No |
 | [`shodanInternetDB`](https://internetdb.shodan.io/) | subdomains, ips | P1 | No |
 | [`sourcegraph`](https://sourcegraph.com/search) | subdomains only | P0 | No |
+| [`specstream`](https://specstream.ai/) | subdomains, emails | P0 | Required |
 | [`subdomainapi`](https://api.subdomain.app/) | subdomains only | P0 | No |
 | [`subdomaincenter`](https://www.subdomain.center/) | subdomains only | P0 | No |
 | [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | subdomains only | P1 | No |

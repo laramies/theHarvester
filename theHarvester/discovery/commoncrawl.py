@@ -155,8 +155,6 @@ class SearchCommoncrawl:
                         first_page = 0
                         consecutive_page_errors = 0
                         while first_page < page_count:
-                            # CDX limit truncates captures inside a ZipNum page, so it can
-                            # hide later distinct hosts. Read the bounded page in full.
                             page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page})}'
                             first_page += 1
                             try:

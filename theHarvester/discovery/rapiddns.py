@@ -22,8 +22,6 @@ class SearchRapidDns:
     async def do_search(self) -> SourceExecutionReport | None:
         try:
             headers = {'User-Agent': Core.get_browser_user_agent()}
-            # TODO see if it's worth adding sameip searches
-            # f'{self.hostname}/sameip/{self.word}?full=1#result'
             urls = [f'https://rapiddns.io/subdomain/{self.word}?full=1#result']
             responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
                 urls,
@@ -58,7 +56,6 @@ class SearchRapidDns:
             rows = tbody_el.find_all('tr')
             malformed = False
             if rows:
-                # Validation check
                 for row in rows:
                     if not isinstance(row, Tag):
                         continue

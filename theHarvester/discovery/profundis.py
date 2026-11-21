@@ -51,7 +51,6 @@ class SearchProfundis:
             async with AsyncFetcher.stream_records(
                 self.URL,
                 method='POST',
-                # Despite its content type, this API emits lines, not SSE data: events.
                 framing='ndjson',
                 headers={'X-API-KEY': self.key.strip(), 'Accept': 'text/event-stream'},
                 json_body={'domain': self.word, 'max_credits': self.max_credits, 'source': 'theHarvester'},
@@ -67,7 +66,6 @@ class SearchProfundis:
                         continue
                     if line.startswith(('{', '[')):
                         if control := self._control(line):
-                            # A later credit snapshot must not hide an earlier error.
                             if report is None or control.status == 'failed':
                                 report = control
                         continue
@@ -80,7 +78,6 @@ class SearchProfundis:
                         self.limit is None or len(self.totalhosts) < self.limit
                     ):
                         self.totalhosts.add(hostname)
-                # Drain the stream: errors may follow the final credit snapshot.
         except ResponseStreamError as error:
             return SourceExecutionReport('failed', error.reason)
         if report is not None:

@@ -56,7 +56,6 @@ class TestCrtshSearch:
 
     @pytest.mark.asyncio
     async def test_multiline_name_value_is_split(self, monkeypatch):
-        # crt.sh packs several names into one name_value separated by newlines.
         _patch_fetch(monkeypatch, [{'name_value': 'a.example.com\nb.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
         report = await search.process()

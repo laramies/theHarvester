@@ -71,7 +71,7 @@ class SearchOTILabs:
                 try:
                     self.totalips.add(str(ip_address(address)))
                 except ValueError:
-                    pass  # a CNAME target rather than an address
+                    pass
         if malformed:
             return SourceExecutionReport('failed', 'invalid-response')
 
@@ -80,7 +80,6 @@ class SearchOTILabs:
             isinstance(source, str) and source.endswith(': enriching') for source in sources
         )
         if pending or body.get('live_count', 0) is None:
-            # The API answered before its live check finished, so a later run can return more addresses.
             return SourceExecutionReport('partial', 'enrichment-pending')
         count, returned = body.get('count'), body.get('returned')
         if isinstance(count, int) and isinstance(returned, int) and count > returned:

@@ -87,7 +87,6 @@ class SearchYahoo:
         rawres = myparser.Parser(self.total_results, self.word)
         toparse_emails = await rawres.emails()
         emails = set()
-        # strip out numbers and dashes for emails that look like xxx-xxx-xxxemail@host.tld
         for email in toparse_emails:
             email = str(email)
             if '-' in email and email[0].isdigit() and email.index('-') <= 9:

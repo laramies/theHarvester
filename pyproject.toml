@@ -78,7 +78,6 @@ exclude-newer = "7 days"
 python-version = "3.14"
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
 exclude = [
     "tests",
     ".eggs",
@@ -127,20 +126,15 @@ ignore = [
     "N999",
     ]
 
-# Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 
-# Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.format]
-# Use single quotes for strings.
 quote-style = "single"
 indent-style = "space"
 
-# Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
 
-# Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"

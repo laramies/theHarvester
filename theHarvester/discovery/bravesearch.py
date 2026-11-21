@@ -23,8 +23,6 @@ class SearchBrave:
     embedded use independent of operator configuration files.
     """
 
-    # Brave documents offsets 0 through 9; this is a provider boundary, not a
-    # theHarvester result cap.
     MAX_OFFSET = 9
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -55,7 +53,6 @@ class SearchBrave:
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
 
-        # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
         for query in queries:
@@ -72,12 +69,11 @@ class SearchBrave:
                         'offset': offset,
                         'safesearch': 'off',
                         'freshness': 'all',
-                        'extra_snippets': 'true',  # Enable extra snippets for richer content
-                        'text_decorations': 'true',  # Enable highlighting
-                        'spellcheck': 'true',  # Enable spellcheck
+                        'extra_snippets': 'true',
+                        'text_decorations': 'true',
+                        'spellcheck': 'true',
                     }
 
-                    # Build URL with parameters
                     param_string = '&'.join([f'{k}={quote(str(v))}' for k, v in params.items()])
                     url = f'{self.server}?{param_string}'
 
@@ -90,13 +86,11 @@ class SearchBrave:
                         return SourceExecutionReport(*failure)
                     resp = response.body
 
-                    # Handle API response
                     if resp is None:
                         return SourceExecutionReport('failed', 'invalid-response')
                     if not isinstance(resp, dict):
                         return SourceExecutionReport('failed', 'invalid-response')
 
-                    # Check for API errors (rate limit, quota exceeded, etc.)
                     if 'error' in resp:
                         provider_error = resp['error']
                         if not isinstance(provider_error, dict):

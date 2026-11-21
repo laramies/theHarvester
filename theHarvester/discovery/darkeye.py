@@ -38,10 +38,7 @@ class SearchDarkEye:
     BREACH_HOUSE_PRODUCT = 'Breach House'
     BREACH_HOUSE_URL = 'https://breach.house/api/v1/search'
 
-    # Have I Been Ransomed? aggregates at most 10,000 leaks per search, which is 500 pages of 20.
-    # The guard bounds the conversation if a response keeps reporting further pages.
     MAX_PAGES = 500
-    # Breach House returns at most this many records per source in one search.
     BREACH_HOUSE_MAX_LIMIT = 200
 
     HIBR_CATEGORIES: ClassVar[dict[str, str]] = {'ransomware_leak': 'ransomware leak', 'traditional_breach': 'data breach'}
@@ -61,7 +58,6 @@ class SearchDarkEye:
         if not (self.hibr_key or self.breach_house_key):
             raise MissingKey('DarkEye')
         self.breach_names: set[str] = set()
-        # Both products can list the same victim or breach, which is reported once.
         self.seen_records: set[tuple[str, str, str, str]] = set()
         self.proxy: bool | str = False
 
@@ -76,8 +72,6 @@ class SearchDarkEye:
 
     def _add(self, product: str, category: str, entry: dict[str, Any]) -> bool | None:
         """Record one entry. Returns False when it cannot be read and None at the result limit."""
-        # Ransomware posts carry the victim in post_title and the gang in group_name.
-        # Breach dumps carry the dump title and the channel or collection it came from.
         title = self._clean(entry.get('post_title')) or self._clean(entry.get('website'))
         if not title:
             return False
@@ -108,8 +102,6 @@ class SearchDarkEye:
                 body = response.body
                 if not isinstance(body, dict):
                     return SourceExecutionReport('failed', 'invalid-response')
-                # The documentation example nests entries under results and pagination;
-                # the API sends sources and the pagination fields at the top level.
                 entries = body['sources'] if 'sources' in body else body.get('results')
                 pagination = body.get('pagination')
                 has_next = (pagination if isinstance(pagination, dict) else body).get('has_next')
@@ -120,7 +112,6 @@ class SearchDarkEye:
                     if not isinstance(entry, dict):
                         malformed = True
                         continue
-                    # Newly indexed leaks can be repeated at the top of a later page.
                     leak_id = entry.get('id_source')
                     if isinstance(leak_id, (str, int)) and not isinstance(leak_id, bool):
                         if str(leak_id) in seen_leaks:
@@ -132,8 +123,6 @@ class SearchDarkEye:
                         return self._stop(malformed, SourceExecutionReport('completed', 'result-limit'))
                     malformed = malformed or not added
 
-                # Pages can come back short or empty while has_next is still true, because
-                # leaks without metadata are dropped from the page, so has_next decides.
                 if not has_next:
                     break
                 if self._limit_reached():
@@ -144,12 +133,9 @@ class SearchDarkEye:
 
     @staticmethod
     def _mentions_domain(entry: dict[str, Any], domain: str, title: str) -> bool:
-        # The search matches free text, so a record whose website is another domain only mentions the target.
         website = SearchDarkEye._clean(entry.get('website')).casefold()
         if website:
             return website == domain or website.endswith(f'.{domain}')
-        # Without a website the title is free text, so the target must stand alone as a hostname:
-        # not inside notexample.test or example.test.other.test, but still as mail.example.test.
         return re.search(rf'(?<![\w-]){re.escape(domain)}(?![\w-]|\.\w)', title.casefold()) is not None
 
     async def search_breach_house(self, domain: str) -> SourceExecutionReport | None:
@@ -170,7 +156,6 @@ class SearchDarkEye:
         for source, category in self.BREACH_HOUSE_CATEGORIES.items():
             if source not in body:
                 continue
-            # Each source is {"results": [...], "total": n}.
             results = body[source].get('results') if isinstance(body[source], dict) else None
             total = body[source].get('total') if isinstance(body[source], dict) else None
             if not isinstance(results, list):
@@ -197,7 +182,6 @@ class SearchDarkEye:
 
     @staticmethod
     def _stop(malformed: bool, report: SourceExecutionReport | None = None) -> SourceExecutionReport | None:
-        # Entries that could not be read take precedence, so the run is not reported as complete.
         return SourceExecutionReport('failed', 'invalid-response') if malformed else report
 
     async def get_breach_names(self) -> set[str]:
@@ -215,7 +199,6 @@ class SearchDarkEye:
 
     async def process(self, proxy: bool | str = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        # Have I Been Ransomed? matches the domain field exactly, but treats * and ? as wildcards.
         try:
             domain = normalize_hostname(self.word)
         except ValueError:
@@ -228,7 +211,6 @@ class SearchDarkEye:
         for key, search in ((self.hibr_key, self.search_hibr), (self.breach_house_key, self.search_breach_house)):
             if not key:
                 continue
-            # A product that filled the shared limit on its last page leaves no capacity for another query.
             if queried and self._limit_reached():
                 reports.append(SourceExecutionReport('completed', 'result-limit'))
                 break
@@ -238,8 +220,6 @@ class SearchDarkEye:
                 reports.append(report)
             if report == SourceExecutionReport('completed', 'result-limit'):
                 break
-        # A product that failed is reported even when the other one completed, so the runner
-        # can mark the run partial and keep the results already collected.
         for statuses in (('failed', 'rate-limited'), ('partial',), ('completed',)):
             for report in reports:
                 if report.status in statuses:

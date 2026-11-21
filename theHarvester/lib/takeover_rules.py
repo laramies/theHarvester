@@ -5,10 +5,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from theHarvester.lib.takeover_evidence import TakeoverClassification, TakeoverRcode
 
-# This reviewed snapshot translates the provider-gated subset of
-# can-i-take-over-xyz@5bd4e128 and compound predicates from
-# nuclei-templates@9090ee10. Rules are local so network failure cannot silently
-# change coverage. See CHANGELOG.md and README.md for provenance and terminology.
 TAKEOVER_RULE_REVISION = 'takeover-rules-v1'
 
 

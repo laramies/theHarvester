@@ -23,13 +23,8 @@ class SearchSerply:
     embedded use independent of operator configuration files.
     """
 
-    # Serply returns at most ten organic rows per response and paginates with a
-    # start offset. The num parameter is an approximate cap rather than an exact
-    # count, so rows are trimmed here.
     PAGE_SIZE = 10
 
-    # Ten pages is a provider boundary guard, not a theHarvester result cap: it
-    # bounds the conversation when a query keeps reporting further pages.
     MAX_PAGES = 10
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -60,14 +55,11 @@ class SearchSerply:
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
 
-        # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
         for query in queries:
             if self.limit is not None and len(self.results) >= self.limit:
                 break
-            # Serply ignores page and offset; start is the only parameter that
-            # advances the result window.
             seen_links: set[str] = set()
             try:
                 for page in range(self.MAX_PAGES):
@@ -93,8 +85,6 @@ class SearchSerply:
                     if not isinstance(resp, dict):
                         return SourceExecutionReport('failed', 'invalid-response')
 
-                    # Serply reports refusals as a detail string rather than an
-                    # organic payload.
                     if 'results' not in resp:
                         if 'detail' in resp:
                             return SourceExecutionReport('failed', 'provider-error')
@@ -109,10 +99,6 @@ class SearchSerply:
                     if not rows:
                         break
 
-                    # Deduplicate the whole page before trimming to the limit:
-                    # Google windows can overlap, and a page whose first rows
-                    # repeat the previous window may still carry fresh links
-                    # further down.
                     fresh = []
                     for result in rows:
                         title = result.get('title', '')
@@ -125,8 +111,6 @@ class SearchSerply:
                         seen_links.add(link)
                         fresh.append(result)
 
-                    # A page that only repeats the previous window means the
-                    # provider has no further results for this query.
                     if not fresh:
                         break
 

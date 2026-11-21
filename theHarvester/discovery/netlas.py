@@ -113,7 +113,6 @@ class SearchNetlas:
                         return SourceExecutionReport('failed', 'invalid-response')
                     if size == 0:
                         return None
-                    # Netlas documents counts above 1,000 as estimates within 3%.
                     if size > 1000:
                         size = math.ceil(size / 0.97)
                     return await self.do_search(session, size)

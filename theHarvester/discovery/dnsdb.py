@@ -57,7 +57,6 @@ class SearchDNSDB:
             framing='ndjson',
             headers=headers,
             proxy=self.proxy,
-            # Never forward the provider credential to a redirect target.
             follow_redirects=False,
             request_timeout=120,
         ) as response:

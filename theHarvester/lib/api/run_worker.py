@@ -74,8 +74,6 @@ async def _process_output(process: asyncio.subprocess.Process) -> str:
     async def read(stream: asyncio.StreamReader | None) -> bytes:
         if stream is None:
             return b''
-        # Drain the stream to EOF but only retain the most recent tail so a
-        # verbose child cannot grow API-process memory without bound.
         tail = bytearray()
         while chunk := await stream.read(65536):
             tail.extend(chunk)
@@ -298,8 +296,6 @@ class RunWorker:
                         await store.fail(run_id, 'Worker lost its execution lease', await output_task)
                         return
                     next_heartbeat = asyncio.get_running_loop().time() + 5
-                # Poll the lifecycle row only; the full detail projection is
-                # not needed every 50 ms while waiting for the child.
                 current = await store.lifecycle.get(run_id)
                 stopping = stop_event is not None and stop_event.is_set()
                 if current is not None and current['status'] == 'cancelling':
@@ -334,15 +330,12 @@ class RunWorker:
             cancelling = current is not None and current['status'] == 'cancelling'
             evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
             if cancelling:
-                # Same record as a cancellation seen while the child was still running.
-                # A cancelled run keeps whatever evidence it checkpointed.
                 failure_message = 'Cancelled by operator' + (f'; {evidence_error}' if evidence_error else '')
                 await store.fail(run_id, failure_message, log, cancelled=True, evidence=evidence)
                 return
             if evidence_error:
                 await store.fail(run_id, evidence_error, log)
                 return
-            # Only a clean exit with evidence finishes.
             if process.returncode == 0 and evidence is not None:
                 await store.finish(run_id, evidence, log)
             else:
@@ -493,8 +486,6 @@ async def _child_execute(run_id: str, database: Path) -> int:
     try:
         response = await task
     except asyncio.CancelledError:
-        # A terminated child must not report clean completion to the parent:
-        # leftover checkpoint evidence is partial, not terminal.
         return 2
     finally:
         if signal_handler_installed:

@@ -34,7 +34,6 @@ class SearchShodanInternetDB:
         return bool(self.totalhosts or self.totalips)
 
     async def do_search(self) -> SourceExecutionReport | None:
-        # Resolve the domain to IP addresses first
         try:
             resolved_ips = await resolve_ip_addresses(self.word)
         except aiodns.error.DNSError:
@@ -45,7 +44,6 @@ class SearchShodanInternetDB:
             logger.info(f'Shodan InternetDB: No IPs resolved for {self.word}')
             return None
 
-        # Query InternetDB for each resolved IP
         requested_ips = list(resolved_ips)
         urls = [f'https://internetdb.shodan.io/{ip}' for ip in requested_ips]
         try:
@@ -68,7 +66,6 @@ class SearchShodanInternetDB:
                 report = SourceExecutionReport('failed', 'invalid-response')
                 continue
 
-            # Older InternetDB responses represented missing data with a detail object.
             if 'detail' in payload:
                 continue
 
@@ -87,7 +84,6 @@ class SearchShodanInternetDB:
                 report = SourceExecutionReport('failed', 'invalid-response')
                 continue
 
-            # Collect hostnames that match our target domain
             for hostname in fields['hostnames']:
                 if normalized := normalize_scoped_hostname(hostname, self.word):
                     self.totalhosts.add(normalized)

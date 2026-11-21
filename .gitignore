@@ -52,7 +52,6 @@ test-results/
 **/.impeccable/live/*.png
 # impeccable-ignore-end
 
-# Shared Impeccable artifacts override the repository-wide *.json rule.
 !**/.impeccable/config.json
 !**/.impeccable/live/config.json
 !**/.impeccable/design.json

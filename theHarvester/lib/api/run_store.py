@@ -464,11 +464,8 @@ class RunStore:
                     recovered_at,
                 )
             except ResultStoreUnavailableError:
-                # Storage failures propagate so the run stays recoverable.
                 raise
             except (HTTPException, KeyError, TypeError, ValueError, ResultStoreError) as evidence_failure:
-                # One unreadable checkpoint must not abort recovery of the
-                # remaining orphaned runs or crash every future startup.
                 logger.warning(
                     'Run %s has unreadable evidence and will be failed without it: %s',
                     run_id,

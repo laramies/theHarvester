@@ -45,7 +45,6 @@ class SearchTomba:
         return metadata.body
 
     async def do_search(self, session) -> SourceExecutionReport | None:
-        # First determine if a user account is not a free account, this call is free
         headers = {
             'User-Agent': Core.get_user_agent(),
             'X-Tomba-Key': self.key[0],
@@ -56,7 +55,6 @@ class SearchTomba:
         if isinstance(response, SourceExecutionReport):
             return response
         is_free = 'name' in response['data']['pricing'].keys() and response['data']['pricing']['name'].lower() == 'free'
-        # Extract the total number of requests that are available for an account
 
         total_requests_avail = (
             response['data']['requests']['domains']['available'] - response['data']['requests']['domains']['used']
@@ -113,7 +111,6 @@ class SearchTomba:
             return None
         candidate = value.strip()
         try:
-            # A network-path prefix lets urlsplit find the host in scheme-less values.
             hostname = urlsplit(candidate if '://' in candidate else f'//{candidate}').hostname or ''
         except ValueError:
             return None
@@ -135,7 +132,7 @@ class SearchTomba:
         self.proxy = proxy
         try:
             async with AsyncFetcher.open_session(proxy=self.proxy, request_timeout=60) as session:
-                return await self.do_search(session)  # Only need to do it once.
+                return await self.do_search(session)
         except AttributeError, KeyError, TypeError:
             logger.info('Tomba returned malformed data')
             return SourceExecutionReport('failed', 'invalid-response')
