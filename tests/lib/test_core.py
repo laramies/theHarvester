@@ -1369,6 +1369,32 @@ async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_one_requests_metadata_and_forwards_only_given_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], dict[str, Any]]] = []
+    response = FetcherResponse(body={'ok': True}, status=200, headers={})
+
+    async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[object]:
+        calls.append((urls, kwargs))
+        return [response]
+
+    monkeypatch.setattr(AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    assert await AsyncFetcher.fetch_one('https://one.example', json=True, proxy=True) is response
+    assert calls == [(['https://one.example'], {'include_metadata': True, 'json': True, 'proxy': True})]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('responses', [[], [None], ['body-without-metadata']])
+async def test_fetch_one_returns_none_without_a_response(monkeypatch: pytest.MonkeyPatch, responses: list[object]) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: Any) -> list[object]:
+        return responses
+
+    monkeypatch.setattr(AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    assert await AsyncFetcher.fetch_one('https://one.example') is None
+
+
+@pytest.mark.asyncio
 async def test_fetch_all_reuses_a_caller_owned_session(monkeypatch: pytest.MonkeyPatch) -> None:
     session = object()
     seen_sessions: list[object] = []

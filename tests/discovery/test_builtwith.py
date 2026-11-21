@@ -12,6 +12,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import source_runner
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse, ResponseStreamError
+from tests.result_store_helpers import recording_result_store
 
 
 @pytest.mark.asyncio
@@ -273,16 +274,6 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeBuiltWith:
         def __init__(self, domain: str) -> None:
             assert domain == 'example.com'
@@ -312,7 +303,7 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
             return {'Google Analytics'}
 
     report = tmp_path / 'builtwith-report'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(source_runner.builtwith, 'SearchBuiltWith', FakeBuiltWith)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'builtwith', '-f', str(report)])
 

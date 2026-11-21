@@ -12,6 +12,7 @@ import pytest
 from theHarvester import __main__ as theharvester_main
 from theHarvester.lib import source_catalog, source_runner
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec
+from tests.result_store_helpers import NoopResultStore
 
 NON_PASSIVE_SOURCES = (
     'criminalip',
@@ -45,16 +46,6 @@ async def test_catalog_and_factory_are_the_only_source_registration_points(
 ) -> None:
     runs = 0
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, _result: object) -> None:
-            return None
-
     class CatalogOnlyAdapter:
         async def process(self, _proxy: bool) -> None:
             nonlocal runs
@@ -69,7 +60,7 @@ async def test_catalog_and_factory_are_the_only_source_registration_points(
     monkeypatch.setitem(SOURCE_SPECS, source, spec)
     monkeypatch.setitem(source_catalog._CASEFOLDED_SOURCE_SPECS, source, spec)
     monkeypatch.setitem(source_runner.SOURCE_FACTORIES, source, lambda _request: CatalogOnlyAdapter())
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -84,16 +75,6 @@ async def test_activity_summary_includes_source_and_option_classes(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, _result: object) -> None:
-            return None
-
     class FakeCriminalIP:
         def __init__(self, _domain: str) -> None:
             pass
@@ -114,7 +95,7 @@ async def test_activity_summary_includes_source_and_option_classes(
             return ()
 
     monkeypatch.setattr(source_runner.criminalip, 'SearchCriminalIP', FakeCriminalIP)
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'criminalip', '-n', '-s'])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -129,21 +110,11 @@ async def test_activity_summary_covers_api_scan_without_sources(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, _result: object) -> None:
-            return None
-
     def stop_api_scan(**_kwargs: object) -> None:
         raise RuntimeError('offline test stop')
 
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', stop_api_scan)
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-a'])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -160,14 +131,7 @@ async def test_removed_source_is_rejected_before_source_execution(
     capsys: pytest.CaptureFixture[str],
     source: str,
 ) -> None:
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def save_run(self, _result: object) -> None:
-            return None
-
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -184,16 +148,6 @@ async def test_explicit_non_passive_source_is_scheduled_once(
     source: str,
 ) -> None:
     executions = 0
-
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, *_args: object) -> None:
-            return None
 
     class FakeAdapter:
         async def process(self, *_args: object, **_kwargs: object) -> None:
@@ -224,7 +178,7 @@ async def test_explicit_non_passive_source_is_scheduled_once(
         }[source]
         monkeypatch.setattr(module, constructor_name, lambda *_args, **_kwargs: FakeAdapter())
 
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
 
     with pytest.raises(SystemExit) as exit_info:

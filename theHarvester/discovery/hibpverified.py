@@ -2,7 +2,7 @@ import logging
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
@@ -21,18 +21,16 @@ class SearchHibpVerified:
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         try:
-            responses = await AsyncFetcher.fetch_all(
-                [f'{self.base_url}/breachedDomain/{self.word}'],
+            response = await AsyncFetcher.fetch_one(
+                f'{self.base_url}/breachedDomain/{self.word}',
                 headers=self.headers,
                 json=True,
                 proxy=proxy,
-                include_metadata=True,
             )
         except OSError, RuntimeError, ValueError:
             logger.info('HIBP verified-domain request failed')
             return SourceExecutionReport('failed', 'transport-error')
 
-        response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
         if response is None:
             logger.info('HIBP verified-domain request failed')
             return SourceExecutionReport('failed', 'transport-error')

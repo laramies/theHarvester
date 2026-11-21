@@ -87,14 +87,12 @@ class SearchGitlab:
         per_page: int,
     ) -> tuple[list[object], str | None, SourceExecutionReport | None]:
         url = f'{self.hostname}/api/v4/{endpoint}?search={term}&per_page={per_page}&page={page}'
-        response = await AsyncFetcher.fetch_all(
-            [url],
+        payload = await AsyncFetcher.fetch_one(
+            url,
             headers={'User-agent': Core.get_user_agent()},
             session=session,
             json=True,
-            include_metadata=True,
         )
-        payload = response[0] if response else None
         if not isinstance(payload, FetcherResponse):
             return [], None, SourceExecutionReport('failed', 'transport-error')
         if error := provider_http_error(payload):

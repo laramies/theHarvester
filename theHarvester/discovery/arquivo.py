@@ -3,7 +3,7 @@ import json
 import logging
 from urllib.parse import urlencode, urlsplit
 
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -42,10 +42,9 @@ class SearchArquivo:
                 parameters['offset'] = offset
             query = urlencode(parameters)
             try:
-                responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
-                    [f'https://arquivo.pt/wayback/cdx?{query}'],
+                response = await AsyncFetcher.fetch_one(
+                    f'https://arquivo.pt/wayback/cdx?{query}',
                     session=session,
-                    include_metadata=True,
                 )
             except asyncio.CancelledError:
                 raise
@@ -53,7 +52,6 @@ class SearchArquivo:
                 logger.info(f'Arquivo.pt request failed: {error}')
                 return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'transport-error')
 
-            response = responses[0] if responses else None
             if response is None:
                 logger.info('Arquivo.pt request failed')
                 return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'transport-error')

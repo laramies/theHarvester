@@ -23,13 +23,11 @@ class SearchCrtsh:
         try:
             max_attempts = 3
             for attempt in range(max_attempts):
-                responses = await AsyncFetcher.fetch_all(
-                    [url],
+                result = await AsyncFetcher.fetch_one(
+                    url,
                     json=True,
                     proxy=self.proxy,
-                    include_metadata=True,
                 )
-                result = responses[0] if responses else None
                 if isinstance(result, FetcherResponse):
                     if 200 <= result.status < 300 and isinstance(result.body, list):
                         response = result.body

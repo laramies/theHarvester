@@ -12,6 +12,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import crtname, crtsh
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import ResponseStreamError
+from tests.result_store_helpers import recording_result_store
 
 
 class FakeResponse:
@@ -271,16 +272,6 @@ async def test_crt_name_and_crtsh_share_one_result_with_both_sources(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeCrtsh:
         def __init__(self, _word: str) -> None:
             pass
@@ -298,7 +289,7 @@ async def test_crt_name_and_crtsh_share_one_result_with_both_sources(
     report = tmp_path / 'crt-name-overlap'
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     monkeypatch.setattr(crtsh, 'SearchCrtsh', FakeCrtsh)
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(
         sys,
         'argv',

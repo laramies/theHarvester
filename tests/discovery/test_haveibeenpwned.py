@@ -11,6 +11,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import haveibeenpwned
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
+from tests.result_store_helpers import recording_result_store
 
 
 def test_public_breach_catalog_does_not_require_api_key() -> None:
@@ -170,16 +171,6 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeResultStore:
-        async def initialize(self) -> None:
-            return None
-
-        async def record_observations(self, *_args: object) -> None:
-            return None
-
-        async def save_run(self, result: CompletedResult) -> None:
-            completed_results.append(result)
-
     class FakeHaveIBeenPwned:
         def __init__(self, domain: str) -> None:
             assert domain == 'example.com'
@@ -191,7 +182,7 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
             return {'Adobe', 'ExampleBreach'}
 
     report = tmp_path / 'hibp-report'
-    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(completed_results))
     monkeypatch.setattr(haveibeenpwned, 'SearchHaveIBeenPwned', FakeHaveIBeenPwned)
     monkeypatch.setattr(
         sys,
