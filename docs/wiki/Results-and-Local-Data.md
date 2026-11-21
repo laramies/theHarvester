@@ -100,8 +100,10 @@ The same `-f report` command creates `report.json` and `report.xml` compatibilit
 ## JSON and XML compatibility reports
 
 - **JSON** is one object and contains the broader result set. `cmd`, `hosts`, and `shodan` are always present; other fields appear when non-empty.
-- **XML** contains the command, emails, hosts, and virtual hosts. Use JSON for other result types.
+- **XML** contains the command, emails, hosts, virtual hosts, and Shodan host and service evidence (`<shodan>` elements). Use JSON or canonical JSONL for other result types.
 - JSON and XML reports do not record which source found each item.
+
+When Shodan evidence is available, XML reports include `<shodan>` elements containing `<host>`, and when present, `<asn>`, `<organization>`, `<isp>`, subordinate `<hostname>` elements, and `<service>` entries with `<port>`, `<transport>`, and optional `<product>` and `<version>`. This projection intentionally exposes a compact subset of the full service payload; use JSONL or API run details for complete Shodan banner evidence.
 
 When virtual host discovery runs, JSON's `vhosts` array and XML's `<vhost>` entries contain confirmed hostnames only. They do not include endpoint or baseline evidence; use JSONL or API run details for that structured data.
 
