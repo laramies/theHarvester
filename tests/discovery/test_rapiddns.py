@@ -378,4 +378,129 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert 'forced completed-result failure' in capsys.readouterr().out
 
 
+RAPID_DNS_SAMEIP_HTML = """
+<table><tbody>
+  <tr><td>api.example.com</td><td>192.0.2.1</td><td>A</td></tr>
+  <tr><td>alias.example.com</td><td>192.0.2.1</td><td>A</td></tr>
+</tbody></table>
+"""
+
+
+async def test_rapiddns_uses_sameip_endpoint_for_ip_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    queried_urls: list[str] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        queried_urls.extend(urls)
+        return [FetcherResponse(body=RAPID_DNS_SAMEIP_HTML, status=200, headers={})]
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = rapiddns.SearchRapidDns('192.0.2.1')
+    await search.process()
+
+    assert queried_urls == ['https://rapiddns.io/sameip/192.0.2.1?full=1#result']
+
+
+@pytest.mark.asyncio
+async def test_rapiddns_ip_target_through_runner_retains_hostnames_and_associations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queried_urls: list[str] = []
+
+    async def fake_fetch(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        queried_urls.extend(urls)
+        return [FetcherResponse(body=RAPID_DNS_SAMEIP_HTML, status=200, headers={})]
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch)
+    request = source_runner.SourceRequest('rapiddns', '192.0.2.1', None, 0, False, True)
+    outcome = await source_runner.run_source(request)
+
+    assert queried_urls == ['https://rapiddns.io/sameip/192.0.2.1?full=1#result']
+    assert outcome.execution.status == 'completed'
+    assert outcome.reported_host_ip_pairs == (
+        ('alias.example.com', '192.0.2.1'),
+        ('api.example.com', '192.0.2.1'),
+    )
+    assert {(obs.kind, obs.value) for obs in outcome.observations} == {
+        ('hostname', 'alias.example.com'),
+        ('hostname', 'api.example.com'),
+        ('ip', '192.0.2.1'),
+    }
+
+
+@pytest.mark.asyncio
+async def test_rapiddns_ip_target_reaches_terminal_and_report_outputs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    completed_results: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def record_observations(self, _domain: str, _values: list[str], _result_type: str, _source: str) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed_results.append(result)
+
+    class UnexpectedChecker:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError('DNS resolution was not requested')
+
+    async def fake_fetch_sameip(urls: list[str], **_kwargs: object) -> list[FetcherResponse]:
+        return [FetcherResponse(body=RAPID_DNS_SAMEIP_HTML, status=200, headers={})]
+
+    report = tmp_path / 'rapiddns-ip-report'
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_sameip)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', UnexpectedChecker)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            '192.0.2.1',
+            '-b',
+            'rapiddns',
+            '-f',
+            str(report),
+        ],
+    )
+    configure_logging(verbose=False)
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+
+    console = capsys.readouterr().out
+    assert {'alias.example.com', 'api.example.com', '192.0.2.1'} <= set(console.splitlines())
+
+    report_json = json.loads(report.with_suffix('.json').read_text())
+    assert report_json['hosts'] == ['alias.example.com', 'api.example.com']
+    assert report_json['ips'] == ['192.0.2.1']
+
+    xml_hosts = {
+        (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
+        for element in ElementTree.parse(report.with_suffix('.xml')).getroot().findall('host')
+    }
+    assert xml_hosts == {
+        ('alias.example.com', '192.0.2.1'),
+        ('api.example.com', '192.0.2.1'),
+    }
+
+    assert completed_results
+    assert completed_results[0].active_evidence.executions == ()
+    assert {
+        (obs.source, obs.kind, obs.value) for obs in completed_results[0].observations
+    } == {
+        ('rapiddns', 'hostname', 'alias.example.com'),
+        ('rapiddns', 'hostname', 'api.example.com'),
+        ('rapiddns', 'ip', '192.0.2.1'),
+    }
+
+
 pytestmark = pytest.mark.provider_contract('rapiddns')

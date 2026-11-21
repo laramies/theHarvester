@@ -55,7 +55,7 @@ from theHarvester.lib.recursive_dns import (
     discover_recursive_dns,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.result_values import normalize_asn, normalize_ip
+from theHarvester.lib.result_values import is_ip_address, normalize_asn, normalize_ip
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import (
@@ -91,6 +91,16 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
+    if is_ip_address(target):
+        hosts: set[str] = set()
+        for host in discovered_hosts:
+            if not isinstance(host, str):
+                continue
+            try:
+                hosts.add(normalize_hostname(host))
+            except ValueError:
+                continue
+        return hosts
     canonical_target = normalize_scoped_hostname(target, target)
     return {
         normalized
@@ -2120,10 +2130,10 @@ async def start(
                 if ':' in host:
                     # TODO parse addresses and sort them as they are IPs
                     subdomain, addr = host.split(':', 1)
-                    if subdomain.endswith(word):
+                    if is_ip_address(word) or subdomain.endswith(word):
                         temp.add(subdomain + ':' + addr)
                         continue
-                if host.endswith(word):
+                if is_ip_address(word) or host.endswith(word):
                     temp.add(host)
             full = sorted_unique(temp)
             full.sort(key=lambda el: el.split(':')[0])

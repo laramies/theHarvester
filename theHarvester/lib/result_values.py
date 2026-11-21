@@ -46,6 +46,16 @@ def normalize_ip(value: str, *, label: str = 'IP result') -> str:
         raise ValueError(f'{label} must be a valid IPv4 or IPv6 address') from error
 
 
+def is_ip_address(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        normalize_ip(value)
+        return True
+    except ValueError:
+        return False
+
+
 def normalize_result_value(kind: ResultKind | str, value: str) -> str:
     normalized = value.strip()
     if kind == 'asn':
