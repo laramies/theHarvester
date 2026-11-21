@@ -115,8 +115,6 @@ class ResultStoreUnavailableError(ResultStoreError):
     """The result store could not be reached; retrying later may succeed."""
 
 
-# Failures of the database itself (locks, I/O, lost connections) rather than of
-# the evidence being stored or loaded.
 _STORAGE_ACCESS_ERRORS = (OperationalError, InterfaceError, InternalError, DisconnectionError, PoolTimeoutError)
 
 

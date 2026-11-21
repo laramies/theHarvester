@@ -27,7 +27,6 @@ _DIAGNOSTIC_RESPONSE_HEADERS = {
     'retry-after',
     'www-authenticate',
 }
-# Statuses that say the probed path does not exist on the target.
 _MISSING_ENDPOINT_STATUSES = frozenset({404, 410})
 
 
@@ -149,14 +148,11 @@ class SearchApiEndpoints:
         self.response_body_limit = response_body_limit
         self.stop_reason: str | None = None
 
-        # Set default wordlist path
         default_wordlist = DATA_DIR / 'wordlists' / 'api_endpoints.txt'
         self.wordlist = wordlist or str(default_wordlist)
         self.exact_paths = exact_paths
 
-        # Add comprehensive API paths categorized by functionality
         self.common_api_paths = [
-            # Core API endpoints
             '/api',
             '/api/v1',
             '/api/v2',
@@ -177,7 +173,6 @@ class SearchApiEndpoints:
             '/gateway',
             '/api-proxy',
             '/apis',
-            # GraphQL endpoints
             '/graphql',
             '/gql',
             '/graph',
@@ -188,7 +183,6 @@ class SearchApiEndpoints:
             '/graphql-playground',
             '/graphql-explorer',
             '/graphql/explorer',
-            # API documentation
             '/swagger',
             '/swagger-ui',
             '/swagger-ui.html',
@@ -211,7 +205,6 @@ class SearchApiEndpoints:
             '/schema',
             '/api-explorer',
             '/api-reference',
-            # API versions and versioning
             '/v1',
             '/v2',
             '/v3',
@@ -224,7 +217,6 @@ class SearchApiEndpoints:
             '/versions',
             '/api/versions',
             '/api-version',
-            # Authentication and authorization
             '/auth',
             '/oauth',
             '/oauth2',
@@ -250,7 +242,6 @@ class SearchApiEndpoints:
             '/mfa',
             '/api/authenticate',
             '/sso',
-            # User management
             '/users',
             '/api/users',
             '/accounts',
@@ -261,7 +252,6 @@ class SearchApiEndpoints:
             '/api/members',
             '/api/me',
             '/api/user',
-            # System status and monitoring
             '/health',
             '/healthcheck',
             '/health-check',
@@ -277,7 +267,6 @@ class SearchApiEndpoints:
             '/readiness',
             '/liveness',
             '/heartbeat',
-            # Data operations
             '/data',
             '/database',
             '/query',
@@ -289,7 +278,6 @@ class SearchApiEndpoints:
             '/import',
             '/backup',
             '/restore',
-            # Admin interfaces
             '/admin',
             '/admin/api',
             '/management',
@@ -300,7 +288,6 @@ class SearchApiEndpoints:
             '/panel',
             '/administrator',
             '/sys',
-            # Common application endpoints
             '/app',
             '/application',
             '/mobile-api',
@@ -310,7 +297,6 @@ class SearchApiEndpoints:
             '/private-api',
             '/external-api',
             '/partner-api',
-            # File operations
             '/files',
             '/api/files',
             '/upload',
@@ -321,7 +307,6 @@ class SearchApiEndpoints:
             '/documents',
             '/attachments',
             '/assets',
-            # Webhooks and integrations
             '/webhooks',
             '/hooks',
             '/callback',
@@ -332,7 +317,6 @@ class SearchApiEndpoints:
             '/notifications',
             '/feeds',
             '/subscriptions',
-            # General functionality
             '/config',
             '/settings',
             '/preferences',
@@ -343,7 +327,6 @@ class SearchApiEndpoints:
             '/help',
             '/support',
             '/contact',
-            # Legacy and common paths
             '/api.php',
             '/api.asp',
             '/api.jsp',
@@ -360,7 +343,6 @@ class SearchApiEndpoints:
             '/xml-rpc',
             '/wsdl',
             '/asmx',
-            # eCommerce specific
             '/products',
             '/orders',
             '/cart',
@@ -370,7 +352,6 @@ class SearchApiEndpoints:
             '/inventory',
             '/api/products',
             '/api/orders',
-            # Content management
             '/content',
             '/posts',
             '/articles',
@@ -380,7 +361,6 @@ class SearchApiEndpoints:
             '/categories',
             '/api/content',
             '/api/posts',
-            # Analytics and reporting
             '/analytics',
             '/reports',
             '/reporting',
@@ -390,7 +370,6 @@ class SearchApiEndpoints:
             '/api/reports',
             '/api/analytics',
             '/api/logs',
-            # Third-party API patterns
             '/api/facebook',
             '/api/google',
             '/api/twitter',
@@ -399,14 +378,12 @@ class SearchApiEndpoints:
             '/api/paypal',
             '/api/aws',
             '/api/azure',
-            # Mobile app specific
             '/mobile',
             '/app/api',
             '/api/mobile',
             '/api/app',
             '/api/ios',
             '/api/android',
-            # Common test endpoints
             '/test',
             '/demo',
             '/sample',
@@ -420,7 +397,6 @@ class SearchApiEndpoints:
             '/testing',
         ]
 
-        # Patterns for identifying API technologies
         self.tech_patterns = {
             'graphql': [r'{"data":', r'"errors":', r'"query":', r'graphql'],
             'swagger': [r'swagger', r'openapi', r'api-docs'],
@@ -431,10 +407,8 @@ class SearchApiEndpoints:
             'grpc': [r'grpc', r'protocol-buffers'],
         }
 
-        # Initialize results storage
         self.results: list[EndpointResult] = []
 
-        # Logger setup
         self.logger = logger
 
     async def do_search(self) -> None:
@@ -452,7 +426,6 @@ class SearchApiEndpoints:
         try:
             self.logger.info(f'Starting API endpoint scan for {self.word}')
 
-            # Load endpoints from wordlist
             endpoints = self._load_wordlist()
             if not endpoints:
                 self.logger.warning(f'No endpoints found in wordlist: {self.wordlist}')
@@ -480,7 +453,6 @@ class SearchApiEndpoints:
             )
             self._session = session
 
-            # Detect base URL schema (http or https)
             self._claim_request()
             async with asyncio.timeout_at(deadline):
                 schema = await self._detect_schema(endpoints[0]) if self.exact_paths else await self._detect_schema()
@@ -613,20 +585,18 @@ class SearchApiEndpoints:
             with open(self.wordlist) as f:
                 lines = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
 
-            # Ensure all paths start with /
             endpoints = [line if line.startswith('/') else f'/{line}' for line in lines]
 
             if self.exact_paths:
                 return list(dict.fromkeys(endpoints))
 
-            # Add some path variations (with and without trailing slash)
             variations = []
             for endpoint in endpoints:
                 variations.append(endpoint)
                 if endpoint.endswith('/'):
-                    variations.append(endpoint[:-1])  # Without trailing slash
+                    variations.append(endpoint[:-1])
                 else:
-                    variations.append(f'{endpoint}/')  # With trailing slash
+                    variations.append(f'{endpoint}/')
 
             return list(dict.fromkeys(variations))
 
@@ -644,7 +614,6 @@ class SearchApiEndpoints:
             The endpoint result, or ``None`` if the endpoint was not found.
 
         """
-        # Other standard HTTP methods can change or delete data on the target.
         methods = ['GET', 'HEAD', 'OPTIONS']
         headers = self._get_headers()
 
@@ -655,12 +624,10 @@ class SearchApiEndpoints:
                 if not self._claim_request():
                     return None
                 try:
-                    # Track request time
                     start_time = asyncio.get_running_loop().time()
 
                     response, body_truncated = await self._fetch_response(url, method, headers)
 
-                    # Calculate response time
                     response_time = asyncio.get_running_loop().time() - start_time
 
                     if response is None:
@@ -670,8 +637,6 @@ class SearchApiEndpoints:
                     result = self._process_response(url, method, response, response_time, body_truncated=body_truncated)
                     if result is None:
                         if response.status in _MISSING_ENDPOINT_STATUSES:
-                            # Other methods cannot make a missing path exist,
-                            # and OPTIONS often succeeds for any path.
                             return None
                         break
                     if await self._retry_limited_response(response.status, response.headers, attempt):
@@ -794,7 +759,6 @@ class SearchApiEndpoints:
             'Accept-Language': 'en-US,en;q=0.9',
         }
 
-        # Add custom headers if provided
         if self.additional_headers:
             headers.update(self.additional_headers)
 
@@ -820,16 +784,13 @@ class SearchApiEndpoints:
             self.logger.warning(f'No status code received from response for URL: {url}')
             return None
 
-        # Track this endpoint
         self.endpoints.add(url)
         self.methods.add(method)
         self.status_codes.add(status)
 
-        # The path does not exist; keep it counted as checked but not as found.
         if status in _MISSING_ENDPOINT_STATUSES:
             return None
 
-        # Get response headers safely
         try:
             headers = dict(getattr(response, 'headers', {}))
         except (TypeError, ValueError, AttributeError) as e:
@@ -849,10 +810,8 @@ class SearchApiEndpoints:
         content_length = len(content)
         self.response_sizes[url] = content_length
 
-        # Try to get content type from headers
         content_type = next((value for name, value in headers.items() if name.casefold() == 'content-type'), '')
 
-        # Try to create a preview of the response content (up to 200 characters)
         content_preview = ''
         if content:
             try:
@@ -860,7 +819,6 @@ class SearchApiEndpoints:
             except (AttributeError, UnicodeDecodeError) as e:
                 self.logger.error(f'Failed to decode content for URL {url}: {e}')
 
-        # Extract security headers
         security_headers = {
             k: v
             for k, v in headers.items()
@@ -875,7 +833,6 @@ class SearchApiEndpoints:
             ]
         }
 
-        # Detect API version
         api_version = ''
         if '/v' in url:
             version_match = re.search(r'/v(\d+(?:\.\d+)*)', url)
@@ -883,16 +840,13 @@ class SearchApiEndpoints:
                 api_version = f'v{version_match.group(1)}'
                 self.api_versions.add(api_version)
 
-        # Check if rate limited
         rate_limited = status == 429
         rate_limit_headers = {}
         if any(header.lower().startswith('x-rate-limit') or header.lower().startswith('ratelimit') for header in headers):
             rate_limit_headers = {k: v for k, v in headers.items() if 'rate' in k.lower() or 'limit' in k.lower()}
 
-        # Determine if authentication is required
         auth_required = status in [401, 403]
 
-        # Check if this is an interesting endpoint
         interesting = (
             status in [200, 201, 202, 204]
             and (content_length > 0 or method == 'GET')
@@ -915,7 +869,6 @@ class SearchApiEndpoints:
             except (TypeError, UnicodeDecodeError) as e:
                 self.logger.error(f'Unexpected error while extracting parameters from JSON: {e}')
 
-        # Detect technologies used
         tech_stack = []
         for tech, patterns in self.tech_patterns.items():
             content_str = content_preview.lower()
@@ -928,7 +881,6 @@ class SearchApiEndpoints:
             ):
                 tech_stack.append(tech)
 
-        # Create result object
         result = EndpointResult(
             url=url,
             status_code=status,
@@ -946,10 +898,9 @@ class SearchApiEndpoints:
             body_truncated=body_truncated,
             interesting=interesting,
             tech_stack=tech_stack,
-            parameters=parameters[:20],  # Limit to first 20 params
+            parameters=parameters[:20],
         )
 
-        # Store in appropriate collections
         self.found_endpoints[url] = result
 
         if interesting:
@@ -972,7 +923,6 @@ class SearchApiEndpoints:
         else:
             self.tech_stack.pop(url, None)
 
-        # Look for potential API schema definitions (Swagger/OpenAPI)
         if schema_url:
             self.schema_detected.pop(url, None)
         if schema_url and content:

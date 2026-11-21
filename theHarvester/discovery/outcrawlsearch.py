@@ -22,9 +22,6 @@ class SearchOutcrawl:
     embedded use independent of operator configuration files.
     """
 
-    # Outcrawl returns at most twenty ranked hits per request and has no offset
-    # parameter, so each query is a single request. A full window therefore
-    # means the provider maximum may have hidden further hits.
     PAGE_SIZE = 20
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -59,12 +56,8 @@ class SearchOutcrawl:
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
 
-        # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
-        # Both queries often return the same pages. Each link counts once
-        # against the limit, but every hit's text is kept for parsing, because
-        # the same URL can carry a different snippet with new evidence.
         texts_by_link: dict[str, set[str]] = {}
         capped = False
         for index, query in enumerate(queries):
@@ -73,9 +66,6 @@ class SearchOutcrawl:
                 break
             if index:
                 await asyncio.sleep(get_delay())
-            # Ask for room for every link already seen, since the window can
-            # repeat them; the unique limit is enforced locally below. Search
-            # is billed on the rows returned, so repeated rows are billed too.
             requested = min(self.PAGE_SIZE, remaining + len(texts_by_link))
             payload = {'query': query, 'limit': requested}
             try:
@@ -117,13 +107,10 @@ class SearchOutcrawl:
                 text = f'{row["title"]} {row["snippet"]} {row["url"]}\n'
                 known = texts_by_link.get(row['url'])
                 if known is not None:
-                    # Counted already; keep only text not seen for this link.
                     if text not in known:
                         known.add(text)
                         self.totalresults += text
                     continue
-                # The limit is sent with the request, but rows are trimmed here
-                # as well so a longer response never exceeds it.
                 if self.limit is not None and len(self.results) >= self.limit:
                     continue
                 texts_by_link[row['url']] = {text}
@@ -131,8 +118,6 @@ class SearchOutcrawl:
                 self.results.append(row)
             if self.limit is not None and len(self.results) >= self.limit:
                 return SourceExecutionReport('completed', 'result-limit')
-            # A window filled to the requested size may have more hits behind
-            # it; a shorter one means the query was exhausted.
             if len(hits) >= requested:
                 capped = True
         if capped:

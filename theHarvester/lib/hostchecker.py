@@ -3,7 +3,6 @@
 Revised to use aiodns & asyncio on 2019-09-23
 """
 
-# Support for Python3.9
 from __future__ import annotations
 
 import asyncio

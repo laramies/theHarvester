@@ -40,8 +40,6 @@ class Parser:
 
     async def emails(self):
         await self.generic_clean()
-        # Local part is required, charset is flexible.
-        # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
         candidates = re.findall(r"[a-zA-Z0-9.\-_+#~!$&']+@[a-zA-Z0-9.-]+", self.results)
         emails: set[str] = set()
         for candidate in candidates:

@@ -11,11 +11,9 @@ class TestSearchGithubCodeProcess:
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         inst = githubcode.SearchGithubCode(word="test", limit=10)
 
-        # Speed up by avoiding actual sleeps
         monkeypatch.setattr(githubcode, "get_delay", lambda: 0, raising=False)
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(return_value=None))
 
-        # Force RetryResult every time
         monkeypatch.setattr(
             inst,
             "handle_response",
@@ -40,7 +38,6 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(githubcode, "get_delay", lambda: 0, raising=False)
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(return_value=None))
 
-        # Force ErrorResult
         monkeypatch.setattr(
             inst,
             "handle_response",
@@ -63,7 +60,6 @@ class TestSearchGithubCodeProcess:
         monkeypatch.setattr(githubcode, "get_delay", lambda: 0, raising=False)
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(return_value=None))
 
-        # Force SuccessResult that does not advance the page
         monkeypatch.setattr(
             inst,
             "handle_response",

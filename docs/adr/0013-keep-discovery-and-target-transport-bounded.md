@@ -1,0 +1,7 @@
+# Keep discovery and target transport bounded
+
+The operator's selected activity defines which endpoint contacts are authorized and what their responses can prove. Keep provider requests within the selected service and make each direct probe independently bounded. This limits side effects, avoids passing credentials to a redirect target, and preserves evidence when one response fails.
+
+- **Passive providers.** DuckDuckGo result URLs are evidence for the run. The source queries only its provider. DNSDB rejects redirects so its credential cannot reach a redirect destination.
+- **API endpoint checks.** Restrict checks to read-only HTTP methods because other methods may change target state. Count a missing response as checked, and stop probing that path. Generic OPTIONS success can occur even on missing paths and would create a false positive. Detecting the HTTP scheme also consumes the shared request budget, independently of the endpoint checks.
+- **Takeover observations.** Bound each request so a stalled host cannot hold the scan, with enough time for a slow response. A decoding failure becomes an invalid observation for that host and lets the remaining candidates finish. Normalize redirect headers from aiohttp's surrogate-escaped decoding to UTF-8 within the persisted evidence size bound. When deriving a hostname from legacy resolved-host strings, treat the entire address segment as a unit so IPv6 colons do not change the hostname.

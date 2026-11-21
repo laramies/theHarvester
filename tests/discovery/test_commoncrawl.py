@@ -616,7 +616,6 @@ async def test_complete_zipnum_page_is_not_truncated_before_hostname_dedup(monke
             return ['{"pages": 0}']
         if query.get('showNumPages') == ['true']:
             return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
-        # CDX limit truncates captures within the ZipNum page; it does not resize that page.
         page = records[: int(query['limit'][0])] if 'limit' in query else records
         return ['\n'.join(json.dumps(row) for row in page)]
 

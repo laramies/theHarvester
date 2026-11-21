@@ -51,7 +51,7 @@ from theHarvester.lib.hostnames import (
     sort_host_ip_row,
 )
 from theHarvester.lib.legacy_reports import iter_xml_report, json_report
-from theHarvester.lib.legacy_reports import sanitize_for_xml as sanitize_for_xml  # re-exported for existing importers
+from theHarvester.lib.legacy_reports import sanitize_for_xml as sanitize_for_xml
 from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
@@ -119,12 +119,10 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
-    # Remove consecutive underscores
     filename = re.sub(r'_+', '_', filename)
     filename = filename.strip('_.')
     if filename.startswith('.'):
         filename = '_' + filename
-    # Ensure we have a valid filename
     if not filename:
         filename = 'sanitized_file'
     return filename
@@ -545,7 +543,6 @@ async def run_screenshots(
         await persist_failure()
 
     path_exists = screen_shotter.verify_path()
-    # Verify the path exists, if not create it or if user does not create it skips screenshot
     if not path_exists:
         action_executions.append(
             ActionExecution.finish(
@@ -564,14 +561,11 @@ async def run_screenshots(
         elif dns_resolve_requested:
             unique_resolved_domains = resolved_hostnames
         else:
-            # Technically not resolved in this case, which is not ideal
-            # You should always use dns resolve when doing screenshotting
             output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
             unique_resolved_domains = set(all_hosts)
         reachable_targets: list[tuple[str, str]] = []
         capture_error_types: set[str] = set()
         if len(unique_resolved_domains) > 0:
-            # First filter out ones that didn't resolve
             output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
 
             async def record_screenshot_artifact(subject: str, captured_url: str, screenshot_path: Path) -> None:
@@ -654,7 +648,6 @@ async def run_screenshots(
         )
         await checkpoint()
         end = time.perf_counter()
-        # There is probably an easier way to do this
         total = int(end - screenshot_started)
         mon, sec = divmod(total, 60)
         hr, mon = divmod(mon, 60)
@@ -720,11 +713,9 @@ async def run_shodan_search(
                                 shodan_error_types.add(shodan_search.error_type)
 
                             shodan_result = shodandict.get(ip)
-                            # Check if the result is a string (error message)
                             if isinstance(shodan_result, str):
                                 output_logger.info(f'{ip}: {shodan_result}')
 
-                            # Process the results if it's a dictionary
                             if isinstance(shodan_result, dict):
                                 current_hosts = record_shodan_hosts(
                                     host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
@@ -904,7 +895,6 @@ async def run_dns_brute(
             subdomain, _addr = host.split(':', 1)
             if subdomain.endswith(word):
                 sorted_host = sort_host_ip_row(host)
-                # Append to full, so it's within JSON/XML at the end if output file is requested
                 if sorted_host not in full:
                     full.append(sorted_host)
                 temp.add(sorted_host)
@@ -1159,13 +1149,11 @@ async def run_api_scan(
         return endpoints, interesting, groups
 
     try:
-        # Define a default wordlist if none is specified
         wordlist = wordlist_path or str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
 
         if not await anyio.Path(wordlist).exists():
             output_logger.info(f'\n[!] Wordlist not found: {wordlist}')
             output_logger.info('Creating a basic API wordlist for scanning...')
-            # Create a default simple API endpoint list
             basic_endpoints = [
                 '/api',
                 '/api/v1',
@@ -1223,7 +1211,6 @@ async def run_api_scan(
             await api_scanner.do_search()
             api_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
 
-        # Print results
         endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
         output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
         for endpoint in sorted(endpoints_found):
@@ -1349,7 +1336,6 @@ async def start(
 ):
     """Run one CLI or transport-neutral enumeration request."""
     dnsbrute: tuple[bool, bool]
-    # indicates this from the rest API
     if rest_args:
         if rest_args.source and rest_args.source == 'getsources':
             return sorted(SOURCE_SPECS)
@@ -1414,17 +1400,14 @@ async def start(
 
     if len(filename) > 0:
         if filename.startswith('~/'):
-            # Allow home directory expansion but sanitize the rest
             base_path = await anyio.Path('~').expanduser()
             sanitized = sanitize_filename(filename[2:])
             filename = str(base_path.joinpath(sanitized))
         elif os.path.isabs(filename):
-            # For absolute paths, sanitize just the filename component
             dirname = os.path.dirname(filename)
             basename = sanitize_filename(os.path.basename(filename))
             filename = os.path.join(dirname, basename)
         else:
-            # For relative paths, sanitize the entire filename
             filename = sanitize_filename(filename)
     run_started_at = datetime.now(UTC)
     run_id = completed_run_id or uuid4()
@@ -1466,7 +1449,6 @@ async def start(
         )
 
     engines: list = []
-    # If the user specifies
     full: list = []
     resolved_hostnames: set[str] = set()
     reported_host_ip_pairs: set[tuple[str, str]] = set()
@@ -2046,15 +2028,12 @@ async def start(
         and not routeviews_enabled
         and not vhost_enabled
     ):
-        # Indicates user is using REST api but not wanting output to be saved to a file
-        # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
         all_hosts = sorted_unique(all_hosts)
         if persist_completed_result:
             await persist_result(finish_completed_result())
         result = (
             total_asns,
-            # Retired result slots stay empty so positional callers keep their indexes.
             list[str](),
             list[str](),
             list[str](),
@@ -2065,7 +2044,6 @@ async def start(
             all_hosts,
         )
         return (*result, sorted_unique(all_breaches)) if include_breaches else result
-    # Results
     if len(total_asns) > 0:
         print_section(f'\n[*] ASNS found: {len(total_asns)}', total_asns, '--------------------')
         total_asns = sorted_unique(total_asns)
@@ -2081,7 +2059,6 @@ async def start(
     else:
         output_logger.info('\n[*] IPs found: ' + str(len(all_ip)))
         output_logger.info('-------------------')
-        # use netaddr as the list may contain ipv4 and ipv6 addresses
         for ip in set(all_ip):
             try:
                 ip = ip.strip()
@@ -2095,7 +2072,6 @@ async def start(
                 continue
         ip_list = sorted(ip_list)
         output_logger.info('\n'.join(map(str, ip_list)))
-        # Populate host_ip from ip_list for DNS lookup, virtual hosts search, and Shodan search
         host_ip = ip_list
 
     if len(all_emails) == 0:
@@ -2142,7 +2118,6 @@ async def start(
             for host in all_hosts:
                 output_logger.info(host)
 
-    # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
 
         async def persist_failed_dns_brute() -> None:
@@ -2159,7 +2134,6 @@ async def start(
             persist_failure=persist_failed_dns_brute,
         )
         await checkpoint_completed_result()
-        # Preserve the dedicated utility response after retaining its completed evidence.
         if dnsbrute[1]:
             await persist_result(finish_completed_result())
             return resolved_pair
@@ -2189,7 +2163,6 @@ async def start(
         )
         await checkpoint_completed_result()
 
-    # TakeOver Checking
     if takeover_status:
 
         async def persist_failed_takeover() -> None:
@@ -2206,7 +2179,6 @@ async def start(
         )
         await checkpoint_action_result()
 
-    # DNS reverse lookup
     dnsrev: list = []
 
     async def persist_failed_dns_action() -> None:
@@ -2246,7 +2218,6 @@ async def start(
         )
         await checkpoint_action_result(extra_hostnames=dnsrev)
 
-    # Screenshots
     if len(args.screenshot) > 0:
 
         async def persist_cancelled_screenshots() -> None:
@@ -2277,7 +2248,6 @@ async def start(
             persist_failure=persist_cancelled_screenshots,
         )
 
-    # Shodan
     shodanres: list[dict[str, object]] = []
     if shodan is True:
 
@@ -2316,7 +2286,6 @@ async def start(
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
 
-    # Enhanced code block for API Endpoint scanning feature
     if args.api_scan:
 
         async def persist_cancelled_api_scan() -> None:
@@ -2376,7 +2345,6 @@ async def start(
         all_hosts = sorted_unique((*all_hosts, *_normalize_hosts_for_storage(dnsrev, word)))
         result = (
             total_asns,
-            # Retired result slots stay empty so positional callers keep their indexes.
             list[str](),
             list[str](),
             list[str](),

@@ -189,7 +189,6 @@ class SearchMojeek:
                     if _has_result_link(entry):
                         result_entries.append(str(entry))
                         entry.extract()
-            # Exclude linked snippets, not containers that may hold provider messages.
             normalized_body = ' '.join(document.get_text(' ', strip=True).split()).casefold()
             failure: tuple[SourceReportStatus, str] | None = None
             if 'speed limit reached' in normalized_body:

@@ -18,7 +18,6 @@ class SearchSubdomainfinderc99:
         self.word = word
         self.total_results: set = set()
         self.proxy = False
-        # TODO add api support
         self.server = 'https://subdomainfinder.c99.nl/'
         self.totalresults = ''
 

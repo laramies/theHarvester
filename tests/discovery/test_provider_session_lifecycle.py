@@ -360,7 +360,6 @@ async def test_repaired_provider_session_failure_and_cancellation(monkeypatch, p
     monkeypatch.setattr(AsyncFetcher, '_resolve_proxy', resolve_proxy)
     monkeypatch.setattr(AsyncFetcher, 'post_fetch', fetch)
     monkeypatch.setattr(AsyncFetcher, 'fetch_all', fetch)
-    # Session construction normalizes ValueError; teardown errors still propagate.
     if (
         error_type is asyncio.CancelledError
         or (stage != 'request' and error_type is RuntimeError)

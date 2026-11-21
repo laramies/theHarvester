@@ -214,7 +214,7 @@ async def test_api_endpoint_scan_bounds_active_and_pending_work_and_preserves_or
 
     expected_urls = [f'https://example.com{path}' for path in paths]
     assert [result['url'] for result in search.get_detailed_results()] == expected_urls
-    assert search.request_count == len(paths) + 1  # schema detection plus every endpoint
+    assert search.request_count == len(paths) + 1
     assert peak_active == 3
     assert peak_pending <= 3
     assert not any(task.get_name().startswith('api-endpoint-worker-') for task in asyncio.all_tasks())
@@ -395,7 +395,6 @@ async def test_api_endpoint_scan_does_not_report_missing_paths_as_found(
                     break
                 method, path, _ = request.decode().split(' ', 2)
                 requests.append((method, path))
-                # Like many CORS-enabled servers, OPTIONS succeeds for any path.
                 if method == 'OPTIONS':
                     status = b'204 No Content'
                 elif path.startswith('/retired'):
@@ -435,9 +434,7 @@ async def test_api_endpoint_scan_does_not_report_missing_paths_as_found(
     assert search.get_found_endpoints() == {}
     assert search.get_interesting_endpoints() == {}
     assert search.get_results_summary()['found_endpoints'] == 0
-    # A missing path is not probed again with HEAD or OPTIONS.
     assert {method for method, _path in requests} == {'GET'}
-    # The probes still count as checked and their statuses stay visible.
     assert len(search.get_endpoints()) == 3
     assert search.get_status_codes() == {404, 410}
 

@@ -41,8 +41,7 @@ class SearchHudsonRock:
         self.proxy = False
         self.logger = logging.getLogger(__name__)
 
-        # Rate limiting
-        self.request_delay = 1.0  # Delay between requests in seconds
+        self.request_delay = 1.0
         self.max_retries = 3
 
     def _has_results(self) -> bool:
@@ -57,15 +56,12 @@ class SearchHudsonRock:
 
         searches = []
 
-        # Always search by domain (even for emails, to find related domains)
         domain_to_search = self.word if '@' not in self.word else self.word.split('@')[1]
         searches.append((self._search_domain, domain_to_search))
 
-        # Search by email if the word looks like an email
         if '@' in self.word and self._is_valid_email(self.word):
             searches.append((self._search_email, self.word))
 
-        # Execute searches with rate limiting
         reports: list[SourceExecutionReport] = []
         for index, (search, target) in enumerate(searches):
             try:
@@ -134,8 +130,6 @@ class SearchHudsonRock:
     async def _fetch_response(
         self, url: str, search_type: str, target: str, session: ClientSession
     ) -> tuple[dict | None, SourceExecutionReport | None]:
-        # The shared transport swallows transport errors and returns None elements,
-        # so only HTTP 429 responses are retried here; transport failures are terminal.
         for attempt in range(self.max_retries):
             self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
             response = await AsyncFetcher.fetch_one(url, session=session, json=True)
@@ -173,7 +167,6 @@ class SearchHudsonRock:
 
         """
         try:
-            # Store overall statistics
             stats = {
                 'total_compromised': response.get('total', 0),
                 'employees': response.get('employees', 0),
@@ -188,24 +181,19 @@ class SearchHudsonRock:
                 f'{stats["employees"]} employees, {stats["users"]} users'
             )
 
-            # Extract URLs and hosts from response data
             data = response.get('data')
             if not isinstance(data, dict):
                 return True
 
-            # Process employee URLs
             employees_urls = data.get('employees_urls', [])
             malformed = self._extract_hosts_from_urls(employees_urls, 'employee')
 
-            # Process user URLs
             users_urls = data.get('users_urls', [])
             malformed |= self._extract_hosts_from_urls(users_urls, 'user')
 
-            # Process third party URLs if available
             third_party_urls = data.get('third_parties_urls', [])
             malformed |= self._extract_hosts_from_urls(third_party_urls, 'third_party')
 
-            # Extract emails from the data
             malformed |= self._extract_emails_from_data(data)
             return malformed
 
@@ -259,7 +247,6 @@ class SearchHudsonRock:
             data: Hudson Rock response data.
 
         """
-        # Look for emails in various data fields
         email_fields = ['employees_emails', 'users_emails', 'emails']
 
         malformed = False
@@ -290,7 +277,6 @@ class SearchHudsonRock:
 
         """
         try:
-            # Process stealer data with enhanced information extraction
             stealers = response.get('stealers')
             if not isinstance(stealers, list):
                 return True
@@ -321,13 +307,11 @@ class SearchHudsonRock:
                     'top_user_services': user_services,
                 }
 
-                # Extract and validate IP addresses
                 ip = stealer.get('ip', '')
                 if ip and self._is_valid_ip(ip):
                     self.totalips.add(ip)
                     self.logger.debug(f'Extracted IP: {ip}')
 
-                # Extract hostnames from services
                 self._extract_hosts_from_services(corporate_services)
                 self._extract_hosts_from_services(user_services)
 
@@ -368,13 +352,11 @@ class SearchHudsonRock:
         """
         for service in services:
             if isinstance(service, dict):
-                # Look for URL or domain fields
                 for field in ['url', 'domain', 'service_url', 'website']:
                     if field in service:
                         url = service[field]
                         if url and isinstance(url, str):
                             try:
-                                # Handle both URLs and plain domains
                                 if not url.startswith(('http://', 'https://')):
                                     url = f'https://{url}'
 

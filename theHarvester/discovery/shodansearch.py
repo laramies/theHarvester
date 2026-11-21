@@ -62,7 +62,6 @@ class SearchShodan:
             'ssl.cert.extensions',
         )
     )
-    # Preserve the official SDK's one-request-per-second pacing without retaining its blocking transport.
     REQUEST_INTERVAL_SECONDS = 1.0
     REQUEST_TIMEOUT_SECONDS: int | None = None
 

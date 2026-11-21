@@ -1,7 +1,6 @@
 import logging
 from ipaddress import ip_address
 
-#!/usr/bin/env python3
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse

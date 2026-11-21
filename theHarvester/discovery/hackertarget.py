@@ -1,4 +1,3 @@
-# theHarvester/discovery/hackertarget.py
 from ipaddress import ip_address, ip_network
 from typing import TYPE_CHECKING
 

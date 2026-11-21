@@ -27,7 +27,6 @@ class SearchGitlab:
 
     @staticmethod
     def _safe_parse_json(payload: object) -> dict | list:
-        # If already decoded, return it; if string, try parse; else return {}
         if isinstance(payload, (dict, list)):
             return payload
         if isinstance(payload, str):
@@ -157,7 +156,6 @@ class SearchGitlab:
                                     )
                                     project_is_relevant = self._add_text_evidence(readme_text) or project_is_relevant
                             except Exception as error:
-                                # README might not exist or be accessible.
                                 logger.info('GitLab README fetch failed: %s', type(error).__name__)
 
                         if project_is_relevant and isinstance(web_url, str) and web_url.strip():

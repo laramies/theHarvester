@@ -30,18 +30,18 @@ class SearchFullHunt:
         if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('fullhunt')
         self.total_results: dict[str, Any] = {
-            'hosts': [],  # List of subdomains
-            'ips': [],  # List of IP addresses
-            'ports': set(),  # Set of open ports
-            'technologies': [],  # List of technologies found
-            'tags': [],  # List of tags
-            'domain_details': {},  # Full domain details response
-            'host_details': [],  # List of host details
-            'dns_records': {},  # DNS records for the domain
-            'http_info': {},  # HTTP information (titles, status codes)
-            'geo_info': {},  # Geographic information
-            'cloud_info': {},  # Cloud provider information
-            'cert_info': [],  # Certificate information
+            'hosts': [],
+            'ips': [],
+            'ports': set(),
+            'technologies': [],
+            'tags': [],
+            'domain_details': {},
+            'host_details': [],
+            'dns_records': {},
+            'http_info': {},
+            'geo_info': {},
+            'cloud_info': {},
+            'cert_info': [],
         }
         self.proxy = False
         self._report: SourceExecutionReport | None = None
@@ -130,26 +130,20 @@ class SearchFullHunt:
                 self._stop('failed', 'invalid-response')
                 logger.info('FullHunt ignored a malformed host item')
                 continue
-            # Extract subdomains
             self.total_results['hosts'].append(hostname)
 
-            # Extract IPs
             if normalized_address:
                 self.total_results['ips'].append(normalized_address)
 
-            # Extract ports
             if host_data.get('network_ports'):
                 self.total_results['ports'].update(host_data['network_ports'])
 
-            # Extract technologies/products
             if host_data.get('products'):
                 self.total_results['technologies'].extend(host_data['products'])
 
-            # Extract tags
             if host_data.get('tags'):
                 self.total_results['tags'].extend(host_data['tags'])
 
-            # Extract DNS information
             if 'dns_records' in host_data:
                 dns_records = host_data['dns_records']
 
@@ -159,7 +153,6 @@ class SearchFullHunt:
                 for record_type, records in dns_records.items():
                     self.total_results['dns_records'][hostname][record_type] = records
 
-            # Extract HTTP information
             if 'http_response' in host_data:
                 http_info = host_data['http_response']
 
@@ -169,7 +162,6 @@ class SearchFullHunt:
                 for key, value in http_info.items():
                     self.total_results['http_info'][hostname][key] = value
 
-            # Extract geographic information
             if 'geo' in host_data:
                 geo_info = host_data['geo']
 
@@ -179,7 +171,6 @@ class SearchFullHunt:
                 for key, value in geo_info.items():
                     self.total_results['geo_info'][hostname][key] = value
 
-            # Extract cloud information
             if 'cloud' in host_data:
                 cloud_info = host_data['cloud']
 
@@ -189,12 +180,10 @@ class SearchFullHunt:
                 for key, value in cloud_info.items():
                     self.total_results['cloud_info'][hostname][key] = value
 
-            # Extract certificate information
             if 'certificate' in host_data:
                 cert_info = {**host_data['certificate'], 'hostname': hostname}
                 self.total_results['cert_info'].append(cert_info)
 
-        # Deduplicate results
         self.total_results['hosts'] = list(set(self.total_results['hosts']))
         self.total_results['ips'] = list(set(self.total_results['ips']))
         self.total_results['technologies'] = list(set(self.total_results['technologies']))
@@ -208,14 +197,12 @@ class SearchFullHunt:
                 proxy=self.proxy,
                 request_timeout=60,
             ) as session:
-                # First get domain details which includes most information
                 domain_details = await self.get_domain_details(session)
                 if not isinstance(domain_details.get('hosts'), list):
                     raise ValueError('FullHunt returned malformed domain details')
                 self.total_results['domain_details'] = domain_details
                 await self.extract_data_from_domain_details(domain_details)
 
-                # If no hosts found in domain details, try the dedicated subdomains endpoint
                 if not self.total_results['hosts']:
                     subdomains_response = await self.get_subdomains(session)
                     hosts = subdomains_response.get('hosts')
