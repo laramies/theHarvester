@@ -52,6 +52,7 @@ def test_email_capability_expands_to_email_sources() -> None:
         "rocketreach",
         "serply",
         "sherlockeye",
+        "specstream",
         "tomba",
         "windvane",
         "yahoo",

@@ -245,6 +245,7 @@ class Core:
         'serply': ('key',),
         'sherlockeye': ('key',),
         'shodan': ('key',),
+        'specstream': ('key',),
         'tomba': ('key', 'secret'),
         'virustotal': ('key',),
         'whoisxml': ('key',),

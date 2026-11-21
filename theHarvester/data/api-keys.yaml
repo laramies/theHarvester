@@ -115,6 +115,9 @@ apikeys:
   shodan:
     key:
 
+  specstream:
+    key:
+
   tomba:
     key:
     secret:
