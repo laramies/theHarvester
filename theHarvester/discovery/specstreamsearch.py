@@ -23,13 +23,8 @@ class SearchSpecstream:
     embedded use independent of operator configuration files.
     """
 
-    # A page holds num results (at most ten here) and later pages continue the
-    # same list only when num stays the same, so num is fixed for each query and
-    # rows are trimmed here. next_page is null once the engines have no more.
     PAGE_SIZE = 10
 
-    # The API serves pages 1 to 10 of a query; a next_page past that means the
-    # provider maximum hid further results.
     MAX_PAGES = 10
 
     def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
@@ -60,12 +55,8 @@ class SearchSpecstream:
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)
 
-        # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
 
-        # Both queries often return the same pages. Each link counts once
-        # against the limit, but every row's text is kept for parsing, because
-        # the same URL can carry a different snippet with new evidence.
         texts_by_link: dict[str, set[str]] = {}
         capped = False
         first_request = True
@@ -98,7 +89,6 @@ class SearchSpecstream:
                     return SourceExecutionReport(*failure)
                 resp = response.body
 
-                # Every reply is one object; results are under data.
                 data = resp.get('data') if isinstance(resp, dict) else None
                 if not isinstance(data, dict):
                     return SourceExecutionReport('failed', 'invalid-response')
@@ -125,7 +115,6 @@ class SearchSpecstream:
                     text = f'{row["title"]} {row["snippet"]} {row["url"]}\n'
                     known = texts_by_link.get(row['url'])
                     if known is not None:
-                        # Counted already; keep only text not seen for this link.
                         if text not in known:
                             known.add(text)
                             self.totalresults += text
