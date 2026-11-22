@@ -1,15 +1,21 @@
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from aiohttp import ClientSession, web
 
 from theHarvester.discovery import specstreamsearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.configuration import InMemoryCredentialAdapter
 from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 from theHarvester.lib.source_execution import SourceExecutionReport
+from theHarvester.lib.source_runner import SOURCE_FACTORIES, SourceRequest, run_source
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from theHarvester.lib.core import StreamErrorReason
 
 
 def _source(index: int) -> dict[str, Any]:
@@ -23,7 +29,7 @@ def _source(index: int) -> dict[str, Any]:
     }
 
 
-def _response(sources: list[dict[str, Any]], next_page: int | None = None) -> FetcherResponse:
+def _response(sources: list[object], next_page: object = None) -> FetcherResponse:
     return FetcherResponse({'data': {'query': 'q', 'sources': sources, 'next_page': next_page}}, 200, {})
 
 
@@ -42,10 +48,7 @@ def specstream_credentials() -> InMemoryCredentialAdapter:
 
 @pytest.fixture(autouse=True)
 def no_specstream_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def no_sleep(_seconds: float) -> None:
-        return None
-
-    monkeypatch.setattr(specstreamsearch.asyncio, 'sleep', no_sleep)
+    monkeypatch.setattr(specstreamsearch, 'get_delay', lambda: 0)
 
 
 def test_specstream_requires_an_api_key() -> None:
@@ -213,10 +216,10 @@ async def test_specstream_reports_http_failures(
 async def test_specstream_reports_bounded_fetch_failures(
     monkeypatch: pytest.MonkeyPatch,
     specstream_credentials: InMemoryCredentialAdapter,
-    reason: str,
+    reason: StreamErrorReason,
 ) -> None:
     async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
-        raise ResponseStreamError(reason)  # type: ignore[arg-type]
+        raise ResponseStreamError(reason)
 
     monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = specstreamsearch.SearchSpecstream('example.com', 10, credential_adapter=specstream_credentials)
@@ -282,13 +285,15 @@ async def test_specstream_reports_malformed_payloads(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('field', ['title', 'snippet', 'url'])
+@pytest.mark.parametrize('value', [False, 0, [], {}, {'unexpected': 'host.example.com'}])
 async def test_specstream_rejects_non_string_evidence_fields(
     monkeypatch: pytest.MonkeyPatch,
     specstream_credentials: InMemoryCredentialAdapter,
     field: str,
+    value: object,
 ) -> None:
     source: dict[str, object] = _source(1)
-    source[field] = {'unexpected': 'host.example.com'}
+    source[field] = value
 
     async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
         return FetcherResponse({'data': {'sources': [source], 'next_page': None}}, 200, {})
@@ -301,55 +306,128 @@ async def test_specstream_rejects_non_string_evidence_fields(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('limit', [3, 10])
+@pytest.mark.parametrize('malformed', ['row', 'field', 'cursor'])
+async def test_specstream_retains_valid_observations_on_a_malformed_page(
+    monkeypatch: pytest.MonkeyPatch,
+    specstream_credentials: InMemoryCredentialAdapter,
+    limit: int,
+    malformed: str,
+) -> None:
+    sources: list[object] = [_source(2), _source(3)]
+    cursor: object = 3
+    if malformed == 'row':
+        sources.insert(1, 'discard.example.com')
+    elif malformed == 'field':
+        sources.insert(1, {**_source(4), 'title': False})
+    else:
+        cursor = True
+
+    responses = iter([_response([_source(1)], next_page=2), _response(sources, next_page=cursor)])
+    requests: list[dict[str, str]] = []
+
+    async def fake_fetch_json(url: str, **_kwargs: Any) -> FetcherResponse:
+        requests.append(_params(url))
+        return next(responses)
+
+    monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    monkeypatch.setitem(
+        SOURCE_FACTORIES,
+        'specstream',
+        lambda request: specstreamsearch.SearchSpecstream(request.target, request.limit, specstream_credentials),
+    )
+
+    outcome = await run_source(SourceRequest('specstream', 'example.com', limit, 0, False, True))
+
+    assert outcome.execution.status == 'partial'
+    assert outcome.execution.stop_reason == 'invalid-response'
+    assert {observation.value for observation in outcome.observations} == {
+        'host-1.example.com',
+        'host-2.example.com',
+        'host-3.example.com',
+    }
+    assert [(request['q'], request['page']) for request in requests] == [('"example.com"', '1'), ('"example.com"', '2')]
+
+
+@pytest.mark.asyncio
 async def test_specstream_tolerates_missing_title_and_snippet(
     monkeypatch: pytest.MonkeyPatch,
     specstream_credentials: InMemoryCredentialAdapter,
 ) -> None:
     async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
-        return _response([{'url': 'https://www.example.com/', 'title': None}, {'title': 'no url'}])
+        return _response(
+            [
+                {'url': 'https://www.example.com/', 'title': None},
+                {'url': 'https://docs.example.com/', 'snippet': None},
+                {'title': 'no url'},
+                {'title': 'null url', 'url': None},
+            ]
+        )
 
     monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = specstreamsearch.SearchSpecstream('example.com', 10, credential_adapter=specstream_credentials)
 
     assert await search.process() is None
-    assert search.results == [{'title': '', 'snippet': '', 'url': 'https://www.example.com/'}]
-    assert await search.get_hostnames() == ['www.example.com']
+    assert search.results == [
+        {'title': '', 'snippet': '', 'url': 'https://www.example.com/'},
+        {'title': '', 'snippet': '', 'url': 'https://docs.example.com/'},
+    ]
+    assert await search.get_hostnames() == ['docs.example.com', 'www.example.com']
 
 
 @pytest.mark.asyncio
-async def test_specstream_follows_next_page_with_a_fixed_page_size(
+async def test_specstream_pagination_preserves_provider_cookies_and_closes_the_session(
     monkeypatch: pytest.MonkeyPatch,
     specstream_credentials: InMemoryCredentialAdapter,
+    unused_tcp_port: int,
 ) -> None:
-    """Page two is requested only because page one named it, with the same num and a Bearer key."""
+    requests: list[tuple[dict[str, str], str | None, str | None]] = []
+    sessions: list[ClientSession] = []
+    create_session = specstreamsearch.AsyncFetcher.create_session
 
-    responses = iter(
-        [
-            _response([_source(index) for index in range(10)], next_page=2),
-            _response([_source(index) for index in range(10, 14)]),
-            _response([_source(index) for index in range(20, 23)]),
-        ]
-    )
-    requests: list[tuple[str, dict[str, str], dict[str, str]]] = []
+    async def tracked_create_session(**kwargs: Any) -> ClientSession:
+        session = await create_session(**kwargs)
+        sessions.append(session)
+        return session
 
-    async def fake_fetch_json(url: str, **kwargs: Any) -> FetcherResponse:
-        base = url.split('?', 1)[0]
-        requests.append((base, _params(url), kwargs['headers']))
-        return next(responses)
+    async def provider_search(request: web.Request) -> web.Response:
+        params = dict(request.query)
+        cookie = request.cookies.get('provider-session')
+        authorization = request.headers.get('Authorization')
+        requests.append((params, cookie, authorization))
+        if authorization != 'Bearer test-token':
+            return web.json_response({'error': 'missing authorization'}, status=401)
+        if (params['q'], params['page']) == ('"example.com"', '1'):
+            response = web.json_response(_response([_source(index) for index in range(10)], next_page=2).body)
+            response.set_cookie('provider-session', 'ready')
+            return response
+        if cookie != 'ready':
+            return web.json_response({'error': 'missing provider session'}, status=403)
+        indices = range(10, 14) if params['q'] == '"example.com"' else range(20, 23)
+        return web.json_response(_response([_source(index) for index in indices]).body)
 
-    monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
-    search = specstreamsearch.SearchSpecstream('example.com', None, credential_adapter=specstream_credentials)
-    report = await search.process()
+    monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'create_session', tracked_create_session)
+    app = web.Application()
+    app.router.add_get('/search', provider_search)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, '127.0.0.1', unused_tcp_port).start()
+        search = specstreamsearch.SearchSpecstream('example.com', 18, credential_adapter=specstream_credentials)
+        search.server = f'http://localhost:{unused_tcp_port}/search'
+        report = await search.process()
+    finally:
+        await runner.cleanup()
 
-    server = 'https://api.specstream.ai/v1/web-search'
-    assert [(base, params) for base, params, _headers in requests] == [
-        (server, {'q': '"example.com"', 'num': '10', 'page': '1', 'speed': 'fast'}),
-        (server, {'q': '"example.com"', 'num': '10', 'page': '2', 'speed': 'fast'}),
-        (server, {'q': 'site:example.com', 'num': '10', 'page': '1', 'speed': 'fast'}),
+    assert requests == [
+        ({'q': '"example.com"', 'num': '10', 'page': '1', 'speed': 'fast'}, None, 'Bearer test-token'),
+        ({'q': '"example.com"', 'num': '10', 'page': '2', 'speed': 'fast'}, 'ready', 'Bearer test-token'),
+        ({'q': 'site:example.com', 'num': '4', 'page': '1', 'speed': 'fast'}, 'ready', 'Bearer test-token'),
     ]
-    assert all(headers['Authorization'] == 'Bearer test-token' for _base, _params_, headers in requests)
     assert len(search.results) == 17
     assert report is None
+    assert len(sessions) == 1
+    assert sessions[0].closed
 
 
 @pytest.mark.asyncio
@@ -376,6 +454,39 @@ async def test_specstream_reports_the_page_cap_as_partial(
     assert pages[10] == ('site:example.com', '1')
     assert len(search.results) == 200
     assert report == SourceExecutionReport('partial', 'provider-limit')
+
+
+@pytest.mark.asyncio
+async def test_specstream_reaches_the_result_limit_after_the_first_query_hits_the_page_cap(
+    monkeypatch: pytest.MonkeyPatch,
+    specstream_credentials: InMemoryCredentialAdapter,
+) -> None:
+    responses = iter(
+        [
+            _response([_source(1)], next_page=2),
+            _response([_source(1)], next_page=3),
+            _response([_source(1)], next_page=2),
+            _response([_source(2)], next_page=3),
+        ]
+    )
+    requests: list[dict[str, str]] = []
+
+    async def fake_fetch_json(url: str, **_kwargs: Any) -> FetcherResponse:
+        requests.append(_params(url))
+        return next(responses)
+
+    monkeypatch.setattr(specstreamsearch.SearchSpecstream, 'MAX_PAGES', 2)
+    monkeypatch.setattr(specstreamsearch.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    search = specstreamsearch.SearchSpecstream('example.com', 2, credential_adapter=specstream_credentials)
+
+    assert await search.process() == SourceExecutionReport('completed', 'result-limit')
+    assert [(request['q'], request['page'], request['num']) for request in requests] == [
+        ('"example.com"', '1', '2'),
+        ('"example.com"', '2', '2'),
+        ('site:example.com', '1', '1'),
+        ('site:example.com', '2', '1'),
+    ]
+    assert [row['url'] for row in search.results] == ['https://host-1.example.com', 'https://host-2.example.com']
 
 
 @pytest.mark.asyncio

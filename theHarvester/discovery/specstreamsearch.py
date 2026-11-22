@@ -95,25 +95,25 @@ class SearchSpecstream:
                 sources = data.get('sources')
                 if not isinstance(sources, list):
                     return SourceExecutionReport('failed', 'invalid-response')
-                if any(not isinstance(source, dict) for source in sources):
-                    return SourceExecutionReport('failed', 'invalid-response')
-                next_page = data.get('next_page')
-                if next_page is not None and (not isinstance(next_page, int) or isinstance(next_page, bool) or next_page <= page):
-                    return SourceExecutionReport('failed', 'invalid-response')
 
-                rows = []
+                invalid_rows = False
                 for source in sources:
-                    title = source.get('title') or ''
-                    snippet = source.get('snippet') or ''
-                    link = source.get('url') or ''
-                    if not all(isinstance(value, str) for value in (title, snippet, link)):
-                        return SourceExecutionReport('failed', 'invalid-response')
-                    if link:
-                        rows.append({'title': title, 'snippet': snippet, 'url': link})
+                    if not isinstance(source, dict):
+                        invalid_rows = True
+                        continue
+                    title = source.get('title')
+                    snippet = source.get('snippet')
+                    link = source.get('url')
+                    if any(value is not None and not isinstance(value, str) for value in (title, snippet, link)):
+                        invalid_rows = True
+                        continue
+                    if not link:
+                        continue
 
-                for row in rows:
-                    text = f'{row["title"]} {row["snippet"]} {row["url"]}\n'
-                    known = texts_by_link.get(row['url'])
+                    title = title or ''
+                    snippet = snippet or ''
+                    text = f'{title} {snippet} {link}\n'
+                    known = texts_by_link.get(link)
                     if known is not None:
                         if text not in known:
                             known.add(text)
@@ -121,9 +121,16 @@ class SearchSpecstream:
                         continue
                     if self.limit is not None and len(self.results) >= self.limit:
                         continue
-                    texts_by_link[row['url']] = {text}
+                    texts_by_link[link] = {text}
                     self.totalresults += text
-                    self.results.append(row)
+                    self.results.append({'title': title, 'snippet': snippet, 'url': link})
+
+                # Keep usable evidence from this page before stopping the conversation.
+                next_page = data.get('next_page')
+                if invalid_rows or (
+                    next_page is not None and (not isinstance(next_page, int) or isinstance(next_page, bool) or next_page <= page)
+                ):
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if self.limit is not None and len(self.results) >= self.limit:
                     return SourceExecutionReport('completed', 'result-limit')
                 page = next_page
