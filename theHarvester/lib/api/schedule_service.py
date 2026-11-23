@@ -185,7 +185,6 @@ class ScheduleDispatcher:
 
         for index, dispatch in enumerate(dispatches, start=1):
             target = dispatch.target
-            run_request = RunRequest.model_validate({**template, 'target': target})
             if dispatch.state != 'reserved':
                 if claim_owner is not None and await self.run_store.get(dispatch.run_id) is not None:
                     run_ids.append(dispatch.run_id)
@@ -196,6 +195,7 @@ class ScheduleDispatcher:
             existing = await self.run_store.get(run_id)
             if existing is None:
                 try:
+                    run_request = RunRequest.model_validate({**template, 'target': target})
                     await self.run_store.create(run_request, run_id=run_id)
                 except Exception as error:
                     existing = await self.run_store.get(run_id)
