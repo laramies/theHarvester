@@ -66,6 +66,7 @@ SOURCE_PROVIDER_LINKS = {
     'robtex': 'https://www.robtex.com/',
     'rocketreach': 'https://rocketreach.co/',
     'scanmalware': 'https://scanmalware.com/',
+    'searchapi': 'https://www.searchapi.io/',
     'securityscorecard': 'https://securityscorecard.com/',
     'securityTrails': 'https://securitytrails.com/',
     'serply': 'https://serply.io/',
@@ -162,7 +163,7 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 67
+    assert len(declared) == 68
     assert len(documented) == len(declared)
     assert documented == declared
     source_links = _documented_source_links(readme)
