@@ -997,3 +997,47 @@ def test_every_schedule_route_requires_authentication(method, path, tmp_path, mo
         response = client.request(method, path, json=_payload() if method in {'POST', 'PUT'} else None)
 
     assert response.status_code in {401, 403}
+
+
+def test_enqueue_targets_marks_invalid_target_failed_and_continues_batch(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+
+    async def scenario() -> None:
+        schedule_store = ScheduleStore()
+        run_store = RunStore()
+        schedule = await schedule_store.create(
+            ScheduleCreate.model_validate(_payload(targets=['example.test', 'example.org'])),
+        )
+        dispatcher = ScheduleDispatcher(schedule_store, run_store, worker=ready_worker())
+
+        original_validate = RunRequest.model_validate
+
+        def _validate_one_bad(data):
+            if isinstance(data, dict) and data.get('target') == 'example.test':
+                raise ValueError('bad target')
+            return original_validate(data)
+
+        import theHarvester.lib.api.schedule_service as schedule_service_mod
+
+        monkeypatch.setattr(schedule_service_mod.RunRequest, 'model_validate', staticmethod(_validate_one_bad))
+        result = await dispatcher._enqueue_targets(
+            schedule,
+            scheduled_for=datetime(2026, 8, 20, 13, 0, tzinfo=UTC),
+        )
+
+        assert len(result.run_ids) == 1
+        assert len(result.errors) == 1
+        assert result.errors[0].startswith('example.test: ValueError:')
+        dispatches = await schedule_store.list_dispatches(schedule.schedule_id)
+        states = {d.target: d.state for d in dispatches}
+        assert states['example.test'] == 'failed'
+        assert states['example.org'] == 'queued'
+
+    asyncio.run(scenario())
