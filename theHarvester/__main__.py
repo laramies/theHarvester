@@ -136,16 +136,6 @@ def _append_unique_host(
         all_seen.add(host)
 
 
-def sanitize_for_xml(text: str) -> str:
-    """Sanitize text for safe inclusion in XML documents."""
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    text = text.replace("'", '&apos;')
-    return text
-
-
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
