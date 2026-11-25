@@ -581,7 +581,7 @@ async def _probe(
                     if not chunk:
                         break
                     body.extend(chunk)
-            except (TimeoutError, aiohttp.ClientError) as error:
+            except (TimeoutError, aiohttp.ClientError, OSError) as error:
                 return ProbeObservation(
                     hostname=probe_hostname,
                     http_host=http_host,
@@ -613,10 +613,12 @@ async def _probe(
             tls_verified=_tls_verified(parsed.scheme, request.insecure),
             error_type=type(error).__name__,
         )
-    except aiohttp.ClientError as error:
-        phase: ProbePhase = (
-            'tls' if 'ssl' in type(error).__name__.lower() or 'certificate' in type(error).__name__.lower() else 'connect'
-        )
+    except (aiohttp.ClientError, OSError) as error:
+        # aiohttp usually wraps TLS/socket failures as ClientError; also catch raw
+        # ssl.SSLError / ConnectionResetError / BrokenPipeError (OSError) so one bad
+        # candidate cannot abort asyncio.gather in _probe_batch.
+        error_name = type(error).__name__.lower()
+        phase: ProbePhase = 'tls' if 'ssl' in error_name or 'certificate' in error_name else 'connect'
         return ProbeObservation(
             hostname=probe_hostname,
             http_host=http_host,

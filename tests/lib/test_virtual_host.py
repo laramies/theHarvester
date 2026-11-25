@@ -1060,6 +1060,47 @@ async def test_discovery_records_a_per_request_timeout_as_bounded_evidence() -> 
     assert result.stop_reason == 'request-errors'
 
 
+class _RaisingGet:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    async def __aenter__(self) -> None:
+        raise self._error
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+class _RaisingSession:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    def get(self, *_: object, **__: object) -> _RaisingGet:
+        return _RaisingGet(self._error)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('error', 'phase'),
+    [
+        (ssl.SSLError('handshake failure'), 'tls'),
+        (ConnectionResetError('reset by peer'), 'connect'),
+        (BrokenPipeError('broken pipe'), 'connect'),
+    ],
+)
+async def test_probe_classifies_raw_socket_and_tls_errors(error: OSError, phase: str) -> None:
+    request = VirtualHostRequest(
+        endpoint='https://127.0.0.1:443/',
+        scope='example.com',
+        candidates=('admin.example.com',),
+    )
+    observation = await virtual_host_module._probe(_RaisingSession(error), request, 'admin.example.com')  # type: ignore[arg-type]
+
+    assert observation.phase == phase
+    assert observation.error_type == type(error).__name__
+    assert observation.status is None
+
+
 @pytest.mark.asyncio
 async def test_discovery_preserves_headers_when_the_body_read_fails() -> None:
     request_count = 0
