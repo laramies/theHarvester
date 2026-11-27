@@ -466,6 +466,37 @@ def test_api_keys_keep_unknown_provider_names_as_written() -> None:
     assert Core.api_keys() == {'CustomProvider': {'key': 'custom-key'}, 123: {'key': 'numeric-key'}}
 
 
+@pytest.mark.parametrize(
+    ('accessor_name', 'expected'),
+    [
+        ('bevigil_key', None),
+        ('censys_key', (None, None)),
+        ('darkeye_keys', (None, None)),
+        ('fofa_key', (None, None)),
+        ('hibpverified_key', None),
+        ('jsmon_key', None),
+        ('netlas_key', None),
+        ('routeviews_key', None),
+        ('tomba_key', (None, None)),
+        ('zoomeye_key', None),
+    ],
+)
+def test_api_key_accessors_tolerate_a_missing_provider_section(accessor_name: str, expected: Any) -> None:
+    _write_user_api_keys('apikeys:\n  shodan:\n    key:\n')
+
+    assert getattr(Core, accessor_name)() == expected
+
+
+def test_missing_provider_section_surfaces_as_missing_key_error() -> None:
+    from theHarvester.discovery.bevigil import SearchBeVigil
+    from theHarvester.discovery.constants import MissingKeyError
+
+    _write_user_api_keys('apikeys:\n  shodan:\n    key:\n')
+
+    with pytest.raises(MissingKeyError):
+        SearchBeVigil('example.com')
+
+
 @pytest.mark.asyncio
 async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
     async def fail_if_fetch_sleeps(seconds: float) -> None:

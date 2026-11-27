@@ -324,9 +324,9 @@ class Core:
 
     @staticmethod
     def _api_key_value(provider: str) -> Any:
-        provider_keys = Core.api_keys()[provider]
+        provider_keys = Core.api_keys().get(provider, {})
         fields = Core._API_KEY_FIELDS[provider]
-        values = tuple(provider_keys[field] for field in fields)
+        values = tuple(provider_keys.get(field) for field in fields)
         return values[0] if len(values) == 1 else values
 
     @staticmethod
