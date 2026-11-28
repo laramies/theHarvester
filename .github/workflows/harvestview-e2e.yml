@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   harvestview-e2e:
+    # Playwright 1.60.0 supports Ubuntu 24.04, while ubuntu-latest can select 26.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 

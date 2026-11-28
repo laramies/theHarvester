@@ -6,9 +6,11 @@ import xml.etree.ElementTree as ElementTree
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from anyio import AsyncFile, open_file
 
 import theHarvester.screenshot.screenshot as screenshot_module
 from theHarvester import __main__ as theharvester_main
@@ -86,6 +88,19 @@ async def test_cli_rejects_removed_dns_server_flag(
 
     assert exit_info.value.code == 2
     assert f'unrecognized arguments: {option} 192.0.2.53' in capsys.readouterr().err
+
+
+def test_append_unique_host_deduplicates_without_list_scans() -> None:
+    full: list[str] = ['a.example.com']
+    all_hosts: list[str] = ['a.example.com']
+    full_seen = set(full)
+    all_seen = set(all_hosts)
+
+    for host in ['a.example.com', 'b.example.com', 'b.example.com']:
+        theharvester_main._append_unique_host(host, full, all_hosts, full_seen, all_seen)
+
+    assert full == ['a.example.com', 'b.example.com']
+    assert all_hosts == ['a.example.com', 'b.example.com']
 
 
 def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
@@ -915,6 +930,82 @@ async def test_dns_brute_query_errors_are_partial_even_without_findings(monkeypa
     assert execution.result_count == 0
     assert execution.error_type == 'TimeoutError'
     assert execution.stop_reason == 'query-errors'
+
+
+@pytest.mark.asyncio
+async def test_dns_brute_displays_only_new_rows_in_numeric_order(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored: list[CompletedResult] = []
+
+    class FakeHackerTarget:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'existing.example.test'}
+
+        async def get_ips(self) -> set[str]:
+            return set()
+
+    class FakeChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return ['existing.example.test:192.0.2.15,192.0.2.3'], ['existing.example.test'], ['192.0.2.3', '192.0.2.15']
+
+    class FakeDnsForce:
+        def __init__(self, _word: str, _nameservers: list[str], *, verbose: bool) -> None:
+            pass
+
+        async def run(self) -> tuple[list[str], list[str], list[str]]:
+            return (
+                [
+                    'existing.example.test:192.0.2.15,192.0.2.3',
+                    'new.example.test:192.0.2.10,192.0.2.8',
+                    'existing.example.test',
+                    'new.example.test:192.0.2.2',
+                    'added.example.test',
+                ],
+                ['added.example.test', 'existing.example.test', 'new.example.test'],
+                ['192.0.2.15', '192.0.2.10', '192.0.2.8', '192.0.2.3', '192.0.2.2'],
+            )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', recording_result_store(stored))
+    monkeypatch.setattr(source_runner.hackertarget, 'SearchHackerTarget', FakeHackerTarget)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FakeDnsForce)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'hackertarget', '-r', '192.0.2.53', '-c'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    before_brute, brute_output = capsys.readouterr().out.split('[*] Hosts found after DNS brute force:\n', maxsplit=1)
+    assert 'existing.example.test\nexisting.example.test:192.0.2.3,192.0.2.15\n' in before_brute
+    assert brute_output.splitlines() == [
+        'added.example.test',
+        'new.example.test:192.0.2.2',
+        'new.example.test:192.0.2.8,192.0.2.10',
+    ]
+    (completed,) = stored
+    brute = next(execution for execution in completed.active_evidence.executions if execution.action == 'dns-brute')
+    assert brute.status == 'completed'
+    assert {(item.kind, item.value) for item in brute.observations} == {
+        ('hostname', 'added.example.test'),
+        ('hostname', 'existing.example.test'),
+        ('hostname', 'new.example.test'),
+        ('ip', '192.0.2.2'),
+        ('ip', '192.0.2.3'),
+        ('ip', '192.0.2.8'),
+        ('ip', '192.0.2.10'),
+        ('ip', '192.0.2.15'),
+    }
 
 
 @pytest.mark.asyncio
@@ -4726,7 +4817,7 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
 
 
 @pytest.mark.asyncio
-async def test_xml_report_includes_shodan_hosts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_xml_report_includes_shodan_hosts_in_utf8(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from theHarvester.lib.shodan_evidence import ShodanHostObservation, ShodanServiceObservation
 
     output_path = tmp_path / 'shodan_report'
@@ -4766,7 +4857,7 @@ async def test_xml_report_includes_shodan_hosts(monkeypatch: pytest.MonkeyPatch,
                 ShodanHostObservation(
                     ip='192.0.2.10',
                     asn='AS64496',
-                    organization='Example & Sons <Transit>\x1b',
+                    organization='Société & Sons <Transit>\x1b',
                     isp='Example ISP & Co',
                     hostnames=('shodan.example.test',),
                     services=(
@@ -4789,11 +4880,15 @@ async def test_xml_report_includes_shodan_hosts(monkeypatch: pytest.MonkeyPatch,
     async def no_sleep(_duration: float) -> None:
         return None
 
+    async def open_with_legacy_default(filename: str, mode: Literal['w+'], *, encoding: str | None = None) -> AsyncFile[str]:
+        return await open_file(filename, mode, encoding=encoding or 'cp1252')
+
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', FakeSource)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
     monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
+    monkeypatch.setattr(theharvester_main.anyio, 'open_file', open_with_legacy_default)
 
     monkeypatch.setattr(
         sys,
@@ -4821,7 +4916,7 @@ async def test_xml_report_includes_shodan_hosts(monkeypatch: pytest.MonkeyPatch,
     assert len(shodan_elements) == 1
     assert shodan_elements[0].findtext('host') == '192.0.2.10'
     assert shodan_elements[0].findtext('asn') == 'AS64496'
-    assert shodan_elements[0].findtext('organization') == 'Example & Sons <Transit>'
+    assert shodan_elements[0].findtext('organization') == 'Société & Sons <Transit>'
     assert shodan_elements[0].findtext('isp') == 'Example ISP & Co'
     assert shodan_elements[0].findtext('hostname') == 'shodan.example.test'
     service_el = shodan_elements[0].find('service')

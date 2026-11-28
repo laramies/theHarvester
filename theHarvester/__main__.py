@@ -116,6 +116,26 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
     return addresses
 
 
+def _append_unique_host(
+    host: str,
+    full: list[str],
+    all_hosts: list[str],
+    full_seen: set[str] | None = None,
+    all_seen: set[str] | None = None,
+) -> None:
+    """Append hostnames to the output lists without repeatedly scanning the full list for membership."""
+    if full_seen is None:
+        full_seen = set(full)
+    if all_seen is None:
+        all_seen = set(all_hosts)
+    if host not in full_seen:
+        full.append(host)
+        full_seen.add(host)
+    if host not in all_seen:
+        all_hosts.append(host)
+        all_seen.add(host)
+
+
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
@@ -889,27 +909,27 @@ async def run_dns_brute(
     resolved_hostnames.update(hosts)
     normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
     normalized_brute_ips = _normalize_ip_addresses(ips)
-    temp = set()
+    full_seen = set(full)
+    all_seen = set(all_hosts)
+    new_rows = set()
     for host in resolved_pair:
         if ':' in host:
             subdomain, _addr = host.split(':', 1)
             if subdomain.endswith(word):
                 sorted_host = sort_host_ip_row(host)
-                if sorted_host not in full:
-                    full.append(sorted_host)
-                temp.add(sorted_host)
-                if sorted_host not in all_hosts:
-                    all_hosts.append(sorted_host)
+                is_new_full = sorted_host not in full_seen
+                _append_unique_host(sorted_host, full, all_hosts, full_seen, all_seen)
+                if is_new_full:
+                    new_rows.add(sorted_host)
                 continue
         if host.endswith(word):
-            if host not in full:
-                full.append(host)
-            temp.add(host)
-            if host not in all_hosts:
-                all_hosts.append(host)
+            is_new_full = host not in full_seen
+            _append_unique_host(host, full, all_hosts, full_seen, all_seen)
+            if is_new_full:
+                new_rows.add(host)
     output_logger.info('\n[*] Hosts found after DNS brute force:')
-    for sub in sorted(temp, key=host_ip_sort_key):
-        output_logger.info(sub)
+    for row in sorted(new_rows, key=host_ip_sort_key):
+        output_logger.info(row)
     dns_brute_error_count = getattr(dns_force, 'query_error_count', 0)
     dns_brute_error_types: set[str] = set(getattr(dns_force, 'query_error_types', set()))
     dns_brute_stop_reason = getattr(dns_force, 'stop_reason', None)
@@ -2272,7 +2292,7 @@ async def start(
         output_logger.info('\n[*] Reporting started.')
         try:
             filename = os.path.splitext(filename)[0] + '.xml'
-            async with await anyio.open_file(filename, 'w+') as file:
+            async with await anyio.open_file(filename, 'w+', encoding='UTF-8') as file:
                 for chunk in iter_xml_report(
                     command_args=sys.argv[1:],
                     emails=all_emails,
