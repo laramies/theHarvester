@@ -2143,6 +2143,7 @@ async def start(
         async def persist_failed_dns_brute() -> None:
             await checkpoint_completed_result()
             await persist_result(finish_completed_result())
+
         resolved_pair = await run_dns_brute(
             word=word,
             nameservers=final_dns_resolver_list,
