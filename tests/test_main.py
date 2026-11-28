@@ -90,6 +90,19 @@ async def test_cli_rejects_removed_dns_server_flag(
     assert f'unrecognized arguments: {option} 192.0.2.53' in capsys.readouterr().err
 
 
+def test_append_unique_host_deduplicates_without_list_scans() -> None:
+    full: list[str] = ['a.example.com']
+    all_hosts: list[str] = ['a.example.com']
+    full_seen = set(full)
+    all_seen = set(all_hosts)
+
+    for host in ['a.example.com', 'b.example.com', 'b.example.com']:
+        theharvester_main._append_unique_host(host, full, all_hosts, full_seen, all_seen)
+
+    assert full == ['a.example.com', 'b.example.com']
+    assert all_hosts == ['a.example.com', 'b.example.com']
+
+
 def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
     return VirtualHostObservation(
         endpoint=endpoint,
